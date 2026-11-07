@@ -208,6 +208,8 @@ def _is_transition(line: str, next_line: str) -> bool:
 
 def _character_name(line: str) -> tuple[str, list[str], bool] | None:
     """If the line is a character cue, return (name, extensions, dual)."""
+    if line.startswith("!"):  # forced action, even if it's all caps
+        return None
     forced = line.startswith("@")
     cue = line[1:] if forced else line
     dual = cue.rstrip().endswith("^")

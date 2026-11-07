@@ -1,38 +1,75 @@
+"""End-to-end checks on a real script: John's Boys (western short, 34 pages)."""
+
 import json
 from pathlib import Path
+
+import pytest
 
 from slugline.breakdown import breakdown, render_text
 from slugline.cli import main
 from slugline.parser import parse_file
 
-EXAMPLE = Path(__file__).parent.parent / "examples" / "dust_and_iron.fountain"
+EXAMPLE = Path(__file__).parent.parent / "examples" / "johns_boys.fountain"
 
 
-def test_character_stats():
-    b = breakdown(parse_file(EXAMPLE))
-    by_name = {c.name: c for c in b.characters}
-    assert set(by_name) == {"RUTH", "ELI", "SHERIFF", "McCALLISTER"}
-    assert by_name["RUTH"].scenes == ["1", "2", "3"]
-    assert by_name["ELI"].dialogue_blocks == 3
-    assert by_name["SHERIFF"].words == len("We don't serve your kind here. Everybody knows your kind.".split())
+@pytest.fixture(scope="module")
+def play():
+    return parse_file(EXAMPLE)
 
 
-def test_location_stats_group_repeated_locations():
-    b = breakdown(parse_file(EXAMPLE))
-    main_street = next(loc for loc in b.locations if loc.location == "SILVER CREEK - MAIN STREET")
-    assert main_street.scenes == ["2", "5"]
+@pytest.fixture(scope="module")
+def result(play):
+    return breakdown(play)
 
 
-def test_summary_counts():
-    b = breakdown(parse_file(EXAMPLE))
-    assert b.scene_count == 6
-    assert b.int_ext == {"EXT": 3, "INT": 1, "?": 1, "INT/EXT": 1}
-    assert b.time_of_day["NIGHT"] == 2
+def test_title_page(play):
+    assert play.title == "John's Boys"
+    assert play.title_page["author"] == "Vicente Pérez Pourtau"
 
 
-def test_render_text_contains_sections():
-    out = render_text(breakdown(parse_file(EXAMPLE)))
-    assert out.startswith("DUST AND IRON")
+def test_scenes(result):
+    assert result.scene_count == 13
+    assert result.scenes[0].heading == "INT. BIG JOHN'S OFFICE - NIGHT"
+    assert result.scenes[-1].heading == "INT. BIG JOHN'S OFFICE - NIGHT"
+    assert result.int_ext == {"INT": 9, "EXT": 4}
+
+
+def test_intercut_is_not_a_new_scene(play):
+    barn_sunrise = play.scenes[9]
+    assert barn_sunrise.heading == "INT. BARN - SUNRISE"
+    assert any("INTERCUT" in getattr(e, "text", "") for e in barn_sunrise.elements)
+
+
+def test_cast(result):
+    names = {c.name for c in result.characters}
+    assert names == {
+        "MR. B", "MR. X", "MR. D", "MR. G", "BIG JOHN", "MAN 1", "MAN 2",
+        "SHERIFF", "SHERIFF'S DEPUTY", "BARTENDER #1", "BARTENDER #2", "BILLY'S FATHER",
+    }
+    # Mr. B is the lead: most words, in most scenes.
+    assert result.characters[0].name == "MR. B"
+    assert len(result.characters[0].scenes) == 10
+
+
+def test_voice_over_counts_as_the_same_character(play):
+    vo = [d for s in play.scenes for d in s.dialogues if "V.O." in d.extensions]
+    assert {d.character for d in vo} == {"MR. X", "MR. B"}
+
+
+def test_barn_is_the_main_location(result):
+    barn = result.locations[0]
+    assert barn.location == "BARN"
+    assert barn.scenes == ["5", "6", "7", "8", "9", "10"]
+
+
+def test_page_estimate_is_close_to_the_real_length(result):
+    # The PDF has 34 pages of script; the estimate should be within ~10%.
+    assert 30 <= result.page_count <= 38
+
+
+def test_render_text_contains_sections(result):
+    out = render_text(result)
+    assert out.startswith("JOHN'S BOYS")
     for section in ("SCENES", "CHARACTERS", "LOCATIONS"):
         assert section in out
 
@@ -40,8 +77,8 @@ def test_render_text_contains_sections():
 def test_cli_json(capsys):
     assert main([str(EXAMPLE), "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert data["title"] == "Dust and Iron"
-    assert len(data["scenes"]) == 6
+    assert data["title"] == "John's Boys"
+    assert len(data["scenes"]) == 13
 
 
 def test_cli_missing_file(capsys):

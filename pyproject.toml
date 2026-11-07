@@ -13,7 +13,8 @@ authors = [{ name = "Vicente Pérez" }]
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+pdf = ["pypdf>=4"]
+dev = ["pytest>=8", "pypdf>=4"]
 
 [project.scripts]
 slugline = "slugline.cli:main"
