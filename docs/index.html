@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Slugline · Del guion al plan de rodaje</title>
+<meta name="description" content="Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y los días de cada actor. En español, para Mac, sin subir tu guion a ningún servidor.">
+<meta property="og:title" content="Slugline · Del guion al plan de rodaje">
+<meta property="og:description" content="Desglose, plan de rodaje y órdenes de rodaje a partir del guion. En español, para Mac.">
+<meta property="og:image" content="img/overview-light.jpg">
+<link rel="icon" href="img/icon.png">
+<script>
+  // ── Rellena esto antes de publicar ─────────────────────────────────────────
+  // contact: el correo donde quieres recibir peticiones de demo y compras.
+  // download: el enlace al Slugline.dmg (por ejemplo, de una Release de GitHub).
+  // buy: un enlace de pago, si tienes uno; si no, se usa el correo.
+  window.SLUGLINE = { contact: "", download: "", buy: "" };
+</script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7; --surface: #ffffff; --surface-2: #f0efec; --ink: #0b0b0b; --ink-2: #52514e; --muted: #77756f;
+    --border: rgba(11, 11, 11, 0.1); --accent: #2a78d6; --warm: #b4532a;
+    --mono: "Courier Prime", "Courier New", Courier, ui-monospace, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --page: #0d0d0d; --surface: #1a1a19; --surface-2: #262624; --ink: #f0efec; --ink-2: #c3c2b7;
+      --muted: #8d8b84; --border: rgba(255, 255, 255, 0.1); --accent: #6da7ec; --warm: #ec835a; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  img { display: block; max-width: 100%; height: auto; }
+  h1, h2, h3, p { margin: 0; }
+  .wrap { width: min(1120px, 100% - 40px); margin: 0 auto; }
+
+  header.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--page) 88%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 17px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+  .brand img { width: 28px; height: 28px; }
+  nav { display: flex; align-items: center; gap: 22px; font-size: 15px; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); }
+
+  .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 20px; border-radius: 10px;
+    font-weight: 600; font-size: 16px; text-decoration: none; border: 1px solid transparent; cursor: pointer; }
+  .button.primary { background: var(--ink); color: var(--page); }
+  .button.primary:hover { opacity: 0.88; }
+  .button.ghost { border-color: var(--border); background: var(--surface); }
+  .button.ghost:hover { background: var(--surface-2); }
+  nav .button { padding: 7px 14px; font-size: 14px; color: var(--page); }
+
+  .hero { padding: 88px 0 40px; text-align: center; }
+  .hero h1 { font: 700 clamp(34px, 6vw, 64px)/1.05 var(--mono); letter-spacing: -0.02em; max-width: 15ch; margin: 0 auto; }
+  .hero p.lead { margin: 22px auto 0; max-width: 60ch; color: var(--ink-2); font-size: clamp(17px, 2.2vw, 20px); }
+  .hero .actions { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .hero .fine { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .shot { display: block; margin-top: 56px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border);
+    box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.35); background: var(--surface); }
+
+  section.block { padding: 80px 0; }
+  .eyebrow { font: 600 13px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--warm); }
+  h2 { font: 700 clamp(26px, 3.6vw, 38px)/1.15 var(--mono); letter-spacing: -0.01em; margin-top: 10px; }
+  .section-lead { margin-top: 14px; color: var(--ink-2); max-width: 62ch; }
+
+  .feature { display: grid; grid-template-columns: 1fr 1.35fr; gap: 56px; align-items: center; padding: 48px 0; }
+  .feature + .feature { border-top: 1px solid var(--border); }
+  .feature.flip { grid-template-columns: 1.35fr 1fr; }
+  .feature.flip .text { order: 2; }
+  .feature h3 { font: 700 24px/1.2 var(--sans); margin-top: 8px; }
+  .feature p { margin-top: 12px; color: var(--ink-2); }
+  .feature ul { margin: 14px 0 0; padding-left: 20px; color: var(--ink-2); }
+  .feature li + li { margin-top: 4px; }
+  .feature .shot { margin-top: 0; box-shadow: 0 20px 50px -24px rgba(0, 0, 0, 0.3); }
+
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 36px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .card h3 { font-size: 17px; }
+  .card p { margin-top: 8px; color: var(--ink-2); font-size: 15px; }
+
+  .prices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 36px; align-items: stretch; }
+  .price { display: flex; flex-direction: column; gap: 10px; }
+  .price.featured { border: 2px solid var(--ink); }
+  .price .amount { font: 700 34px/1 var(--sans); }
+  .price .amount small { font-size: 15px; font-weight: 500; color: var(--muted); }
+  .price ul { margin: 4px 0 8px; padding-left: 18px; color: var(--ink-2); font-size: 15px; flex: 1; }
+  .price .button { width: 100%; }
+  .price-note { margin-top: 18px; font-size: 14px; color: var(--muted); }
+
+  .faq { margin-top: 28px; max-width: 760px; }
+  details { border-bottom: 1px solid var(--border); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--muted); font-weight: 400; }
+  details[open] summary::after { content: "–"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+
+  .final { text-align: center; padding: 96px 0; }
+  .final p { margin: 14px auto 0; max-width: 54ch; color: var(--ink-2); }
+  .final .actions { margin-top: 28px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+  .pending { opacity: 0.55; pointer-events: none; }
+
+  @media (max-width: 920px) {
+    nav a:not(.button) { display: none; }
+    .feature, .feature.flip { grid-template-columns: 1fr; gap: 24px; }
+    .feature.flip .text { order: 0; }
+    .grid3 { grid-template-columns: 1fr; }
+    .prices { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 560px) {
+    .prices { grid-template-columns: 1fr; }
+    .hero { padding-top: 56px; }
+    section.block { padding: 56px 0; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="img/icon.png" alt="">Slugline</a>
+    <nav>
+      <a href="#funciones">Funciones</a>
+      <a href="#precios">Precios</a>
+      <a href="#preguntas">Preguntas</a>
+      <a class="button primary" data-link="download" href="#descargar">Descargar</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>Del guion al plan de rodaje, en una tarde</h1>
+    <p class="lead">Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y los días de cada actor. En español, para Mac, y sin subir tu guion a ningún servidor.</p>
+    <div class="actions">
+      <a class="button primary" data-link="download" href="#descargar">Descargar la prueba gratuita</a>
+      <a class="button ghost" data-link="demo" href="#contacto">Pedir una demo</a>
+    </div>
+    <p class="fine">macOS 12 o posterior · Fountain, Final Draft y PDF · Interfaz y documentos en español</p>
+    <picture class="shot">
+      <source srcset="img/overview-dark.jpg" media="(prefers-color-scheme: dark)">
+      <img src="img/overview-light.jpg" width="1600" height="1328" alt="Slugline con el guion John's Boys abierto: secuencias, páginas, reparto de día y noche, interior y exterior, y el stripboard">
+    </picture>
+  </section>
+
+  <section class="block wrap" id="funciones">
+    <p class="eyebrow">Cómo funciona</p>
+    <h2>Lo que un ayudante de dirección tarda días en preparar</h2>
+    <p class="section-lead">Abres el guion y Slugline lo convierte en los documentos de producción. Todo es editable: la app propone y tú decides.</p>
+
+    <div class="feature">
+      <div class="text">
+        <p class="eyebrow">Desglose</p>
+        <h3>Cada departamento sabe qué necesita en cada secuencia</h3>
+        <p>Figuración, especialistas, atrezo, vestuario, maquillaje, vehículos, animales, efectos, sonido y decoración, con su hoja de desglose por secuencia lista para imprimir.</p>
+        <ul>
+          <li>Con IA opcional, que sugiere los elementos de todo el guion, o a mano.</li>
+          <li>Cada elemento muestra las secuencias que lo necesitan y cuántas páginas suman.</li>
+        </ul>
+      </div>
+      <picture class="shot">
+        <source srcset="img/elements-dark.jpg" media="(prefers-color-scheme: dark)">
+        <img src="img/elements-light.jpg" width="1600" height="1213" alt="La lista de elementos de John's Boys por departamento, con las secuencias de cada uno" loading="lazy">
+      </picture>
+    </div>
+
+    <div class="feature flip">
+      <div class="text">
+        <p class="eyebrow">Plan de rodaje</p>
+        <h3>Un primer plan en un clic, que luego ajustas arrastrando</h3>
+        <p>Slugline agrupa por localización, deja las noches en un bloque y llena cada jornada con las páginas que esperas rodar. Después mueves las tiras entre jornadas y pones fecha, citación y punto de encuentro.</p>
+      </div>
+      <picture class="shot">
+        <source srcset="img/schedule-dark.jpg" media="(prefers-color-scheme: dark)">
+        <img src="img/schedule-light.jpg" width="1600" height="1250" alt="El plan de rodaje por jornadas, con fecha, citación y las secuencias de cada día" loading="lazy">
+      </picture>
+    </div>
+
+    <div class="feature">
+      <div class="text">
+        <p class="eyebrow">Reparto y órdenes de rodaje</p>
+        <h3>Ve cuánto cuestan las esperas y saca la orden de rodaje de cada día</h3>
+        <p>La tabla de días por actor marca quién trabaja y quién está en espera cada jornada: mover una secuencia para quitar esperas es dinero que no se paga. La orden de rodaje de cada jornada sale en PDF con citación, secuencias, reparto y lo que necesita cada departamento.</p>
+      </div>
+      <picture class="shot">
+        <source srcset="img/cast-dark.jpg" media="(prefers-color-scheme: dark)">
+        <img src="img/cast-light.jpg" width="1600" height="915" alt="Tabla de días por actor con las jornadas de trabajo y de espera de cada personaje" loading="lazy">
+      </picture>
+    </div>
+
+    <div class="feature flip">
+      <div class="text">
+        <p class="eyebrow">Análisis</p>
+        <h3>El guion de un vistazo</h3>
+        <p>Quién habla en cada secuencia, cuánto diálogo tiene cada personaje y en qué secuencias aparece, aunque no hable. Cada gráfico tiene su tabla con los datos exactos.</p>
+      </div>
+      <picture class="shot">
+        <source srcset="img/charts-dark.jpg" media="(prefers-color-scheme: dark)">
+        <img src="img/charts-light.jpg" width="1600" height="1150" alt="Gráficos de diálogo por secuencia, reparto del diálogo y presencia de los personajes" loading="lazy">
+      </picture>
+    </div>
+
+    <div class="grid3">
+      <div class="card"><h3>Versiones del guion</h3><p>Cuando llega una versión nueva, el desglose y el plan pasan solos y Slugline marca qué secuencias se han reescrito.</p></div>
+      <div class="card"><h3>Tus guiones no salen de tu ordenador</h3><p>Todo se guarda en tu Mac. Solo si usas la IA se envía el guion a Anthropic, con tu propia clave.</p></div>
+      <div class="card"><h3>Final Draft, Fountain y PDF</h3><p>Abre el guion tal como lo tienes, con números de secuencia y diálogo doble incluidos.</p></div>
+      <div class="card"><h3>En español de verdad</h3><p>Secuencias, figuración, atrezo, citación, orden de rodaje: la terminología de los rodajes de aquí, en pantalla y en los PDF.</p></div>
+      <div class="card"><h3>Exporta lo que necesites</h3><p>Hojas de desglose, plan de rodaje, órdenes de rodaje e informe en PDF; tablas en CSV para Excel.</p></div>
+      <div class="card"><h3>IA opcional</h3><p>Sin IA la app funciona entera. Con ella, sugiere elementos, resume cada secuencia y responde preguntas sobre el guion.</p></div>
+    </div>
+  </section>
+
+  <section class="block wrap" id="precios">
+    <p class="eyebrow">Precios</p>
+    <h2>Pruébalo gratis con tu guion</h2>
+    <p class="section-lead">La versión de prueba hace todo: guarda dos guiones y sus PDF llevan la marca de prueba. Una licencia quita las dos cosas.</p>
+    <div class="prices">
+      <div class="card price">
+        <h3>Prueba</h3>
+        <p class="amount">Gratis</p>
+        <ul><li>Todas las funciones</li><li>2 guiones en tu biblioteca</li><li>PDF con marca de prueba</li></ul>
+        <a class="button ghost" data-link="download" href="#descargar">Descargar</a>
+      </div>
+      <div class="card price">
+        <h3>Proyecto</h3>
+        <p class="amount">59 € <small>una vez</small></p>
+        <ul><li>Un corto o un largo</li><li>12 meses de uso</li><li>Sin marca en los PDF</li></ul>
+        <a class="button ghost" data-link="buy" data-plan="Proyecto" href="#contacto">Comprar</a>
+      </div>
+      <div class="card price featured">
+        <h3>Profesional</h3>
+        <p class="amount">119 € <small>al año</small></p>
+        <ul><li>Guiones ilimitados</li><li>Para ayudantes de dirección y producción</li><li>Actualizaciones incluidas</li></ul>
+        <a class="button primary" data-link="buy" data-plan="Profesional" href="#contacto">Comprar</a>
+      </div>
+      <div class="card price">
+        <h3>Escuelas y productoras</h3>
+        <p class="amount">A medida</p>
+        <ul><li>Licencia para todo el centro o el equipo</li><li>Pilotos gratis de 30 días</li><li>Adaptación a vuestra forma de trabajar</li></ul>
+        <a class="button ghost" data-link="demo" href="#contacto">Hablemos</a>
+      </div>
+    </div>
+    <p class="price-note">Precios sin IVA. La IA, si la usas, se paga aparte en tu cuenta de Anthropic.</p>
+  </section>
+
+  <section class="block wrap" id="preguntas">
+    <p class="eyebrow">Preguntas</p>
+    <h2>Lo que suele preguntarse</h2>
+    <div class="faq">
+      <details><summary>¿Necesito conexión a internet?</summary><p>No. Slugline funciona sin conexión. Solo la necesitas para las funciones de IA.</p></details>
+      <details><summary>¿Qué pasa con mis guiones?</summary><p>Se guardan en tu ordenador y no se suben a ningún servidor de Slugline. Si usas la IA, el guion se envía a Anthropic con tu propia clave para analizarlo.</p></details>
+      <details><summary>¿Cuánto cuesta la IA?</summary><p>Lo cobra Anthropic directamente en tu cuenta, según lo que uses. La app funciona entera sin ella, y cada análisis se guarda para no pagarlo dos veces.</p></details>
+      <details><summary>¿Funciona en Windows?</summary><p>De momento solo en Mac. Si lo necesitas en Windows, escríbenos: cuantas más peticiones, antes llega.</p></details>
+      <details><summary>¿Cómo funciona la licencia?</summary><p>Tras la compra recibes una clave por correo. La pegas en Ajustes → Licencia y desaparecen el límite de guiones y la marca de los PDF. No hace falta crear ninguna cuenta.</p></details>
+      <details><summary>¿Puedo exportar mis datos?</summary><p>Sí: todo sale a PDF, CSV y Fountain, así que tu trabajo no queda atrapado en la app.</p></details>
+    </div>
+  </section>
+
+  <section class="final wrap" id="descargar">
+    <h2>¿Lo probamos con tu guion?</h2>
+    <p>Descarga la prueba gratuita, abre tu guion y en diez minutos tienes el stripboard, el desglose y un primer plan de rodaje.</p>
+    <div class="actions">
+      <a class="button primary" data-link="download" href="#descargar">Descargar para Mac</a>
+      <a class="button ghost" data-link="demo" href="#contacto" id="contacto">Pedir una demo</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · Slugline</span>
+    <span data-contact-line></span>
+  </div>
+</footer>
+
+<script>
+  // Fill the links from window.SLUGLINE; a link with nothing to point at is shown dimmed.
+  (function () {
+    var site = window.SLUGLINE || {};
+    var mail = function (subject) {
+      return site.contact ? "mailto:" + site.contact + "?subject=" + encodeURIComponent(subject) : "";
+    };
+    document.querySelectorAll("[data-link]").forEach(function (a) {
+      var kind = a.getAttribute("data-link");
+      var href = kind === "download" ? site.download
+        : kind === "buy" ? (site.buy || mail("Licencia " + (a.getAttribute("data-plan") || "") + " de Slugline"))
+        : mail("Demo de Slugline");
+      if (href) { a.href = href; } else { a.classList.add("pending"); a.title = "Enlace pendiente de configurar"; }
+    });
+    var line = document.querySelector("[data-contact-line]");
+    if (site.contact && line) {
+      var link = document.createElement("a");
+      link.href = "mailto:" + site.contact;
+      link.textContent = site.contact;
+      line.appendChild(link);
+    }
+  })();
+</script>
+</body>
+</html>
