@@ -34,15 +34,30 @@ can answer questions about the script.
   character or location names written two ways (`SHERIF` / `SHERIFF`), scene
   numbering gaps
 
+**Element breakdown**
+
+- What each department has to provide for every scene: extras, stunts, props,
+  wardrobe, makeup and hair, vehicles, animals, special and visual effects,
+  sound, set dressing and special equipment
+- Claude suggests the elements for the whole script in one pass; you check,
+  edit, add or remove them on each scene's breakdown sheet. Suggesting again
+  never overwrites what you edited, and doesn't bring back what you removed
+- Works without AI too: add elements by hand in the dashboard
+- Each element is tracked across the shoot: which scenes need it and for how many pages
+
 **Exports**
 
-- CSV tables (scenes, characters, locations) that open cleanly in Excel or Sheets
-- A printable PDF production report with a colour-coded stripboard
+- CSV tables (scenes, characters, locations, elements) that open cleanly in Excel or Sheets
+- A printable PDF production report with a colour-coded stripboard and the element list
+- Breakdown sheets: one printable page per scene with every department's box,
+  the format department heads work from
 
 **Dashboard** (`slugline serve`)
 
 - Stripboard, who speaks in each scene, dialogue share, a character-by-scene
   presence map, day/night and interior/exterior balance, locations
+- An editable breakdown sheet for every scene and an element list you can
+  filter by department
 - Every chart has a table view, and the page follows the system light or dark theme
 
 **AI features** (optional, need an Anthropic API key)
@@ -67,7 +82,7 @@ pip install -e ".[dev]"
 slugline examples/johns_boys.fountain                 # breakdown tables
 slugline my_script.pdf --fountain my_script.fountain  # PDF in, Fountain out
 slugline lint examples/johns_boys.fountain            # formatting checks
-slugline export examples/johns_boys.fountain --csv out/ --pdf out/report.pdf
+slugline export examples/johns_boys.fountain --csv out/ --pdf out/report.pdf --sheets out/sheets.pdf
 pytest
 ```
 
@@ -87,15 +102,18 @@ Scripts stay in memory on your machine.
 export ANTHROPIC_API_KEY=sk-ant-...
 
 slugline analyze examples/johns_boys.fountain          # summaries, tone, proofread
+slugline elements examples/johns_boys.fountain         # props, wardrobe, vehicles... per scene
 slugline ask examples/johns_boys.fountain "Who is in the barn scenes?"
 slugline chat examples/johns_boys.fountain             # a conversation
 slugline export examples/johns_boys.fountain --pdf report.pdf --ai
 ```
 
-With the key set, the dashboard shows an **Analyze the script** button and an
-**Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
+With the key set, the dashboard shows **Analyze the script**, **Suggest
+elements with AI** and an **Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
 to use another one. An analysis is cached in `~/.cache/slugline` by script
 content and model, so asking twice for the same script makes no new request.
+Element breakdowns, with your edits, are saved in `~/.local/share/slugline`
+(or `SLUGLINE_DATA`), so the CLI and the dashboard share them.
 Using these features sends the script to the Anthropic API.
 
 ## Example: *John's Boys*
@@ -138,6 +156,7 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
 .pdf ──► pdf_import.py ──┐
                          ├──► parser.py ──► Screenplay ──┬──► breakdown.py ──► tables / JSON
 .fountain ───────────────┘                               ├──► lint.py ──────► formatting checks
+                                                         ├──► elements.py ──► element breakdown (AI + hand edits)
                                                          ├──► export.py ────► CSV / PDF
                                                          ├──► llm.py ───────► summaries, tone, proofread
                                                          ├──► agent.py ─────► script assistant
@@ -151,7 +170,9 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
 - `breakdown.py` aggregates the parsed scenes into scene, character and location reports.
 - `llm.py` asks Claude for structured JSON (a schema per request), with the
   script sent as a cached block so that the later requests about it cost less.
-- `agent.py` is a tool-use loop: Claude decides which of seven read-only tools
+- `elements.py` holds the element breakdown: suggestions from Claude and hand
+  edits live in one sheet, and a new extraction merges into it instead of replacing it.
+- `agent.py` is a tool-use loop: Claude decides which of eight read-only tools
   to call (list scenes, read scenes, a character's dialogue, search...) and the
   answers come back from the parsed script.
 - `server.py` is a small FastAPI app; the chat endpoint streams the answer as
@@ -187,7 +208,10 @@ To work on the dashboard, run `slugline serve` in one terminal and
 - `INTERCUT` blocks stay inside the scene where they start.
 - PDF import expects standard screenplay layout; dual dialogue in PDFs isn't supported yet.
 - The dashboard keeps scripts in memory: restarting the server forgets them
-  (cached AI analyses survive).
+  (cached AI analyses and saved element breakdowns survive).
+- An element breakdown belongs to the exact text of a script: after a rewrite,
+  the new draft starts with an empty breakdown. Carrying elements over to a
+  revised draft is the next thing to build.
 - Tone, tension and mood are a model's reading of the script. They are useful
   for seeing the shape of the story, not a measurement.
 
@@ -197,8 +221,9 @@ To work on the dashboard, run `slugline serve` in one terminal and
 2. **Analytics dashboard** — FastAPI backend + React frontend with charts ✅
 3. **LLM features** — scene summaries, tone tagging, formatting proofread, script assistant ✅
 4. **PDF support and exports** — PDF import, CSV and PDF production reports ✅
-5. **Next** — props, wardrobe and vehicles per scene; a drag-and-drop shooting
-   schedule built from the stripboard; Final Draft (`.fdx`) import
+5. **Element breakdown** — elements per department and scene, editable, breakdown sheets ✅
+6. **Next** — carry a breakdown over to a revised draft; a drag-and-drop
+   shooting schedule built from the stripboard; call sheets; Final Draft (`.fdx`) import
 
 ## Built with an AI coding assistant
 

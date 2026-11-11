@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, export, llm
+from slugline import __version__, elements, export, llm
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
 from slugline.lint import Issue, lint
@@ -28,6 +28,7 @@ from slugline.parser import parse
 
 STATIC = Path(__file__).parent / "static"
 MAX_UPLOAD = 25 * 1024 * 1024
+BOM = "﻿"  # makes Excel read accented names in a CSV correctly
 
 NO_FRONTEND = """<!doctype html><meta charset="utf-8"><title>Slugline</title>
 <body style="font: 16px system-ui; max-width: 40rem; margin: 4rem auto; padding: 0 1rem">
@@ -45,6 +46,7 @@ class Script:
     breakdown: Breakdown
     issues: list[Issue]
     analysis: llm.Analysis | None = None
+    elements: elements.ElementSheet | None = None
     chats: dict[str, ScriptAgent] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -55,6 +57,7 @@ class Script:
             "breakdown": self.breakdown.to_dict(),
             "issues": [i.to_dict() for i in self.issues],
             "analysis": self.analysis.to_dict() if self.analysis else None,
+            "elements": elements.to_payload(self.elements, self.breakdown),
         }
 
 
@@ -72,6 +75,8 @@ class Store:
             issues=lint(play),
             # A script analyzed before (here or from the CLI) shows its notes at once.
             analysis=llm.cached_analysis(text),
+            # So does a breakdown of elements, with its hand edits.
+            elements=elements.load_sheet(text),
         )
         self.scripts[script.id] = script
         return script
@@ -86,6 +91,16 @@ class Store:
 class ChatRequest(BaseModel):
     message: str
     session: str = "default"
+
+
+class ElementIn(BaseModel):
+    category: str
+    name: str
+    notes: str = ""
+
+
+class SceneElements(BaseModel):
+    elements: list[ElementIn]
 
 
 def _to_fountain(filename: str, data: bytes) -> str:
@@ -118,7 +133,12 @@ def create_app() -> FastAPI:
             pdf = True
         except ImportError:
             pdf = False
-        return {"version": __version__, "llm": llm.status(), "pdf_export": pdf}
+        return {
+            "version": __version__,
+            "llm": llm.status(),
+            "pdf_export": pdf,
+            "categories": [{"key": k, "label": label, "color": c} for k, label, c in elements.CATEGORIES],
+        }
 
     @app.get("/api/scripts")
     def list_scripts() -> list[dict]:
@@ -153,6 +173,33 @@ def create_app() -> FastAPI:
                     raise HTTPException(502, str(e)) from None
         return script.analysis.to_dict()
 
+    @app.post("/api/scripts/{script_id}/elements")
+    def extract_elements(script_id: str) -> dict:
+        script = store.get(script_id)
+        with script.lock:
+            try:
+                script.elements = llm.break_down_elements(script.text)
+            except llm.LLMError as e:
+                raise HTTPException(502, str(e)) from None
+        return elements.to_payload(script.elements, script.breakdown)
+
+    @app.put("/api/scripts/{script_id}/elements/{scene}")
+    def edit_elements(script_id: str, scene: str, body: SceneElements) -> dict:
+        script = store.get(script_id)
+        if scene not in {s.number for s in script.breakdown.scenes}:
+            raise HTTPException(404, f"There is no scene {scene} in this script.")
+        with script.lock:
+            try:
+                sheet = elements.update_scene(script.elements, scene, [e.model_dump() for e in body.elements])
+            except ValueError as e:
+                raise HTTPException(422, str(e)) from None
+            try:
+                elements.save_sheet(script.text, sheet)
+            except OSError as e:
+                raise HTTPException(500, f"The change could not be saved: {e.strerror}") from None
+            script.elements = sheet
+        return elements.to_payload(sheet, script.breakdown)
+
     @app.post("/api/scripts/{script_id}/chat")
     def chat(script_id: str, body: ChatRequest) -> StreamingResponse:
         script = store.get(script_id)
@@ -161,7 +208,7 @@ def create_app() -> FastAPI:
             raise HTTPException(422, "The message is empty.")
         agent = script.chats.get(body.session)
         if agent is None:
-            agent = script.chats[body.session] = ScriptAgent(script.text)
+            agent = script.chats[body.session] = ScriptAgent(script.text, elements=lambda: script.elements)
 
         def events() -> Iterator[str]:
             # One JSON object per line, so the browser can show the answer as it is written.
@@ -186,14 +233,23 @@ def create_app() -> FastAPI:
         if ext == "csv" and table in export.CSV_EXPORTS:
             make = export.CSV_EXPORTS[table]
             body = make(script.breakdown, script.analysis) if table == "scenes" else make(script.breakdown)
-            # The BOM makes Excel read accented names correctly.
-            return _download("﻿" + body, "text/csv; charset=utf-8", f"{stem}-{table}.csv")
-        if name == "report.pdf":
+            return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-{table}.csv")
+        if name == "elements.csv":
+            if script.elements is None or script.elements.is_empty():
+                raise HTTPException(404, "This script has no elements yet.")
+            body = export.elements_csv(script.breakdown, script.elements)
+            return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-elements.csv")
+        if name in ("report.pdf", "breakdown-sheets.pdf"):
             try:
-                body = export.report_pdf(script.breakdown, script.issues, script.analysis)
+                if name == "report.pdf":
+                    body = export.report_pdf(script.breakdown, script.issues, script.analysis, script.elements)
+                    filename = f"{stem}-breakdown.pdf"
+                else:
+                    body = export.breakdown_sheets_pdf(script.breakdown, script.elements, script.analysis)
+                    filename = f"{stem}-breakdown-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
-            return _download(body, "application/pdf", f"{stem}-breakdown.pdf")
+            return _download(body, "application/pdf", filename)
         if name == "script.fountain":
             return _download(script.text, "text/plain; charset=utf-8", f"{stem}.fountain")
         raise HTTPException(404, "Unknown export.")

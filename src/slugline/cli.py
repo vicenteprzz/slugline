@@ -4,6 +4,7 @@
     slugline lint SCRIPT             formatting checks
     slugline export SCRIPT ...       CSV tables and a PDF production report
     slugline analyze SCRIPT          AI scene summaries, tone and formatting notes
+    slugline elements SCRIPT         props, wardrobe, vehicles... for every scene
     slugline ask SCRIPT "question"   ask the script assistant one question
     slugline chat SCRIPT             talk to the script assistant
     slugline serve [SCRIPT]          open the dashboard
@@ -21,7 +22,7 @@ from pathlib import Path
 from slugline.breakdown import breakdown, render_text
 from slugline.parser import parse
 
-COMMANDS = ("breakdown", "lint", "export", "analyze", "ask", "chat", "serve")
+COMMANDS = ("breakdown", "lint", "export", "analyze", "elements", "ask", "chat", "serve")
 
 
 class CLIError(Exception):
@@ -85,10 +86,11 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 def cmd_export(args: argparse.Namespace) -> int:
     from slugline import export
+    from slugline.elements import load_sheet
     from slugline.lint import lint
 
-    if not (args.csv or args.pdf):
-        raise CLIError("nothing to export: pass --csv DIR and/or --pdf FILE")
+    if not (args.csv or args.pdf or args.sheets):
+        raise CLIError("nothing to export: pass --csv DIR, --pdf FILE and/or --sheets FILE")
     text = read_script(args.script)
     play = parse(text)
     result = breakdown(play)
@@ -97,15 +99,19 @@ def cmd_export(args: argparse.Namespace) -> int:
         from slugline.llm import analyze
 
         analysis = analyze(text, progress=lambda m: print(m, file=sys.stderr))
+    sheet = load_sheet(text)  # elements, if they were broken down before
     if args.csv:
         try:
-            for path in export.write_csv(result, args.csv, analysis):
+            for path in export.write_csv(result, args.csv, analysis, sheet):
                 print(f"wrote {path}")
         except OSError as e:
             raise CLIError(f"cannot write to {args.csv}: {e.strerror}") from None
     if args.pdf:
-        _write(Path(args.pdf), export.report_pdf(result, lint(play), analysis))
+        _write(Path(args.pdf), export.report_pdf(result, lint(play), analysis, sheet))
         print(f"wrote {args.pdf}")
+    if args.sheets:
+        _write(Path(args.sheets), export.breakdown_sheets_pdf(result, sheet, analysis))
+        print(f"wrote {args.sheets}")
     return 0
 
 
@@ -135,6 +141,43 @@ def cmd_analyze(args: argparse.Namespace) -> int:
         for i in analysis.issues:
             where = f"scene {i.scene}" if i.scene else "script"
             print(f"  {i.severity:<8} {where:<10} {i.message}")
+    return 0
+
+
+def cmd_elements(args: argparse.Namespace) -> int:
+    from slugline.elements import LABELS, load_sheet, to_payload, totals
+    from slugline.parser import format_eighths
+
+    text = read_script(args.script)
+    sheet = None if args.refresh else load_sheet(text)
+    if sheet is None:
+        from slugline.llm import break_down_elements
+
+        sheet = break_down_elements(text, progress=lambda m: print(m, file=sys.stderr))
+    result = breakdown(parse(text))
+    if args.json:
+        print(json.dumps(to_payload(sheet, result), indent=2, ensure_ascii=False))
+        return 0
+    print(f"{(result.title or 'Untitled').upper()} — ELEMENTS\n")
+    for s in result.scenes:
+        items = sheet.for_scene(s.number)
+        print(f"{s.number}. {s.heading}")
+        if not items:
+            print("   (none)")
+        for key, label in LABELS.items():
+            names = [e.name + (f" ({e.notes})" if e.notes else "") for e in items if e.category == key]
+            if names:
+                print(f"   {label}: {', '.join(names)}")
+        print()
+    print("BY DEPARTMENT")
+    for key, label in LABELS.items():
+        rows = [t for t in totals(sheet, result) if t.category == key]
+        if rows:
+            print(f"  {label}")
+            for t in rows:
+                print(f"    {t.name:<34} scenes {', '.join(t.scenes):<20} {format_eighths(t.eighths)} pages")
+    if any(e.source == "ai" for items in sheet.scenes.values() for e in items):
+        print("\nSuggested by Claude: check them against the script. Edit them in `slugline serve`.")
     return 0
 
 
@@ -212,14 +255,21 @@ def build_parser() -> argparse.ArgumentParser:
     p = command("lint", cmd_lint, "Check the script's formatting.")
     p.add_argument("--json", action="store_true", help="print the issues as JSON")
 
-    p = command("export", cmd_export, "Export the breakdown as CSV tables and/or a PDF report.")
-    p.add_argument("--csv", metavar="DIR", help="write scenes.csv, characters.csv and locations.csv to DIR")
+    p = command("export", cmd_export, "Export the breakdown as CSV tables and PDF reports.")
+    p.add_argument("--csv", metavar="DIR", help="write scenes, characters, locations (and elements) CSV files to DIR")
     p.add_argument("--pdf", metavar="FILE", help="write a printable production report to FILE")
+    p.add_argument("--sheets", metavar="FILE", help="write one breakdown sheet per scene to FILE (PDF)")
     p.add_argument("--ai", action="store_true", help="include AI scene summaries and tone (uses the Anthropic API)")
 
     p = command("analyze", cmd_analyze, "AI scene summaries, emotional tone and formatting notes.")
     p.add_argument("--json", action="store_true", help="print the analysis as JSON")
     p.add_argument("--no-cache", action="store_true", help="ignore and don't write the cached analysis")
+
+    p = command("elements", cmd_elements,
+                "Break down props, wardrobe, vehicles, effects... for every scene (uses the Anthropic API once).")
+    p.add_argument("--json", action="store_true", help="print the elements as JSON")
+    p.add_argument("--refresh", action="store_true",
+                   help="ask Claude again; elements added or edited by hand are kept")
 
     p = command("ask", cmd_ask, "Ask the script assistant one question.")
     p.add_argument("question", help="what you want to know about the script")

@@ -1,4 +1,4 @@
-import type { Analysis, ChatEvent, Script, Status } from "./types";
+import type { Analysis, ChatEvent, Elements, Script, Status } from "./types";
 
 async function check(response: Response): Promise<Response> {
   if (response.ok) return response;
@@ -31,6 +31,17 @@ export const uploadScript = (file: File) =>
 
 export const analyzeScript = (id: string, refresh = false) =>
   json<Analysis>(fetch(`/api/scripts/${id}/analysis${refresh ? "?refresh=true" : ""}`, { method: "POST" }));
+
+export const extractElements = (id: string) => json<Elements>(fetch(`/api/scripts/${id}/elements`, { method: "POST" }));
+
+export const saveSceneElements = (id: string, scene: string, elements: { category: string; name: string; notes: string }[]) =>
+  json<Elements>(
+    fetch(`/api/scripts/${id}/elements/${encodeURIComponent(scene)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ elements }),
+    }),
+  );
 
 export const exportUrl = (id: string, name: string) => `/api/scripts/${id}/export/${name}`;
 

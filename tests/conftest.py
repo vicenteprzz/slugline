@@ -15,7 +15,8 @@ def example_text() -> str:
 
 @pytest.fixture(autouse=True)
 def isolated_llm(tmp_path, monkeypatch):
-    """No test reads the developer's API key, model setting or analysis cache."""
+    """No test reads the developer's API key, model setting, analysis cache or saved breakdowns."""
     monkeypatch.setenv("SLUGLINE_CACHE", str(tmp_path / "cache"))
+    monkeypatch.setenv("SLUGLINE_DATA", str(tmp_path / "data"))
     for name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "SLUGLINE_MODEL"):
         monkeypatch.delenv(name, raising=False)

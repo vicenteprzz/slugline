@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { analyzeScript, exportUrl, getScript, getStatus, listScripts, uploadScript } from "./api";
+import { analyzeScript, exportUrl, extractElements, getScript, getStatus, listScripts, saveSceneElements, uploadScript } from "./api";
 import Chat from "./Chat";
 import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart, useDismiss } from "./charts";
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
-import type { Analysis, Breakdown, Issue, Script, Status } from "./types";
+import SceneSheet from "./SceneSheet";
+import type { Analysis, Breakdown, Category, Element, Elements, Issue, Script, Status } from "./types";
+
+type Panel = { kind: "chat" } | { kind: "scene"; number: string } | null;
 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)", "var(--series-6)"];
 const OTHER = "var(--series-other)";
@@ -28,7 +31,8 @@ export default function App() {
   const [loading, setLoading] = useState<string | null>("Loading…");
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [panel, setPanel] = useState<Panel>(null);
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -52,6 +56,7 @@ export default function App() {
     setLoading(`Reading ${file.name}…`);
     try {
       setScript(await uploadScript(file));
+      setPanel(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that file.");
     } finally {
@@ -76,9 +81,34 @@ export default function App() {
     [script],
   );
 
+  const extract = useCallback(async () => {
+    if (!script) return;
+    setError(null);
+    setExtracting(true);
+    try {
+      const elements = await extractElements(script.id);
+      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The element breakdown failed.");
+    } finally {
+      setExtracting(false);
+    }
+  }, [script]);
+
+  const saveScene = useCallback(
+    async (number: string, items: Element[]) => {
+      if (!script) return;
+      const elements = await saveSceneElements(script.id, number, items);
+      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+    },
+    [script],
+  );
+
+  const categories = status?.categories ?? [];
+
   return (
     <div
-      className={`app${chatOpen && script ? " with-chat" : ""}`}
+      className={`app${panel && script ? " with-panel" : ""}`}
       onDragOver={(e) => {
         e.preventDefault();
         setDragging(true);
@@ -118,7 +148,7 @@ export default function App() {
           </button>
           {script && <ExportMenu script={script} status={status} />}
           {script && (
-            <button className="primary" aria-pressed={chatOpen} onClick={() => setChatOpen(!chatOpen)}>
+            <button className="primary" aria-pressed={panel?.kind === "chat"} onClick={() => setPanel(panel?.kind === "chat" ? null : { kind: "chat" })}>
               Ask the script
             </button>
           )}
@@ -135,7 +165,15 @@ export default function App() {
           </div>
         )}
         {script ? (
-          <Dashboard script={script} status={status} analyzing={analyzing} onAnalyze={analyze} />
+          <Dashboard
+            script={script}
+            status={status}
+            analyzing={analyzing}
+            onAnalyze={analyze}
+            extracting={extracting}
+            onExtract={extract}
+            onOpenScene={(number) => setPanel({ kind: "scene", number })}
+          />
         ) : (
           <div className="empty">
             {loading ? (
@@ -153,8 +191,18 @@ export default function App() {
         )}
       </main>
 
-      {script && chatOpen && (
-        <Chat scriptId={script.id} title={script.breakdown.title ?? script.filename} status={status} onClose={() => setChatOpen(false)} />
+      {script && panel?.kind === "chat" && (
+        <Chat scriptId={script.id} title={script.breakdown.title ?? script.filename} status={status} onClose={() => setPanel(null)} />
+      )}
+      {script && panel?.kind === "scene" && (
+        <SceneSheet
+          script={script}
+          number={panel.number}
+          categories={categories}
+          onNavigate={(number) => setPanel({ kind: "scene", number })}
+          onClose={() => setPanel(null)}
+          onSave={saveScene}
+        />
       )}
       {dragging && <div className="drop-veil">Drop the script to open it</div>}
     </div>
@@ -167,8 +215,10 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
     open,
     useCallback(() => setOpen(false), []),
   );
+  const hasElements = (script.elements?.totals.length ?? 0) > 0;
   const items = [
     ["scenes.csv", "Scenes (CSV)"],
+    ...(hasElements ? [["elements.csv", "Elements by scene (CSV)"]] : []),
     ["characters.csv", "Characters (CSV)"],
     ["locations.csv", "Locations (CSV)"],
     ["script.fountain", "Script (Fountain)"],
@@ -181,9 +231,14 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
       {open && (
         <div className="menu-list" role="menu">
           {status?.pdf_export ? (
-            <a role="menuitem" href={exportUrl(script.id, "report.pdf")} download onClick={() => setOpen(false)}>
-              Production report (PDF)
-            </a>
+            <>
+              <a role="menuitem" href={exportUrl(script.id, "report.pdf")} download onClick={() => setOpen(false)}>
+                Production report (PDF)
+              </a>
+              <a role="menuitem" href={exportUrl(script.id, "breakdown-sheets.pdf")} download onClick={() => setOpen(false)}>
+                Breakdown sheets, one per scene (PDF)
+              </a>
+            </>
           ) : (
             <span className="menu-off" title="Install it with: pip install 'slugline[export]'">
               Production report (PDF) needs reportlab
@@ -200,7 +255,15 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
   );
 }
 
-function Dashboard(props: { script: Script; status: Status | null; analyzing: boolean; onAnalyze: (refresh?: boolean) => void }) {
+function Dashboard(props: {
+  script: Script;
+  status: Status | null;
+  analyzing: boolean;
+  onAnalyze: (refresh?: boolean) => void;
+  extracting: boolean;
+  onExtract: () => void;
+  onOpenScene: (number: string) => void;
+}) {
   const { script, status, analyzing } = props;
   const b = script.breakdown;
   const analysis = script.analysis;
@@ -233,7 +296,18 @@ function Dashboard(props: { script: Script; status: Status | null; analyzing: bo
         </ChartCard>
       </div>
 
-      <Stripboard breakdown={b} notes={notes} />
+      <Stripboard breakdown={b} notes={notes} elements={script.elements} onOpenScene={props.onOpenScene} />
+
+      <ElementsCard
+        breakdown={b}
+        elements={script.elements}
+        categories={status?.categories ?? []}
+        available={status?.llm.available ?? false}
+        reason={status?.llm.reason ?? ""}
+        extracting={props.extracting}
+        onExtract={props.onExtract}
+        onOpenScene={props.onOpenScene}
+      />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />
@@ -372,13 +446,19 @@ function Story(props: { analysis: Analysis | null; status: Status | null; analyz
   );
 }
 
-function Stripboard({ breakdown: b, notes }: { breakdown: Breakdown; notes: Map<string, { summary: string; tone: string }> }) {
+function Stripboard(props: {
+  breakdown: Breakdown;
+  notes: Map<string, { summary: string; tone: string }>;
+  elements: Elements | null;
+  onOpenScene: (number: string) => void;
+}) {
+  const { breakdown: b, notes, elements } = props;
   return (
     <section className="card">
       <header className="card-head">
         <div>
           <h3>Stripboard</h3>
-          <p>Every scene in script order. Lengths are in pages and eighths of a page.</p>
+          <p>Every scene in script order, lengths in pages and eighths. Open a scene for its breakdown sheet.</p>
         </div>
         <ul className="legend strips">
           {[
@@ -405,6 +485,7 @@ function Stripboard({ breakdown: b, notes }: { breakdown: Breakdown; notes: Map<
               <th className="num">Length</th>
               <th className="num">Starts p.</th>
               <th>Cast</th>
+              <th className="num">Elements</th>
               {notes.size > 0 && <th>Tone</th>}
             </tr>
           </thead>
@@ -418,7 +499,9 @@ function Stripboard({ breakdown: b, notes }: { breakdown: Breakdown; notes: Map<
                     {s.number}
                   </td>
                   <td>
-                    <span className="slug">{s.heading}</span>
+                    <button className="slug slug-button" onClick={() => props.onOpenScene(s.number)}>
+                      {s.heading}
+                    </button>
                     {note && <span className="summary">{note.summary}</span>}
                   </td>
                   <td className="num">{eighths(s.eighths)}</td>
@@ -427,6 +510,7 @@ function Stripboard({ breakdown: b, notes }: { breakdown: Breakdown; notes: Map<
                     {s.characters.map(titleCase).join(", ") || "–"}
                     {s.silent.length > 0 && <span className="silent"> · no lines: {s.silent.map(titleCase).join(", ")}</span>}
                   </td>
+                  <td className="num">{elements?.scenes[s.number]?.length || "–"}</td>
                   {notes.size > 0 && <td className="tone">{note?.tone ?? "–"}</td>}
                 </tr>
               );
@@ -548,6 +632,121 @@ function Issues({ issues, analyzed }: { issues: Issue[]; analyzed: boolean }) {
             </li>
           ))}
         </ul>
+      )}
+    </section>
+  );
+}
+
+function ElementsCard(props: {
+  breakdown: Breakdown;
+  elements: Elements | null;
+  categories: Category[];
+  available: boolean;
+  reason: string;
+  extracting: boolean;
+  onExtract: () => void;
+  onOpenScene: (number: string) => void;
+}) {
+  const { elements, categories } = props;
+  const [filter, setFilter] = useState<string | null>(null);
+  const totals = elements?.totals ?? [];
+  const byKey = new Map(categories.map((c) => [c.key, c]));
+  const counts = new Map<string, number>();
+  for (const t of totals) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
+  const shown = filter ? totals.filter((t) => t.category === filter) : totals;
+  const suggested = Object.values(elements?.scenes ?? {}).flat().filter((e) => e.source === "ai").length;
+  const first = props.breakdown.scenes[0]?.number;
+
+  const action = (
+    <button className={totals.length ? "ghost" : "primary"} disabled={!props.available || props.extracting} onClick={props.onExtract}>
+      {props.extracting ? "Breaking down the script… about a minute" : totals.length ? "Suggest again with AI" : "Suggest elements with AI"}
+    </button>
+  );
+
+  return (
+    <section className={`card${props.extracting ? " busy" : ""}`}>
+      <header className="card-head">
+        <div>
+          <h3>Elements</h3>
+          <p>
+            What each department needs, scene by scene: extras, stunts, props, wardrobe, makeup, vehicles, effects and more.
+            {totals.length > 0 && " Suggesting again keeps everything you added or edited by hand."}
+          </p>
+        </div>
+        {action}
+      </header>
+
+      {totals.length === 0 ? (
+        <div className="elements-empty">
+          <p>
+            No elements yet. Claude can read the script and suggest them for every scene, or you can open a scene and add them by
+            hand.
+          </p>
+          {!props.available && <p className="notice">{props.reason || "The AI features are not available."} Adding by hand still works.</p>}
+          {first && (
+            <button className="ghost" onClick={() => props.onOpenScene(first)}>
+              Open scene {first}
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="filters" role="group" aria-label="Filter by department">
+            <button className="chip" aria-pressed={filter === null} onClick={() => setFilter(null)}>
+              All <span>{totals.length}</span>
+            </button>
+            {categories
+              .filter((c) => counts.has(c.key))
+              .map((c) => (
+                <button key={c.key} className="chip" aria-pressed={filter === c.key} onClick={() => setFilter(filter === c.key ? null : c.key)}>
+                  <span className="swatch" style={{ background: c.color }} />
+                  {c.label} <span>{counts.get(c.key)}</span>
+                </button>
+              ))}
+          </div>
+          <div className="table-scroll">
+            <table className="data elements">
+              <thead>
+                <tr>
+                  <th>Element</th>
+                  <th>Department</th>
+                  <th>Scenes</th>
+                  <th className="num">Pages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.map((t) => {
+                  const category = byKey.get(t.category);
+                  return (
+                    <tr key={`${t.category}|${t.name}`}>
+                      <td className="element-name">{t.name}</td>
+                      <td className="dept-cell">
+                        <span className="swatch" style={{ background: category?.color }} />
+                        {category?.label ?? t.category}
+                      </td>
+                      <td>
+                        <span className="scene-links">
+                          {t.scenes.map((n) => (
+                            <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={`Open scene ${n}`}>
+                              {n}
+                            </button>
+                          ))}
+                        </span>
+                      </td>
+                      <td className="num">{eighths(t.eighths)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {suggested > 0 && (
+            <p className="fine">
+              {plural(suggested, "element")} still as Claude suggested them. Open a scene to check, edit or remove them before you print the
+              breakdown sheets.
+            </p>
+          )}
+        </>
       )}
     </section>
   );

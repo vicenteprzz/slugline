@@ -8,11 +8,12 @@ same breakdown the CLI prints.
 from __future__ import annotations
 
 import json
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from difflib import get_close_matches
 from typing import Any
 
 from slugline.breakdown import breakdown
+from slugline.elements import LABELS, ElementSheet, load_sheet, totals
 from slugline.lint import lint
 from slugline.llm import LLMError, check_stop, make_client, model_name, open_stream
 from slugline.parser import Action, Dialogue, format_eighths, parse
@@ -72,6 +73,14 @@ TOOLS = [
         {"query": {"type": "string", "description": "The exact word or phrase to look for."}},
     ),
     _tool(
+        "list_elements",
+        "The production elements each department has to provide (extras, stunts, props, wardrobe, makeup, "
+        "vehicles, animals, special and visual effects, sound, set dressing, equipment), from the crew's "
+        "breakdown. With a scene number, that scene's elements; with an empty string, every element once "
+        "with the scenes that need it and their total length.",
+        {"scene": {"type": "string", "description": "A scene number, or \"\" for the whole script."}},
+    ),
+    _tool(
         "format_issues",
         "Formatting problems found by rule-based checks: headings missing INT/EXT or time of day, empty "
         "scenes, character or location names that look like duplicates, scene numbering gaps.",
@@ -108,8 +117,17 @@ Scene index:
 class ScriptAgent:
     """A conversation about one screenplay. Keeps its own message history."""
 
-    def __init__(self, text: str, *, client: Any = None, model: str | None = None):
+    def __init__(
+        self,
+        text: str,
+        *,
+        client: Any = None,
+        model: str | None = None,
+        elements: Callable[[], ElementSheet | None] | None = None,
+    ):
         self.play = parse(text)
+        # Read on every call, so the assistant sees edits made during the conversation.
+        self.elements = elements or (lambda: load_sheet(text))
         self.breakdown = breakdown(self.play)
         self.client = client
         self.model = model or model_name()
@@ -205,6 +223,27 @@ class ScriptAgent:
                 elif isinstance(e, Dialogue) and needle in e.text.lower():
                     hits.append({"scene": s.number, "kind": "dialogue", "character": e.character, "text": e.text})
         return {"total": len(hits), "shown": min(len(hits), MAX_HITS), "hits": hits[:MAX_HITS]}
+
+    def _tool_list_elements(self, args: dict) -> Any:
+        scene = args.get("scene", "")
+        if not isinstance(scene, str):
+            raise ValueError("scene must be a scene number or an empty string.")
+        sheet = self.elements()
+        if sheet is None or sheet.is_empty():
+            return {"note": "No elements have been broken down for this script yet. The crew can run the "
+                            "element breakdown in the dashboard or with `slugline elements`."}
+        if scene.strip():
+            numbers = [s.number for s in self.play.scenes]
+            if scene.strip() not in numbers:
+                raise ValueError(f"No scene numbered {scene}. Scenes are: {', '.join(numbers)}.")
+            return [
+                {"department": LABELS[e.category], "element": e.name, "notes": e.notes}
+                for e in sheet.for_scene(scene.strip())
+            ]
+        return [
+            {"department": LABELS[t.category], "element": t.name, "scenes": t.scenes, "eighths": t.eighths}
+            for t in totals(sheet, self.breakdown)
+        ]
 
     def _tool_format_issues(self, _args: dict) -> list[dict]:
         return [{"severity": i.severity, "scene": i.scene, "message": i.message} for i in lint(self.play)]

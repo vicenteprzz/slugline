@@ -374,3 +374,152 @@ def analyze(
         except OSError:
             pass  # the cache is a convenience; the analysis is still returned
     return result
+
+
+# --- production elements ----------------------------------------------------
+
+ELEMENTS_TASK = """\
+Break down scenes {numbers} for the production departments: for each scene, \
+list what each department has to provide to shoot it.
+
+Categories:
+- extras: background people, as a group with a count when the script gives or \
+implies one ("Saloon patrons (8-10)").
+- stunts: falls, fights, people hit by gunfire, horse falls: anything that needs \
+a stunt coordinator.
+- props: objects the characters handle or use, such as guns, money, a rope or a letter.
+- wardrobe: costumes the action calls for or that must match between scenes \
+(a blood-stained shirt, a character's signature hat).
+- makeup: makeup and hair, such as wounds, blood, aging, dirt, beards.
+- vehicles: anything people ride in or drive, wagons and carriages included.
+- animals: live animals, horses included.
+- sfx: practical effects on set, such as blank fire, squibs, fire, smoke, rain, \
+breakaway glass.
+- vfx: effects added in post, only when the scene can't be done practically.
+- sound: sounds the script calls out that must be recorded or played on set, \
+such as a knock at the door, an off-screen gunshot, music playing in the scene.
+- set_dressing: notable items that dress the set but nobody handles, such as a \
+heavy desk or a hanging lantern.
+- equipment: special camera or grip equipment the scene requires, such as a \
+crane, a car rig or an underwater housing.
+
+Rules:
+- List only what the text states or what the action clearly requires: a \
+character who fires a revolver needs the revolver (props) and blank fire (sfx). \
+Don't add period detail the script doesn't mention.
+- Characters are cast, not elements: don't list named characters, whether or \
+not they speak.
+- Name each element with a short noun phrase, and give the same item the same \
+name in every scene it appears in, so the crew can track it across the shoot. \
+Put what changes from scene to scene, such as "bloodied" or "half empty", in \
+notes, which can be empty.
+- Each element goes in one category.
+- A simple scene can have few elements; don't pad the list.
+- Write names and notes in the language the screenplay's action lines are \
+written in.{known}"""
+
+ELEMENTS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "scenes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "number": {"type": "string"},
+                    "elements": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "category": {"type": "string", "enum": None},  # filled in below
+                                "name": {"type": "string"},
+                                "notes": {"type": "string"},
+                            },
+                            "required": ["category", "name", "notes"],
+                            "additionalProperties": False,
+                        },
+                    },
+                },
+                "required": ["number", "elements"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["scenes"],
+    "additionalProperties": False,
+}
+
+
+def _elements_schema() -> dict:
+    from slugline.elements import CATEGORY_KEYS
+
+    schema = json.loads(json.dumps(ELEMENTS_SCHEMA))
+    item = schema["properties"]["scenes"]["items"]["properties"]["elements"]["items"]
+    item["properties"]["category"]["enum"] = CATEGORY_KEYS
+    return schema
+
+
+def extract_elements(
+    text: str,
+    *,
+    client: Any = None,
+    model: str | None = None,
+    progress: Callable[[str], None] | None = None,
+) -> dict[str, list]:
+    """Claude's suggested elements for every scene, keyed by scene number."""
+    from slugline.elements import Element, clean
+
+    model = model or model_name()
+    play = parse(text)
+    if not play.scenes:
+        raise LLMError("The script has no scenes to break down.")
+    client = client or make_client()
+    say = progress or (lambda _msg: None)
+    system = _system(text, play)  # the same cached prefix as the analysis
+    schema = _elements_schema()
+
+    numbers = [s.number for s in play.scenes]
+    found: dict[str, list[Element]] = {n: [] for n in numbers}
+    names: dict[str, str] = {}  # names used so far, so later batches reuse them
+    for start in range(0, len(numbers), SCENES_PER_REQUEST):
+        batch = numbers[start:start + SCENES_PER_REQUEST]
+        say(f"Breaking down scenes {batch[0]} to {batch[-1]} of {len(numbers)}")
+        known = ""
+        if names:
+            listed = "; ".join(f"{name} ({cat})" for name, cat in names.items())
+            known = f"\n\nNames already used in earlier scenes, to reuse when the item is the same: {listed}."
+        task = ELEMENTS_TASK.format(numbers=", ".join(batch), known=known)
+        data = _json_request(client, model, system, task, schema)
+        for row in data.get("scenes", []):
+            number = row.get("number")
+            if number not in found:
+                continue  # a scene the model made up
+            for item in row.get("elements", []):
+                try:
+                    category, name, notes = clean(item.get("category"), item.get("name"), item.get("notes", ""))
+                except ValueError:
+                    continue
+                found[number].append(Element(category, name, notes, "ai"))
+                names.setdefault(name, category)
+    return found
+
+
+def break_down_elements(
+    text: str,
+    *,
+    client: Any = None,
+    model: str | None = None,
+    progress: Callable[[str], None] | None = None,
+):
+    """Extract elements, merge them into the saved sheet (keeping hand edits) and save it."""
+    from slugline.elements import load_sheet, merge_extraction, save_sheet
+
+    model = model or model_name()
+    found = extract_elements(text, client=client, model=model, progress=progress)
+    sheet = merge_extraction(load_sheet(text), found, model)
+    try:
+        save_sheet(text, sheet)
+    except OSError as e:
+        raise LLMError(f"The breakdown was made but could not be saved: {e.strerror}") from e
+    return sheet

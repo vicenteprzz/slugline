@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from slugline.breakdown import Breakdown
+from slugline.elements import COLORS, LABELS, ElementSheet, totals
 from slugline.lint import Issue
 from slugline.parser import format_eighths
 
@@ -73,11 +74,27 @@ def locations_csv(b: Breakdown) -> str:
     )
 
 
+def elements_csv(b: Breakdown, sheet: ElementSheet) -> str:
+    """One row per element per scene: easy to filter by department in a spreadsheet."""
+    rows = []
+    for s in b.scenes:
+        for e in sheet.for_scene(s.number):
+            rows.append([s.number, s.heading, LABELS[e.category], e.name, e.notes,
+                         "suggested" if e.source == "ai" else "manual"])
+    return _csv(["scene", "heading", "department", "element", "notes", "source"], rows)
+
+
 CSV_EXPORTS = {"scenes": scenes_csv, "characters": characters_csv, "locations": locations_csv}
 
 
-def write_csv(b: Breakdown, directory: str | Path, analysis: Analysis | None = None) -> list[Path]:
-    """Write scenes.csv, characters.csv and locations.csv into a directory."""
+def write_csv(
+    b: Breakdown,
+    directory: str | Path,
+    analysis: Analysis | None = None,
+    elements: ElementSheet | None = None,
+) -> list[Path]:
+    """Write scenes.csv, characters.csv, locations.csv and, if there is a
+    breakdown of elements, elements.csv into a directory."""
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     files = {
@@ -85,6 +102,8 @@ def write_csv(b: Breakdown, directory: str | Path, analysis: Analysis | None = N
         "characters.csv": characters_csv(b),
         "locations.csv": locations_csv(b),
     }
+    if elements and not elements.is_empty():
+        files["elements.csv"] = elements_csv(b, elements)
     paths = []
     for name, text in files.items():
         path = directory / name
@@ -94,16 +113,27 @@ def write_csv(b: Breakdown, directory: str | Path, analysis: Analysis | None = N
     return paths
 
 
-def report_pdf(b: Breakdown, issues: list[Issue] | None = None, analysis: Analysis | None = None) -> bytes:
-    """A printable production report: stripboard, cast, locations and notes. Needs `reportlab`."""
+def _reportlab():
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4, landscape
-        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-        from reportlab.lib.units import mm
-        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        import reportlab  # noqa: F401
     except ImportError as e:
         raise RuntimeError("PDF export needs reportlab: pip install 'slugline[export]'") from e
+
+
+def report_pdf(
+    b: Breakdown,
+    issues: list[Issue] | None = None,
+    analysis: Analysis | None = None,
+    elements: ElementSheet | None = None,
+) -> bytes:
+    """A printable production report: stripboard, cast, locations, elements and
+    notes. Needs `reportlab`."""
+    _reportlab()
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
     from xml.sax.saxutils import escape
 
     styles = getSampleStyleSheet()
@@ -160,6 +190,14 @@ def report_pdf(b: Breakdown, issues: list[Issue] | None = None, analysis: Analys
              for loc in b.locations]
     story.append(Table(rows, colWidths=[90 * mm, 16 * mm, 20 * mm, 141 * mm], repeatRows=1, style=TableStyle(base)))
 
+    if elements and not elements.is_empty():
+        story.append(Paragraph("Elements", h2))
+        rows = [["Department", "Element", "Scenes", "Length", "Scene numbers"]]
+        rows += [[LABELS[t.category], p(t.name), len(t.scenes), format_eighths(t.eighths), p(", ".join(t.scenes))]
+                 for t in totals(elements, b)]
+        story.append(Table(rows, colWidths=[35 * mm, 85 * mm, 16 * mm, 20 * mm, 111 * mm], repeatRows=1,
+                           style=TableStyle(base)))
+
     all_issues = list(issues or []) + (analysis.issues if analysis else [])
     if all_issues:
         story.append(Paragraph("Formatting notes", h2))
@@ -171,4 +209,116 @@ def report_pdf(b: Breakdown, issues: list[Issue] | None = None, analysis: Analys
     doc = SimpleDocTemplate(out, pagesize=landscape(A4), title=f"{title} - breakdown", author="Slugline",
                             leftMargin=15 * mm, rightMargin=15 * mm, topMargin=14 * mm, bottomMargin=14 * mm)
     doc.build(story)
+    return out.getvalue()
+
+
+def breakdown_sheets_pdf(
+    b: Breakdown,
+    elements: ElementSheet | None = None,
+    analysis: Analysis | None = None,
+) -> bytes:
+    """One breakdown sheet per scene, the page each department head works from.
+    Empty boxes are left open for notes by hand. Needs `reportlab`."""
+    _reportlab()
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=9, leading=11.5)
+    muted = ParagraphStyle("muted", parent=body, textColor=colors.HexColor("#52514e"))
+    label = ParagraphStyle("label", parent=body, fontName="Helvetica-Bold", fontSize=7.5, leading=10,
+                           textColor=colors.HexColor("#52514e"))
+    number = ParagraphStyle("number", parent=body, fontName="Helvetica-Bold", fontSize=22, leading=24, alignment=1)
+    slug = ParagraphStyle("slug", parent=body, fontName="Courier-Bold", fontSize=12, leading=15)
+    meta_value = ParagraphStyle("meta", parent=body, fontName="Helvetica-Bold", fontSize=9.5)
+    grid = colors.HexColor("#c3c2b7")
+    width = A4[0] - 28 * mm
+    notes = analysis.by_scene() if analysis else {}
+    title = b.title or "Untitled"
+
+    def box(heading: str, color: str | None, lines: list) -> list:
+        return [Paragraph(escape(heading.upper()), label), *lines, Spacer(1, 12 * mm if not lines else 4 * mm)]
+
+    story = []
+    for i, s in enumerate(b.scenes):
+        if i:
+            story.append(PageBreak())
+        story.append(Table(
+            [[Paragraph(escape(s.number), number), Paragraph(escape(s.heading), slug)]],
+            colWidths=[24 * mm, width - 24 * mm],
+            style=TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(strip_color(s.int_ext, s.day_night))),
+                ("BOX", (0, 0), (-1, -1), 0.8, colors.black),
+                ("LINEAFTER", (0, 0), (0, 0), 0.8, colors.black),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]),
+        ))
+        meta = [("Int./Ext.", s.int_ext or "-"), ("Day/Night", s.day_night or "-"), ("Time", s.time_of_day or "-"),
+                ("Length", f"{format_eighths(s.eighths)} pages"), ("Starts on page", str(int(s.start_page)))]
+        story.append(Table(
+            [[Paragraph(k.upper(), label) for k, _ in meta], [Paragraph(escape(v), meta_value) for _, v in meta]],
+            colWidths=[width / len(meta)] * len(meta),
+            style=TableStyle([
+                ("BOX", (0, 0), (-1, -1), 0.5, grid),
+                ("LINEAFTER", (0, 0), (-2, -1), 0.5, grid),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 1), (-1, 1), 6),
+            ]),
+        ))
+        story.append(Spacer(1, 4 * mm))
+        story.append(Paragraph("SYNOPSIS", label))
+        if s.number in notes:
+            story.append(Paragraph(escape(notes[s.number].summary), body))
+        else:
+            story.append(Spacer(1, 10 * mm))
+        story.append(Spacer(1, 4 * mm))
+
+        cast = [Paragraph(escape(", ".join(s.characters) or "-"), body)]
+        if s.silent:
+            cast.append(Paragraph(escape("No lines: " + ", ".join(s.silent)), muted))
+        items = elements.for_scene(s.number) if elements else []
+        cells = [box("Cast", None, cast)]
+        cell_colors: list[str | None] = [None]
+        for key, heading, color in [(k, LABELS[k], COLORS[k]) for k in LABELS]:
+            lines = [
+                Paragraph(f"• {escape(e.name)}" + (f" <font color='#52514e'>({escape(e.notes)})</font>" if e.notes else ""), body)
+                for e in items if e.category == key
+            ]
+            cells.append(box(heading, color, lines))
+            cell_colors.append(color)
+        cells.append(box("Production notes", None, []))
+        cell_colors.append(None)
+
+        rows = [cells[j:j + 2] for j in range(0, len(cells), 2)]
+        style = [
+            ("GRID", (0, 0), (-1, -1), 0.5, grid),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 5),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ]
+        for j, color in enumerate(cell_colors):
+            if color:
+                style.append(("LINEABOVE", (j % 2, j // 2), (j % 2, j // 2), 3, colors.HexColor(color)))
+        story.append(Table(rows, colWidths=[width / 2] * 2, style=TableStyle(style)))
+
+    def footer(canvas, doc) -> None:
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(colors.HexColor("#898781"))
+        canvas.drawString(14 * mm, 9 * mm, f"{title} · Breakdown sheets")
+        canvas.drawRightString(A4[0] - 14 * mm, 9 * mm, f"Slugline · page {doc.page}")
+        canvas.restoreState()
+
+    out = io.BytesIO()
+    doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - breakdown sheets", author="Slugline",
+                            leftMargin=14 * mm, rightMargin=14 * mm, topMargin=14 * mm, bottomMargin=16 * mm)
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return out.getvalue()

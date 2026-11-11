@@ -53,18 +53,32 @@ export type Analysis = {
   issues: Issue[];
 };
 
+export type Element = { category: string; name: string; notes: string; source: "ai" | "manual" };
+
+export type ElementTotal = { category: string; name: string; scenes: string[]; eighths: number };
+
+export type Elements = {
+  model: string | null;
+  scenes: Record<string, Element[]>;
+  totals: ElementTotal[];
+};
+
+export type Category = { key: string; label: string; color: string };
+
 export type Script = {
   id: string;
   filename: string;
   breakdown: Breakdown;
   issues: Issue[];
   analysis: Analysis | null;
+  elements: Elements | null;
 };
 
 export type Status = {
   version: string;
   llm: { available: boolean; model: string; reason: string };
   pdf_export: boolean;
+  categories: Category[];
 };
 
 export type ChatEvent =

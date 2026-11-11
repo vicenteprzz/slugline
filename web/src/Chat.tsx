@@ -166,8 +166,8 @@ export default function Chat(props: { scriptId: string; title: string; status: S
   }
 
   return (
-    <aside className="chat" aria-label="Script assistant">
-      <header className="chat-head">
+    <aside className="drawer chat" aria-label="Script assistant">
+      <header className="drawer-head chat-head">
         <div>
           <h2>Ask the script</h2>
           <p>{props.title}</p>
