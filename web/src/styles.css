@@ -1583,3 +1583,90 @@ line.axis {
     justify-self: start;
   }
 }
+
+/* --- call sheets and day out of days ------------------------------------- */
+
+.call {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.call input {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--page);
+}
+
+.day-fields {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 6px;
+}
+
+a.small-link {
+  color: var(--ink-2);
+}
+
+.button-link {
+  display: inline-block;
+  color: inherit;
+  text-decoration: none;
+}
+
+table.dood td,
+table.dood th {
+  padding: 5px 8px;
+}
+
+table.dood .code {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  min-width: 34px;
+  font-variant-numeric: tabular-nums;
+}
+
+table.dood .code-work {
+  background: var(--seq-1);
+  color: var(--ink);
+}
+
+table.dood .code-hold {
+  color: var(--ink-2);
+  background: repeating-linear-gradient(135deg, transparent 0 4px, var(--wash) 4px 8px);
+}
+
+.hold-count {
+  font-weight: 600;
+}
+
+input.actor {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  width: 100%;
+  min-width: 120px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+}
+
+input.actor:hover,
+input.actor:focus {
+  border-color: var(--border);
+  background: var(--page);
+}
+
+@media (max-width: 860px) {
+  .day-fields {
+    grid-template-columns: 1fr;
+  }
+}

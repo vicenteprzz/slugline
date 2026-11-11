@@ -1,6 +1,6 @@
 # Slugline
 
-**Screenplay breakdown and analysis for [Fountain](https://fountain.io) and PDF scripts.**
+**Screenplay breakdown and production planning for [Fountain](https://fountain.io), Final Draft and PDF scripts.**
 
 Breaking a script down for production is slow, manual work: going scene by scene,
 listing who is in it, where it happens, whether it's day or night, and how long it
@@ -13,6 +13,7 @@ can answer questions about the script.
 **Parsing**
 
 - Parses Fountain screenplays into scenes, dialogue, action and transitions
+- Imports Final Draft (`.fdx`) scripts, scene numbers and dual dialogue included
 - Imports PDF screenplays by reading the industry layout (indentation tells
   action, dialogue, parentheticals, character cues and transitions apart), and
   joins dialogue split across pages with `(MORE)` / `(CONT'D)`
@@ -62,6 +63,16 @@ can answer questions about the script.
   notes, and see each day's pages, locations and lighting at a glance
 - Export it as a PDF stripboard or CSV
 
+**Call sheets and day out of days**
+
+- A call sheet for every shooting day: date, crew call, meeting point, notes,
+  the day's scenes, the cast with each actor's status, who is on hold, what
+  each department needs that day, and an advance look at the next day
+- Day out of days: which days each character works (SW, W, WF, SWF) and the
+  holds between them, which is what drives cast costs. Moving scenes to cut
+  holds shows up at once
+- Add the actors' names once; they appear on every call sheet
+
 **Exports**
 
 - CSV tables (scenes, characters, locations, elements) that open cleanly in Excel or Sheets
@@ -101,7 +112,8 @@ slugline examples/johns_boys.fountain                 # breakdown tables
 slugline my_script.pdf --fountain my_script.fountain  # PDF in, Fountain out
 slugline lint examples/johns_boys.fountain            # formatting checks
 slugline export examples/johns_boys.fountain --csv out/ --pdf out/report.pdf --sheets out/sheets.pdf
-slugline schedule examples/johns_boys.fountain --pages 5 --pdf out/schedule.pdf
+slugline schedule examples/johns_boys.fountain --pages 5 --pdf out/schedule.pdf --call-sheets out/calls.pdf
+slugline my_script.fdx                                # Final Draft works everywhere a script does
 pytest
 ```
 
@@ -174,6 +186,7 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
 
 ```
 .pdf ──► pdf_import.py ──┐
+.fdx ──► fdx_import.py ──┤
                          ├──► parser.py ──► Screenplay ──┬──► breakdown.py ──► tables / JSON
 .fountain ───────────────┘                               ├──► lint.py ──────► formatting checks
                                                          ├──► elements.py ──► element breakdown (AI + hand edits)
@@ -239,6 +252,8 @@ To work on the dashboard, run `slugline serve` in one terminal and
   one, by their scene headings). Matching scenes is a judgement from the text:
   check the scenes it flags, and a scene moved to a new location with new
   action is treated as a new scene.
+- Call sheets use one crew call for the whole cast; individual call times,
+  pick-ups and crew lists are not there yet.
 - The schedule suggestion knows pages, locations and day/night, but not cast
   availability, travel time or turnaround rules yet.
 - Tone, tension and mood are a model's reading of the script. They are useful
@@ -252,7 +267,8 @@ To work on the dashboard, run `slugline serve` in one terminal and
 4. **PDF support and exports** — PDF import, CSV and PDF production reports ✅
 5. **Element breakdown** — elements per department and scene, editable, breakdown sheets ✅
 6. **Revised drafts and shooting schedule** — carry work across drafts, schedule board ✅
-7. **Next** — call sheets; cast day-out-of-days; Final Draft (`.fdx`) import;
+7. **Call sheets, day out of days, Final Draft import** ✅
+8. **Next** — individual cast call times and crew lists; a Spanish interface;
    accounts and shared projects for a whole crew
 
 ## Built with an AI coding assistant

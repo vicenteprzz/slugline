@@ -428,3 +428,160 @@ def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None
                             leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
     doc.build(story)
     return out.getvalue()
+
+
+def call_sheets_pdf(
+    b: Breakdown,
+    schedule: Schedule,
+    elements: ElementSheet | None = None,
+    analysis: Analysis | None = None,
+    day: int | None = None,
+) -> bytes:
+    """Call sheets: one per shooting day (or only `day`, counted from 1), with
+    the day's scenes, cast with their day-out-of-days status, what each
+    department needs, and an advance look at the next day. Needs `reportlab`."""
+    _reportlab()
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    from slugline.schedule import day_out_of_days
+
+    if not schedule.days:
+        raise ValueError("The schedule has no days.")
+    if day is not None and not 1 <= day <= len(schedule.days):
+        raise ValueError(f"There is no day {day}: the schedule has {len(schedule.days)} days.")
+
+    styles = getSampleStyleSheet()
+    body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=8.5, leading=10.5)
+    muted = ParagraphStyle("muted", parent=body, textColor=colors.HexColor("#52514e"))
+    label = ParagraphStyle("label", parent=body, fontName="Helvetica-Bold", fontSize=7.5, leading=9.5,
+                           textColor=colors.HexColor("#52514e"))
+    big = ParagraphStyle("big", parent=body, fontName="Helvetica-Bold", fontSize=18, leading=21)
+    value = ParagraphStyle("value", parent=body, fontName="Helvetica-Bold", fontSize=11, leading=13)
+    slug = ParagraphStyle("slug", parent=body, fontName="Courier-Bold", fontSize=8.5)
+    h2 = ParagraphStyle("h2", parent=body, fontName="Helvetica-Bold", fontSize=9.5, leading=12, spaceBefore=8, spaceAfter=3)
+    p = lambda text, style=body: Paragraph(escape(str(text)), style)  # noqa: E731
+    grid = colors.HexColor("#c3c2b7")
+    width = A4[0] - 28 * mm
+    rows = {s.number: s for s in b.scenes}
+    notes = analysis.by_scene() if analysis else {}
+    dood = day_out_of_days(schedule, b)
+    title = b.title or "Untitled"
+    table_style = [
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.black),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, grid),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+
+    def sheet(i: int) -> list:
+        d = schedule.days[i]
+        scenes = [rows[n] for n in d.scenes if n in rows]
+        stats = day_stats(d, b, schedule.pages_per_day)
+        story: list = []
+
+        head = [
+            [p(title, big), p("DAY", label), p("DATE", label), p("CREW CALL", label)],
+            [p("CALL SHEET", label), p(f"{i + 1} of {len(schedule.days)}", value),
+             p(_date_label(d.date) if d.date else "-", value), p(d.call_time or "-", value)],
+        ]
+        story.append(Table(head, colWidths=[width - 120 * mm, 30 * mm, 50 * mm, 40 * mm], style=TableStyle([
+            ("SPAN", (0, 0), (0, 0)), ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LINEBELOW", (0, -1), (-1, -1), 1.2, colors.black),
+            ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
+        ])))
+
+        where = [[p("LOCATIONS", label), p("MEETING POINT / ADDRESS", label)],
+                 [p(", ".join(stats.locations) or "-"), p(d.address or "-")]]
+        story.append(Table(where, colWidths=[width / 2] * 2, style=TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ])))
+        if d.notes:
+            story += [p("NOTES", label), p(d.notes)]
+
+        story.append(p(f"Scenes · {format_eighths(stats.eighths)} pages", h2))
+        scene_rows = [["#", "Set", "D/N", "Pages", "Cast", "Synopsis"]]
+        style = list(table_style)
+        for s in scenes:
+            scene_rows.append([s.number, p(s.heading, slug), s.day_night or "-", format_eighths(s.eighths),
+                               p(", ".join(s.characters) or "-"), p(notes[s.number].summary if s.number in notes else "", muted)])
+            style.append(("BACKGROUND", (0, len(scene_rows) - 1), (3, len(scene_rows) - 1),
+                          colors.HexColor(strip_color(s.int_ext, s.day_night))))
+        story.append(Table(scene_rows, colWidths=[10 * mm, 52 * mm, 15 * mm, 13 * mm, 40 * mm, width - 130 * mm],
+                           repeatRows=1, style=TableStyle(style)))
+
+        working = [c for c in dood if c.codes[i] and c.codes[i] != "H"]
+        holding = [c for c in dood if c.codes[i] == "H"]
+        story.append(p("Cast", h2))
+        cast_rows = [["Character", "Actor", "Status", "Scenes", "Call"]]
+        for c in working:
+            their = [s.number for s in scenes if c.character in s.characters or c.character in s.silent]
+            cast_rows.append([p(c.character), p(c.actor or "-"), c.codes[i], p(", ".join(their)), d.call_time or ""])
+        story.append(Table(cast_rows, colWidths=[50 * mm, 50 * mm, 18 * mm, 40 * mm, width - 158 * mm],
+                           repeatRows=1, style=TableStyle(table_style)))
+        story.append(Spacer(1, 2 * mm))
+        story.append(p("SW start work · W work · WF work finished · SWF one day only · H on hold today", muted))
+        if holding:
+            story.append(p("On hold today: " + ", ".join(c.character + (f" ({c.actor})" if c.actor else "") for c in holding), muted))
+
+        if elements:
+            needs: dict[str, dict[str, list[str]]] = {}
+            for s in scenes:
+                for e in elements.for_scene(s.number):
+                    needs.setdefault(e.category, {}).setdefault(e.name, []).append(s.number)
+            if needs:
+                dept_rows = [[p(LABELS[k], label), p(" · ".join(f"{name} ({', '.join(nums)})" for name, nums in needs[k].items()))]
+                             for k in LABELS if k in needs]
+                story.append(KeepTogether([
+                    p("Departments", h2),
+                    Table(dept_rows, colWidths=[38 * mm, width - 38 * mm], style=TableStyle([
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LINEBELOW", (0, 0), (-1, -1), 0.25, grid),
+                        *[("LINEBEFORE", (0, r), (0, r), 3, colors.HexColor(COLORS[k]))
+                          for r, k in enumerate(k for k in LABELS if k in needs)],
+                    ])),
+                ]))
+
+        if i + 1 < len(schedule.days):
+            nxt = schedule.days[i + 1]
+            upcoming = [rows[n] for n in nxt.scenes if n in rows]
+            when = " · ".join(x for x in (_date_label(nxt.date) if nxt.date else "", nxt.call_time and f"call {nxt.call_time}") if x)
+            story.append(p(f"Advance schedule · day {i + 2}" + (f" · {when}" if when else ""), h2))
+            story.append(p("; ".join(f"{s.number}. {s.heading}" for s in upcoming) or "No scenes yet.", muted))
+        return story
+
+    story: list = []
+    for k, i in enumerate([day - 1] if day else range(len(schedule.days))):
+        if k:
+            story.append(PageBreak())
+        story += sheet(i)
+
+    def footer(canvas, doc) -> None:
+        canvas.saveState()
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(colors.HexColor("#898781"))
+        canvas.drawString(14 * mm, 9 * mm, f"{title} · Call sheet")
+        canvas.drawRightString(A4[0] - 14 * mm, 9 * mm, f"Slugline · page {doc.page}")
+        canvas.restoreState()
+
+    out = io.BytesIO()
+    doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - call sheets", author="Slugline",
+                            leftMargin=14 * mm, rightMargin=14 * mm, topMargin=14 * mm, bottomMargin=16 * mm)
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    return out.getvalue()
+
+
+def day_out_of_days_csv(b: Breakdown, schedule: Schedule) -> str:
+    from slugline.schedule import day_out_of_days
+
+    header = ["character", "actor"] + [f"day {i}" + (f" ({d.date})" if d.date else "") for i, d in enumerate(schedule.days, 1)]
+    rows = [[c.character, c.actor, *c.codes] for c in day_out_of_days(schedule, b)]
+    return _csv(header + ["work days", "hold days"], [r + [c.work, c.hold] for r, c in zip(rows, day_out_of_days(schedule, b))])

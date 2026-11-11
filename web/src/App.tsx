@@ -15,7 +15,7 @@ import Chat from "./Chat";
 import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart, useDismiss } from "./charts";
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
 import SceneSheet from "./SceneSheet";
-import ScheduleBoard from "./ScheduleBoard";
+import ScheduleBoard, { CastCard } from "./ScheduleBoard";
 import type { Analysis, Breakdown, Category, Element, Elements, Issue, Schedule, Script, Status } from "./types";
 
 type Panel = { kind: "chat" } | { kind: "scene"; number: string } | null;
@@ -146,7 +146,7 @@ export default function App() {
       <input
         ref={fileInput}
         type="file"
-        accept=".fountain,.spmd,.txt,.pdf"
+        accept=".fountain,.spmd,.txt,.fdx,.pdf"
         hidden
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -208,7 +208,7 @@ export default function App() {
             ) : (
               <>
                 <h1>Break down a screenplay</h1>
-                <p>Drop a Fountain or PDF script anywhere on this page. It stays on this computer.</p>
+                <p>Drop a Fountain, Final Draft or PDF script anywhere on this page. It stays on this computer.</p>
                 <button className="primary" onClick={() => fileInput.current?.click()}>
                   Choose a file
                 </button>
@@ -245,7 +245,12 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
   const hasElements = (script.elements?.totals.length ?? 0) > 0;
   const hasSchedule = (script.schedule?.days.length ?? 0) > 0;
   const items = [
-    ...(hasSchedule ? [["schedule.csv", "Shooting schedule (CSV)"]] : []),
+    ...(hasSchedule
+      ? [
+          ["schedule.csv", "Shooting schedule (CSV)"],
+          ["day-out-of-days.csv", "Day out of days (CSV)"],
+        ]
+      : []),
     ["scenes.csv", "Scenes (CSV)"],
     ...(hasElements ? [["elements.csv", "Elements by scene (CSV)"]] : []),
     ["characters.csv", "Characters (CSV)"],
@@ -268,9 +273,14 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
                 Breakdown sheets, one per scene (PDF)
               </a>
               {hasSchedule && (
-                <a role="menuitem" href={exportUrl(script.id, "schedule.pdf")} download onClick={() => setOpen(false)}>
-                  Shooting schedule (PDF)
-                </a>
+                <>
+                  <a role="menuitem" href={exportUrl(script.id, "schedule.pdf")} download onClick={() => setOpen(false)}>
+                    Shooting schedule (PDF)
+                  </a>
+                  <a role="menuitem" href={exportUrl(script.id, "call-sheets.pdf")} download onClick={() => setOpen(false)}>
+                    Call sheets, every day (PDF)
+                  </a>
+                </>
               )}
             </>
           ) : (
@@ -347,7 +357,14 @@ function Dashboard(props: {
         onOpenScene={props.onOpenScene}
       />
 
-      <ScheduleBoard script={script} onChange={props.onScheduleChange} onError={props.onError} onOpenScene={props.onOpenScene} />
+      <ScheduleBoard
+        script={script}
+        pdfExport={status?.pdf_export ?? false}
+        onChange={props.onScheduleChange}
+        onError={props.onError}
+        onOpenScene={props.onOpenScene}
+      />
+      <CastCard script={script} pdfExport={status?.pdf_export ?? false} onChange={props.onScheduleChange} onError={props.onError} />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />

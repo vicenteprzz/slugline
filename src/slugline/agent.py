@@ -17,7 +17,7 @@ from slugline.elements import LABELS, ElementSheet, load_or_carry, totals
 from slugline.lint import lint
 from slugline.llm import LLMError, check_stop, make_client, model_name, open_stream
 from slugline.parser import Action, Dialogue, format_eighths, parse
-from slugline.schedule import Schedule, day_stats
+from slugline.schedule import Schedule, day_out_of_days, day_stats
 from slugline.schedule import load_or_carry as load_schedule
 
 MAX_STEPS = 12
@@ -84,8 +84,9 @@ TOOLS = [
     ),
     _tool(
         "shooting_schedule",
-        "The crew's shooting schedule: each shooting day with its date, scenes in shooting order, pages, "
-        "locations and cast, plus the scenes not scheduled yet.",
+        "The crew's shooting schedule: each shooting day with its date, call time, meeting point, scenes in "
+        "shooting order, pages, locations and cast; the scenes not scheduled yet; and the cast's day out of "
+        "days (which days each character works or is on hold, and the actor playing them).",
     ),
     _tool(
         "format_issues",
@@ -262,12 +263,20 @@ class ScriptAgent:
         days = []
         for i, day in enumerate(plan.days, start=1):
             stats = day_stats(day, self.breakdown, plan.pages_per_day)
-            days.append({"day": i, "date": day.date or None, "scenes": day.scenes, "eighths": stats.eighths,
+            days.append({"day": i, "date": day.date or None, "call_time": day.call_time or None,
+                         "meeting_point": day.address or None, "scenes": day.scenes, "eighths": stats.eighths,
                          "locations": stats.locations, "cast": stats.cast, "notes": day.notes or None,
                          "over_planned_pages": stats.over})
         scheduled = plan.scheduled()
+        cast = [
+            {"character": c.character, "actor": c.actor or None, "work_days": c.work, "hold_days": c.hold,
+             "by_day": {str(i): code for i, code in enumerate(c.codes, start=1) if code}}
+            for c in day_out_of_days(plan, self.breakdown)
+        ]
         return {"pages_per_day": plan.pages_per_day, "days": days,
-                "unscheduled": [s.number for s in self.play.scenes if s.number not in scheduled]}
+                "unscheduled": [s.number for s in self.play.scenes if s.number not in scheduled],
+                "day_out_of_days": {"codes": "SW start work, W work, WF work finish, SWF one day, H hold",
+                                    "cast": cast}}
 
     def _tool_format_issues(self, _args: dict) -> list[dict]:
         return [{"severity": i.severity, "scene": i.scene, "message": i.message} for i in lint(self.play)]

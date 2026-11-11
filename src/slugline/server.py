@@ -117,14 +117,25 @@ class DayIn(BaseModel):
     scenes: list[str]
     date: str = ""
     notes: str = ""
+    call_time: str = ""
+    address: str = ""
 
 
 class ScheduleIn(BaseModel):
     days: list[DayIn]
     pages_per_day: float | None = None
+    actors: dict[str, str] | None = None
 
 
 def _to_fountain(filename: str, data: bytes) -> str:
+    if filename.lower().endswith(".fdx"):
+        from slugline.fdx_import import fdx_to_fountain
+
+        try:
+            return fdx_to_fountain(data)
+        except RuntimeError as e:
+            message = str(e)
+            raise HTTPException(422, message[:1].upper() + message[1:]) from None
     if filename.lower().endswith(".pdf"):
         from slugline.pdf_import import pdf_to_fountain
 
@@ -135,7 +146,7 @@ def _to_fountain(filename: str, data: bytes) -> str:
     try:
         return data.decode("utf-8-sig")
     except UnicodeDecodeError:
-        raise HTTPException(422, "The file is not UTF-8 text. Upload a .fountain or .pdf file.") from None
+        raise HTTPException(422, "The file is not UTF-8 text. Upload a .fountain, .fdx or .pdf file.") from None
 
 
 def _download(body: str | bytes, media_type: str, filename: str) -> Response:
@@ -176,7 +187,7 @@ def create_app() -> FastAPI:
         script = await run_in_threadpool(store.add, Path(filename).name, text)
         if not script.breakdown.scenes:
             del store.scripts[script.id]
-            raise HTTPException(422, "No scene headings found. Is this a screenplay in Fountain or PDF format?")
+            raise HTTPException(422, "No scene headings found. Is this a screenplay in Fountain, Final Draft or PDF format?")
         return script.payload()
 
     @app.get("/api/scripts/{script_id}")
@@ -248,7 +259,10 @@ def create_app() -> FastAPI:
         if not 0.5 <= body.pages_per_day <= 30:
             raise HTTPException(422, "Pages per day must be between 0.5 and 30.")
         with script.lock:
-            return _save_schedule(script, scheduling.suggest(script.breakdown, body.pages_per_day))
+            plan = scheduling.suggest(script.breakdown, body.pages_per_day)
+            if script.schedule:
+                plan.actors = script.schedule.actors  # a new plan keeps the cast list
+            return _save_schedule(script, plan)
 
     @app.put("/api/scripts/{script_id}/schedule")
     def edit_schedule(script_id: str, body: ScheduleIn) -> dict:
@@ -258,7 +272,7 @@ def create_app() -> FastAPI:
         with script.lock:
             try:
                 plan = scheduling.set_days(script.breakdown, [d.model_dump() for d in body.days],
-                                           body.pages_per_day, script.schedule)
+                                           body.pages_per_day, script.schedule, body.actors)
             except ValueError as e:
                 raise HTTPException(422, str(e)) from None
             return _save_schedule(script, plan)
@@ -299,7 +313,7 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     @app.get("/api/scripts/{script_id}/export/{name}")
-    def export_file(script_id: str, name: str) -> Response:
+    def export_file(script_id: str, name: str, day: int | None = None) -> Response:
         script = store.get(script_id)
         stem = Path(script.filename).stem
         table, _, ext = name.partition(".")
@@ -312,17 +326,28 @@ def create_app() -> FastAPI:
                 raise HTTPException(404, "This script has no elements yet.")
             body = export.elements_csv(script.breakdown, script.elements)
             return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-elements.csv")
-        if name in ("schedule.csv", "schedule.pdf"):
+        if name in ("schedule.csv", "schedule.pdf", "day-out-of-days.csv", "call-sheets.pdf"):
             if not script.schedule or not script.schedule.days:
                 raise HTTPException(404, "This script has no shooting schedule yet.")
             if name == "schedule.csv":
                 body = export.schedule_csv(script.breakdown, script.schedule)
                 return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-schedule.csv")
+            if name == "day-out-of-days.csv":
+                body = export.day_out_of_days_csv(script.breakdown, script.schedule)
+                return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-day-out-of-days.csv")
             try:
-                body = export.schedule_pdf(script.breakdown, script.schedule, script.elements)
+                if name == "schedule.pdf":
+                    body = export.schedule_pdf(script.breakdown, script.schedule, script.elements)
+                    filename = f"{stem}-schedule.pdf"
+                else:
+                    body = export.call_sheets_pdf(script.breakdown, script.schedule, script.elements,
+                                                  script.analysis, day)
+                    filename = f"{stem}-call-sheet-day-{day}.pdf" if day else f"{stem}-call-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
-            return _download(body, "application/pdf", f"{stem}-schedule.pdf")
+            except ValueError as e:
+                raise HTTPException(404, str(e)) from None
+            return _download(body, "application/pdf", filename)
         if name in ("report.pdf", "breakdown-sheets.pdf"):
             try:
                 if name == "report.pdf":

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { clearSchedule, saveSchedule, suggestSchedule } from "./api";
+import { clearSchedule, exportUrl, saveSchedule, suggestSchedule } from "./api";
 import { eighths, plural, stripColor, titleCase } from "./format";
 import type { Schedule, Script, ShootDay } from "./types";
 
@@ -9,12 +9,14 @@ const UNSCHEDULED = -1;
 /** The shooting schedule: days of stripboard strips, reordered by dragging or with the "Move to" menu. */
 export default function ScheduleBoard(props: {
   script: Script;
+  pdfExport: boolean;
   onChange: (schedule: Schedule | null) => void;
   onError: (message: string) => void;
   onOpenScene: (number: string) => void;
 }) {
   const { script } = props;
   const plan = script.schedule && script.schedule.days.length ? script.schedule : null;
+  const pdf = props.pdfExport;
   const rows = new Map(script.breakdown.scenes.map((s) => [s.number, s]));
   const total = script.breakdown.scenes.reduce((sum, s) => sum + s.eighths, 0);
   const [pages, setPages] = useState(plan?.pages_per_day ?? 5);
@@ -41,7 +43,7 @@ export default function ScheduleBoard(props: {
     // Show the change at once; the server's answer replaces it, or the old plan comes back on error.
     props.onChange({ ...plan, days: days.map((d) => ({ ...d, stats: localStats(d) })), unscheduled: unscheduledOf(days) });
     setBusy(true);
-    saveSchedule(script.id, days.map(({ id, scenes, date, notes }) => ({ id, scenes, date, notes })))
+    saveSchedule(script.id, days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes, date, notes, call_time, address })))
       .then(props.onChange)
       .catch((e) => {
         props.onChange(previous);
@@ -71,7 +73,7 @@ export default function ScheduleBoard(props: {
   /** Move a scene to a day (or out of the schedule), before the scene at `position`. */
   function move(number: string, toDay: number, position?: number) {
     if (!plan) return;
-    const days = plan.days.map((d) => ({ id: d.id, scenes: d.scenes.filter((n) => n !== number), date: d.date, notes: d.notes }));
+    const days = plainDays().map((d) => ({ ...d, scenes: d.scenes.filter((n) => n !== number) }));
     if (toDay !== UNSCHEDULED) {
       const target = days[toDay].scenes;
       target.splice(position ?? target.length, 0, number);
@@ -79,7 +81,10 @@ export default function ScheduleBoard(props: {
     commit(days);
   }
 
-  const plainDays = () => plan!.days.map(({ id, scenes, date, notes }) => ({ id, scenes: [...scenes], date, notes }));
+  const plainDays = (): ShootDay[] =>
+    plan!.days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes: [...scenes], date, notes, call_time, address }));
+  const emptyDay = (): ShootDay => ({ id: "", scenes: [], date: "", notes: "", call_time: "", address: "" });
+  const editDay = (i: number, change: Partial<ShootDay>) => commit(plainDays().map((d, k) => (k === i ? { ...d, ...change } : d)));
 
   if (!plan) {
     return (
@@ -104,7 +109,7 @@ export default function ScheduleBoard(props: {
           <button
             className="ghost"
             disabled={busy}
-            onClick={() => run(() => saveSchedule(script.id, [{ id: "", scenes: [], date: "", notes: "" }], pages), props.onChange)}
+            onClick={() => run(() => saveSchedule(script.id, [emptyDay()], { pagesPerDay: pages }), props.onChange)}
           >
             Start with an empty day
           </button>
@@ -195,7 +200,7 @@ export default function ScheduleBoard(props: {
           </p>
         </div>
         <div className="schedule-actions">
-          <button className="ghost small" disabled={busy} onClick={() => commit([...plainDays(), { id: "", scenes: [], date: "", notes: "" }])}>
+          <button className="ghost small" disabled={busy} onClick={() => commit([...plainDays(), emptyDay()])}>
             Add day
           </button>
           <label className="replan">
@@ -249,12 +254,11 @@ export default function ScheduleBoard(props: {
             <li key={day.id || i} className={`day${over === i ? " drop" : ""}`} {...dropZone(i)}>
               <div className="day-head">
                 <strong>Day {i + 1}</strong>
-                <input
-                  type="date"
-                  value={day.date}
-                  aria-label={`Date of day ${i + 1}`}
-                  onChange={(e) => commit(plainDays().map((d, k) => (k === i ? { ...d, date: e.target.value } : d)))}
-                />
+                <input type="date" value={day.date} aria-label={`Date of day ${i + 1}`} onChange={(e) => editDay(i, { date: e.target.value })} />
+                <label className="call">
+                  Call
+                  <input type="time" value={day.call_time} aria-label={`Crew call, day ${i + 1}`} onChange={(e) => editDay(i, { call_time: e.target.value })} />
+                </label>
                 <span className={stats.over ? "day-pages over" : "day-pages"}>
                   {stats.over && <span aria-hidden="true">▲ </span>}
                   {eighths(stats.eighths)} of {plan.pages_per_day} pages
@@ -263,6 +267,11 @@ export default function ScheduleBoard(props: {
                   {stats.locations.map(titleCase).join(" · ") || "No scenes yet"}
                   {stats.light.length > 0 && ` · ${stats.light.map(titleCase).join(", ")}`}
                 </span>
+                {pdf && day.scenes.length > 0 && (
+                  <a className="small-link" href={exportUrl(script.id, "call-sheets.pdf", `?day=${i + 1}`)} download>
+                    Call sheet
+                  </a>
+                )}
                 <button
                   className="link small-link"
                   disabled={busy}
@@ -277,13 +286,24 @@ export default function ScheduleBoard(props: {
               ) : (
                 <p className="day-empty">Drag scenes here.</p>
               )}
-              <input
-                className="day-notes"
-                placeholder="Notes for this day (call time, company move, weather cover…)"
-                defaultValue={day.notes}
-                maxLength={500}
-                onBlur={(e) => e.target.value !== day.notes && commit(plainDays().map((d, k) => (k === i ? { ...d, notes: e.target.value } : d)))}
-              />
+              <div className="day-fields">
+                <input
+                  className="day-notes"
+                  placeholder="Meeting point or address"
+                  aria-label={`Meeting point, day ${i + 1}`}
+                  defaultValue={day.address}
+                  maxLength={300}
+                  onBlur={(e) => e.target.value !== day.address && editDay(i, { address: e.target.value })}
+                />
+                <input
+                  className="day-notes"
+                  placeholder="Notes for the call sheet (company move, weather cover…)"
+                  aria-label={`Notes, day ${i + 1}`}
+                  defaultValue={day.notes}
+                  maxLength={500}
+                  onBlur={(e) => e.target.value !== day.notes && editDay(i, { notes: e.target.value })}
+                />
+              </div>
             </li>
           );
         })}
@@ -296,6 +316,96 @@ export default function ScheduleBoard(props: {
         </div>
         {plan.unscheduled.length > 0 && <ol className="strips">{plan.unscheduled.map((n, k) => strip(n, UNSCHEDULED, k))}</ol>}
       </div>
+    </section>
+  );
+}
+
+const CODE_HELP: Record<string, string> = {
+  SW: "starts work",
+  W: "works",
+  WF: "finishes",
+  SWF: "works this day only",
+  H: "on hold",
+};
+
+/** Who works which day, as production tracks it for contracts, with the actor's name for each character. */
+export function CastCard(props: {
+  script: Script;
+  pdfExport: boolean;
+  onChange: (schedule: Schedule) => void;
+  onError: (message: string) => void;
+}) {
+  const plan = props.script.schedule;
+  if (!plan || !plan.days.length) return null;
+  const cast = plan.day_out_of_days;
+
+  async function setActor(character: string, actor: string) {
+    if (!plan || (plan.actors[character] ?? "") === actor.trim()) return;
+    const actors = { ...plan.actors, [character]: actor.trim() };
+    const days = plan.days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes, date, notes, call_time, address }));
+    try {
+      props.onChange(await saveSchedule(props.script.id, days, { actors }));
+    } catch (e) {
+      props.onError(e instanceof Error ? e.message : "The cast list could not be saved.");
+    }
+  }
+
+  return (
+    <section className="card">
+      <header className="card-head">
+        <div>
+          <h3>Cast and day out of days</h3>
+          <p>
+            Which shooting days each character works, from the schedule above. Holds are days between work days when the actor is paid but
+            not shooting: moving scenes to cut them saves money. Add the actors' names for the call sheets.
+          </p>
+        </div>
+        <a className="ghost small button-link" href={exportUrl(props.script.id, "day-out-of-days.csv")} download>
+          Download CSV
+        </a>
+      </header>
+      <div className="table-scroll">
+        <table className="data dood">
+          <thead>
+            <tr>
+              <th>Character</th>
+              <th>Actor</th>
+              {plan.days.map((d, i) => (
+                <th key={d.id || i} className="num" title={d.date || undefined}>
+                  {i + 1}
+                </th>
+              ))}
+              <th className="num">Work</th>
+              <th className="num">Hold</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cast.map((c) => (
+              <tr key={c.character}>
+                <td className="element-name">{titleCase(c.character)}</td>
+                <td>
+                  <input
+                    className="actor"
+                    placeholder="Actor's name"
+                    aria-label={`Actor playing ${titleCase(c.character)}`}
+                    defaultValue={c.actor}
+                    maxLength={80}
+                    onBlur={(e) => void setActor(c.character, e.target.value)}
+                  />
+                </td>
+                {c.codes.map((code, i) => (
+                  <td key={i} className={`code${code ? ` code-${code === "H" ? "hold" : "work"}` : ""}`} title={code ? `Day ${i + 1}: ${CODE_HELP[code]}` : undefined}>
+                    {code}
+                  </td>
+                ))}
+                <td className="num">{c.work}</td>
+                <td className={`num${c.hold ? " hold-count" : ""}`}>{c.hold}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="fine">SW starts work · W works · WF finishes · SWF one day only · H on hold.</p>
     </section>
   );
 }

@@ -10,7 +10,7 @@
     slugline chat SCRIPT             talk to the script assistant
     slugline serve [SCRIPT]          open the dashboard
 
-SCRIPT is a .fountain or .pdf file.
+SCRIPT is a .fountain, .fdx (Final Draft) or .pdf file.
 """
 
 from __future__ import annotations
@@ -38,6 +38,12 @@ def read_script(script: str) -> str:
             from slugline.pdf_import import pdf_to_fountain
 
             return pdf_to_fountain(path)
+        if path.suffix.lower() == ".fdx":
+            from slugline.fdx_import import fdx_to_fountain
+
+            if not path.is_file():
+                raise CLIError(f"cannot read {script}: No such file or directory")
+            return fdx_to_fountain(path)
         return path.read_text(encoding="utf-8-sig")
     except UnicodeDecodeError:
         raise CLIError(f"{script} is not UTF-8 text") from None
@@ -216,6 +222,12 @@ def cmd_schedule(args: argparse.Namespace) -> int:
     if args.pdf:
         _write(Path(args.pdf), export.schedule_pdf(result, plan, load_or_carry(text)))
         print(f"wrote {args.pdf}", file=sys.stderr)
+    if args.call_sheets:
+        from slugline.llm import cached_analysis
+
+        sheets = export.call_sheets_pdf(result, plan, load_or_carry(text), cached_analysis(text))
+        _write(Path(args.call_sheets), sheets)
+        print(f"wrote {args.call_sheets}", file=sys.stderr)
     if args.json:
         print(json.dumps(scheduling.to_payload(plan, result), indent=2, ensure_ascii=False))
         return 0
@@ -224,7 +236,8 @@ def cmd_schedule(args: argparse.Namespace) -> int:
           f"({len(plan.days)} days, {plan.pages_per_day:g} pages a day)\n")
     for i, day in enumerate(plan.days, start=1):
         stats = scheduling.day_stats(day, result, plan.pages_per_day)
-        extra = (f" · {day.date}" if day.date else "") + (" · OVER" if stats.over else "")
+        extra = (f" · {day.date}" if day.date else "") + (f" · call {day.call_time}" if day.call_time else "")
+        extra += " · OVER" if stats.over else ""
         print(f"DAY {i} · {format_eighths(stats.eighths)} pages{extra}")
         for n in day.scenes:
             s = rows[n]
@@ -235,6 +248,11 @@ def cmd_schedule(args: argparse.Namespace) -> int:
         print("NOT SCHEDULED")
         for s in unscheduled:
             print(f"  {s.number:>4}  {s.heading}")
+        print()
+    print("DAY OUT OF DAYS (SW start, W work, WF finish, SWF one day, H hold)")
+    print(f"  {'':<20}" + "".join(f"{i:>5}" for i in range(1, len(plan.days) + 1)) + "   work  hold")
+    for c in scheduling.day_out_of_days(plan, result):
+        print(f"  {c.character[:20]:<20}" + "".join(f"{x or '.':>5}" for x in c.codes) + f"   {c.work:>4}  {c.hold:>4}")
     return 0
 
 
@@ -293,7 +311,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="slugline",
-        description="Production breakdown for Fountain and PDF screenplays.",
+        description="Production breakdown for Fountain, Final Draft and PDF screenplays.",
         epilog="`slugline SCRIPT` is short for `slugline breakdown SCRIPT`.",
     )
     sub = ap.add_subparsers(dest="command", required=True, metavar="COMMAND")
@@ -302,7 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
         p = sub.add_parser(name, help=help, description=help)
         p.set_defaults(handler=handler)
         if script:
-            p.add_argument("script", help="path to a .fountain or .pdf file")
+            p.add_argument("script", help="path to a .fountain, .fdx or .pdf file")
         return p
 
     p = command("breakdown", cmd_breakdown, "Print the scene, character and location breakdown.")
@@ -334,6 +352,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--replan", action="store_true", help="replace the saved schedule with a new suggestion")
     p.add_argument("--pdf", metavar="FILE", help="also write the schedule as a PDF stripboard")
     p.add_argument("--csv", metavar="FILE", help="also write the schedule as CSV")
+    p.add_argument("--call-sheets", metavar="FILE", help="also write a call sheet for every day (PDF)")
     p.add_argument("--json", action="store_true", help="print the schedule as JSON")
 
     p = command("ask", cmd_ask, "Ask the script assistant one question.")
@@ -342,7 +361,7 @@ def build_parser() -> argparse.ArgumentParser:
     command("chat", cmd_chat, "Talk to the script assistant.")
 
     p = command("serve", cmd_serve, "Run the web dashboard.", script=False)
-    p.add_argument("script", nargs="?", help="a .fountain or .pdf file to open")
+    p.add_argument("script", nargs="?", help="a .fountain, .fdx or .pdf file to open")
     p.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1)")
     p.add_argument("--port", type=int, default=8000, help="port to listen on (default: 8000)")
     return ap

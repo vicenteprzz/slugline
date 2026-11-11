@@ -73,26 +73,54 @@ def match_scenes(old: list[dict], new: list[dict]) -> Matching:
     def location(heading: str) -> str:
         return parse_heading(heading)[1] or heading
 
+    old_words = [set(o["words"]) for o in old]
+    new_words = [set(n["words"]) for n in new]
+    old_places = [location(o["heading"]) for o in old]
+    new_places = [location(n["heading"]) for n in new]
+    # Even a perfect heading in the same position scores 0.4: below this much
+    # shared text a pair can't reach MIN_SCORE, so the slower comparisons are skipped.
+    min_content = (MIN_SCORE - 0.4) / 0.6
+
+    used_old: set[int] = set()
+    used_new: set[int] = set()
+    scenes: dict[str, SceneMatch] = {}
+
+    # Most scenes survive a rewrite untouched: pair identical scenes first, in
+    # script order, so only the changed ones need the slower comparison.
+    identical: dict[tuple, list[int]] = {}
+    for i, o in enumerate(old):
+        identical.setdefault((o["heading"], tuple(o["words"])), []).append(i)
+    for j, n in enumerate(new):
+        candidates = identical.get((n["heading"], tuple(n["words"])))
+        if candidates:
+            i = candidates.pop(0)
+            used_old.add(i)
+            used_new.add(j)
+            scenes[n["number"]] = SceneMatch(old[i]["number"], "unchanged")
+
     pairs = []
     for i, o in enumerate(old):
-        old_words = set(o["words"])
+        if i in used_old:
+            continue
         for j, n in enumerate(new):
-            heading = SequenceMatcher(None, o["heading"], n["heading"]).ratio()
-            new_words = set(n["words"])
-            union = old_words | new_words
-            content = len(old_words & new_words) / len(union) if union else 1.0
-            same_place = SequenceMatcher(None, location(o["heading"]), location(n["heading"])).ratio() >= 0.8
+            if j in used_new:
+                continue
+            union = old_words[i] | new_words[j]
+            content = len(old_words[i] & new_words[j]) / len(union) if union else 1.0
+            if content < min_content:
+                continue
+            same_place = old_places[i] == new_places[j] or (
+                SequenceMatcher(None, old_places[i], new_places[j]).ratio() >= 0.8
+            )
             if not same_place and content < MOVED_LOCATION_CONTENT:
                 continue  # a different place with different action is a different scene
+            heading = 1.0 if o["heading"] == n["heading"] else SequenceMatcher(None, o["heading"], n["heading"]).ratio()
             position = 1 - abs(i / max(len(old), 1) - j / max(len(new), 1))
             score = 0.3 * heading + 0.6 * content + 0.1 * position
             if score >= MIN_SCORE:
                 pairs.append((score, i, j))
     pairs.sort(key=lambda p: (-p[0], p[1], p[2]))
 
-    used_old: set[int] = set()
-    used_new: set[int] = set()
-    scenes: dict[str, SceneMatch] = {}
     for _score, i, j in pairs:
         if i in used_old or j in used_new:
             continue

@@ -306,7 +306,10 @@ export function Heatmap(props: {
   const [ref, width] = useWidth<HTMLDivElement>();
   const { tip, show, hide } = useTip();
   const labelW = Math.min(150, Math.max(90, width * 0.26));
-  const cell = Math.max(10, Math.min(34, (width - labelW) / Math.max(columns.length, 1)));
+  // Cells shrink to fit every scene in the card; on a feature with 200+ scenes
+  // they get thin, and the table view carries the exact numbers.
+  const cell = Math.max(1, Math.min(34, (width - labelW) / Math.max(columns.length, 1)));
+  const gap = cell >= 8 ? GAP : cell >= 4 ? 1 : 0;
   const rowH = 22;
   const max = Math.max(...rows.flatMap((r) => r.cells.map((c) => c.value)), 1);
   // Five steps of one hue: more words, darker (lighter in dark mode).
@@ -337,13 +340,13 @@ export function Heatmap(props: {
                     <rect
                       x={x}
                       y={r * rowH}
-                      width={cell - GAP}
+                      width={Math.max(cell - gap, 0.5)}
                       height={rowH - GAP}
-                      rx={2}
+                      rx={cell >= 8 ? 2 : 0}
                       className={c.value ? `heat heat-${step(c.value)}` : "heat heat-0"}
                     />
-                    {!c.value && c.marked && (
-                      <circle cx={x + (cell - GAP) / 2} cy={r * rowH + (rowH - GAP) / 2} r={3.5} className="heat-mark" />
+                    {!c.value && c.marked && cell >= 8 && (
+                      <circle cx={x + (cell - gap) / 2} cy={r * rowH + (rowH - GAP) / 2} r={3.5} className="heat-mark" />
                     )}
                   </g>
                 );
@@ -353,7 +356,7 @@ export function Heatmap(props: {
           {columns.map(
             (c, i) =>
               i % every === 0 && (
-                <text key={c.label} x={labelW + i * cell + (cell - GAP) / 2} y={rows.length * rowH + 14} textAnchor="middle" className="tick">
+                <text key={c.label} x={labelW + i * cell + (cell - gap) / 2} y={rows.length * rowH + 14} textAnchor="middle" className="tick">
                   {c.label}
                 </text>
               ),

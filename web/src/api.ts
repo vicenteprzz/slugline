@@ -54,18 +54,18 @@ export const suggestSchedule = (id: string, pagesPerDay: number) =>
     }),
   );
 
-export const saveSchedule = (id: string, days: ShootDay[], pagesPerDay?: number) =>
+export const saveSchedule = (id: string, days: ShootDay[], options: { pagesPerDay?: number; actors?: Record<string, string> } = {}) =>
   json<Schedule>(
     fetch(`/api/scripts/${id}/schedule`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ days, pages_per_day: pagesPerDay ?? null }),
+      body: JSON.stringify({ days, pages_per_day: options.pagesPerDay ?? null, actors: options.actors ?? null }),
     }),
   );
 
 export const clearSchedule = (id: string) => json<{ ok: boolean }>(fetch(`/api/scripts/${id}/schedule`, { method: "DELETE" }));
 
-export const exportUrl = (id: string, name: string) => `/api/scripts/${id}/export/${name}`;
+export const exportUrl = (id: string, name: string, query = "") => `/api/scripts/${id}/export/${name}${query}`;
 
 export const resetChat = (id: string, session: string) =>
   fetch(`/api/scripts/${id}/chat/${session}`, { method: "DELETE" });
