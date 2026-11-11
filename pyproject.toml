@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slugline"
-version = "0.1.0"
-description = "Screenplay breakdown and analysis for Fountain scripts"
+version = "0.2.0"
+description = "Screenplay breakdown and analysis for Fountain and PDF scripts"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -14,13 +14,21 @@ dependencies = []
 
 [project.optional-dependencies]
 pdf = ["pypdf>=4"]
-dev = ["pytest>=8", "pypdf>=4"]
+llm = ["anthropic>=1.1"]
+web = ["fastapi>=0.110", "uvicorn>=0.27"]
+export = ["reportlab>=4"]
+all = ["slugline[pdf,llm,web,export]"]
+dev = ["slugline[all]", "pytest>=8", "httpx>=0.27"]
 
 [project.scripts]
 slugline = "slugline.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# The built dashboard (cd web && npm run build).
+slugline = ["static/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,25 +4,57 @@
 
 Breaking a script down for production is slow, manual work: going scene by scene,
 listing who is in it, where it happens, whether it's day or night, and how long it
-runs. Slugline reads a screenplay and does that breakdown for you.
+runs. Slugline reads a screenplay and does that breakdown for you, as tables in the
+terminal, as CSV and PDF reports, or as a web dashboard with an AI assistant that
+can answer questions about the script.
 
-> Status: early stage. The parser, PDF import and text breakdown work today.
-> The dashboard and LLM features are on the roadmap below.
+## What it does
 
-## What it does today
+**Parsing**
 
 - Parses Fountain screenplays into scenes, dialogue, action and transitions
-- **Imports PDF screenplays** by reading the industry layout (indentation tells
+- Imports PDF screenplays by reading the industry layout (indentation tells
   action, dialogue, parentheticals, character cues and transitions apart), and
   joins dialogue split across pages with `(MORE)` / `(CONT'D)`
 - Handles the tricky parts of Fountain: forced scene headings (`.FLASHBACK`),
   forced characters (`@McCLANE`) and action (`!KNOCK KNOCK`), extensions like
-  `(V.O.)` / `(CONT'D)`, dual dialogue (`^`), title pages, notes `[[ ]]` and boneyard `/* */`
-- Splits each scene heading into **INT/EXT**, **location** and **time of day**
-- Estimates scene length in **eighths of a page**, the unit used on production boards
-- Character stats: scenes each character appears in, dialogue blocks and word count
+  `(V.O.)` / `(CONT'D)`, dual dialogue (`^`), centered text, emphasis markers,
+  title pages, notes `[[ ]]` and boneyard `/* */`
+
+**Breakdown**
+
+- Splits each scene heading into INT/EXT, location and time of day, and groups
+  times into the four lighting conditions a schedule cares about (day, night,
+  dawn, dusk). `LATER` and `CONTINUOUS` take the condition of the scene before
+- Estimates scene length in eighths of a page, the unit used on production boards
+- Character stats: scenes, dialogue cues and words, plus the scenes where the
+  action names a character who has no lines there
 - Location stats: how many scenes and pages each location needs
-- Output as readable tables or JSON
+- Formatting checks: headings without INT/EXT or time of day, empty scenes,
+  character or location names written two ways (`SHERIF` / `SHERIFF`), scene
+  numbering gaps
+
+**Exports**
+
+- CSV tables (scenes, characters, locations) that open cleanly in Excel or Sheets
+- A printable PDF production report with a colour-coded stripboard
+
+**Dashboard** (`slugline serve`)
+
+- Stripboard, who speaks in each scene, dialogue share, a character-by-scene
+  presence map, day/night and interior/exterior balance, locations
+- Every chart has a table view, and the page follows the system light or dark theme
+
+**AI features** (optional, need an Anthropic API key)
+
+- A summary, emotional tone, tension and mood score for every scene, plus a
+  logline, synopsis and themes for the whole script
+- A proofread that looks for formatting problems rules can't catch, such as a
+  line of dialogue formatted as action
+- A script assistant you can ask in plain language ("which scenes could shoot on
+  the same day?"). It answers with tools that read the parsed script, so the
+  counts and page lengths it gives are the same exact numbers as the breakdown,
+  not the model's estimate
 
 ## Quick start
 
@@ -32,11 +64,39 @@ cd slugline
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-slugline examples/johns_boys.fountain
-slugline examples/johns_boys.fountain --json
-slugline my_script.pdf --fountain my_script.fountain   # PDF in, Fountain out
+slugline examples/johns_boys.fountain                 # breakdown tables
+slugline my_script.pdf --fountain my_script.fountain  # PDF in, Fountain out
+slugline lint examples/johns_boys.fountain            # formatting checks
+slugline export examples/johns_boys.fountain --csv out/ --pdf out/report.pdf
 pytest
 ```
+
+The dashboard is a React app that is built once into the Python package:
+
+```bash
+cd web && npm install && npm run build && cd ..
+slugline serve examples/johns_boys.fountain           # http://127.0.0.1:8000
+```
+
+You can also start `slugline serve` with no script and drop a file on the page.
+Scripts stay in memory on your machine.
+
+### AI features
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+slugline analyze examples/johns_boys.fountain          # summaries, tone, proofread
+slugline ask examples/johns_boys.fountain "Who is in the barn scenes?"
+slugline chat examples/johns_boys.fountain             # a conversation
+slugline export examples/johns_boys.fountain --pdf report.pdf --ai
+```
+
+With the key set, the dashboard shows an **Analyze the script** button and an
+**Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
+to use another one. An analysis is cached in `~/.cache/slugline` by script
+content and model, so asking twice for the same script makes no new request.
+Using these features sends the script to the Anthropic API.
 
 ## Example: *John's Boys*
 
@@ -49,7 +109,7 @@ JOHN'S BOYS — 13 scenes, ~31.9 pages (estimated)
 SCENES
   #   INT/EXT  LOCATION                     TIME                 LENGTH  CHARACTERS
   1   INT      BIG JOHN'S OFFICE            NIGHT                5       MAN 1, BIG JOHN, MAN 2, MR. B, MR. D, MR. X, MR. G
-  2   EXT      MAIN STREET, OGALLALA        SUNSET               6/8     MR. B, MR. X
+  2   EXT      MAIN STREET, OGALLALA        SUNSET               6/8     MR. B, MR. X (silent: MR. D, MR. G)
   3   EXT      ALLEY, OGALLALA              CONTINUOUS           1 1/8   MR. G, MR. B
   ...
 
@@ -65,6 +125,9 @@ LOCATIONS
   BARN                         6       18 4/8
   BIG JOHN'S OFFICE            2       5 5/8
   ...
+
+INT/EXT: INT 9, EXT 4
+DAY/NIGHT: NIGHT 7, DUSK 4, DAWN 1, DAY 1
 ```
 
 The page estimate (31.9) is within 10% of the real length (34 pages).
@@ -73,36 +136,69 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
 
 ```
 .pdf ──► pdf_import.py ──┐
-                         ├──► parser.py ──► Screenplay ──► breakdown.py ──► tables / JSON
-.fountain ───────────────┘
+                         ├──► parser.py ──► Screenplay ──┬──► breakdown.py ──► tables / JSON
+.fountain ───────────────┘                               ├──► lint.py ──────► formatting checks
+                                                         ├──► export.py ────► CSV / PDF
+                                                         ├──► llm.py ───────► summaries, tone, proofread
+                                                         ├──► agent.py ─────► script assistant
+                                                         └──► server.py ────► API for the dashboard (web/)
 ```
 
-- `slugline/parser.py` — a line-based parser that follows the Fountain spec rules
+- `parser.py` is a line-based parser that follows the Fountain spec rules
   (an element is decided by its own line, the blank line before it and the line after it).
-- `slugline/pdf_import.py` — converts PDF text to Fountain using the indentation
+- `pdf_import.py` converts PDF text to Fountain using the indentation
   of each line. It works on extracted text, so it's tested without PDFs.
-- `slugline/breakdown.py` — aggregates the parsed scenes into character, location
-  and scene reports.
-- `slugline/cli.py` — command-line entry point.
+- `breakdown.py` aggregates the parsed scenes into scene, character and location reports.
+- `llm.py` asks Claude for structured JSON (a schema per request), with the
+  script sent as a cached block so that the later requests about it cost less.
+- `agent.py` is a tool-use loop: Claude decides which of seven read-only tools
+  to call (list scenes, read scenes, a character's dialogue, search...) and the
+  answers come back from the parsed script.
+- `server.py` is a small FastAPI app; the chat endpoint streams the answer as
+  it is written. `web/` is the React dashboard, with charts drawn in plain SVG.
 
-The core uses only the Python standard library; PDF import needs `pypdf`
-(`pip install -e ".[pdf]"`).
+The core (parser, breakdown, lint, CSV) uses only the Python standard library.
+Everything else is an optional extra:
+
+| Extra | Adds | Needs |
+|---|---|---|
+| `slugline[pdf]` | PDF import | `pypdf` |
+| `slugline[export]` | PDF report | `reportlab` |
+| `slugline[web]` | Dashboard | `fastapi`, `uvicorn` |
+| `slugline[llm]` | AI features | `anthropic` |
+| `slugline[all]` | All of the above | |
+
+### Tests
+
+`pytest` runs the whole suite without a network or an API key. The LLM tests use
+the real Anthropic SDK with its HTTP layer replaced by canned responses
+(`tests/fake_api.py`), so they check the requests Slugline sends and how it
+handles answers, refusals and API errors.
+
+To work on the dashboard, run `slugline serve` in one terminal and
+`npm run dev` inside `web/` in another; the dev server proxies `/api` to port 8000.
 
 ## Known limitations
 
 - Page length is an **estimate** based on line wrapping, not real pagination.
-- Only speaking characters are counted; characters who appear without dialogue
-  are not detected yet.
+- A character who never speaks anywhere in the script is not detected. Silent
+  appearances are found by name, so a character called WILL would also match
+  the capitalised word "Will" at the start of a sentence.
 - `INTERCUT` blocks stay inside the scene where they start.
 - PDF import expects standard screenplay layout; dual dialogue in PDFs isn't supported yet.
+- The dashboard keeps scripts in memory: restarting the server forgets them
+  (cached AI analyses survive).
+- Tone, tension and mood are a model's reading of the script. They are useful
+  for seeing the shape of the story, not a measurement.
 
 ## Roadmap
 
 1. **Parser and breakdown** — Fountain parser, scene/character/location extraction ✅
-2. **Analytics dashboard** — FastAPI backend + React frontend with charts
-   (who speaks in each scene, dialogue share across the story, day/night balance)
-3. **LLM features** — scene summaries, emotional tone tagging, formatting issue detection
-4. **PDF support and exports** — PDF import ✅, export production reports (CSV/PDF)
+2. **Analytics dashboard** — FastAPI backend + React frontend with charts ✅
+3. **LLM features** — scene summaries, tone tagging, formatting proofread, script assistant ✅
+4. **PDF support and exports** — PDF import, CSV and PDF production reports ✅
+5. **Next** — props, wardrobe and vehicles per scene; a drag-and-drop shooting
+   schedule built from the stripboard; Final Draft (`.fdx`) import
 
 ## Built with an AI coding assistant
 

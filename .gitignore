@@ -5,6 +5,9 @@ __pycache__/
 venv/
 .pytest_cache/
 dist/
+node_modules/
+# Built dashboard: cd web && npm run build
+src/slugline/static/
 build/
 .DS_Store
 # Keep private scripts out of the repo

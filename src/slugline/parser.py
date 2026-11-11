@@ -25,6 +25,25 @@ EXTENSION = re.compile(r"\(([^)]*)\)")
 TITLE_KEY = re.compile(r"^([A-Za-z][A-Za-z ]*):\s*(.*)$")
 NOTE = re.compile(r"\[\[.*?\]\]", re.DOTALL)
 BONEYARD = re.compile(r"/\*.*?\*/", re.DOTALL)
+# *italic*, **bold**, ***both*** and _underline_ markers are not printed.
+EMPHASIS = re.compile(r"(?<!\\)(\*{1,3}|_)(?=\S)(.+?)(?<=\S)(?<!\\)\1")
+ESCAPED = re.compile(r"\\([*_])")
+
+# The last " - " part of a heading is the time of day only if it reads like one;
+# otherwise "EXT. RANCH - CORRAL" would get CORRAL as its time.
+TIME_HINT = re.compile(
+    r"\b(DAY|NIGHT|MORNING|AFTERNOON|EVENING|DAWN|DUSK|SUNSET|SUNRISE|NOON|MIDDAY|MIDNIGHT"
+    r"|TWILIGHT|MAGIC HOUR|LATER|CONTINUOUS|SAME|MOMENTS?)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
+    re.IGNORECASE,
+)
+# Production boards only care about four lighting conditions. Order matters:
+# "PRE-DAWN" is dawn, "THE NEXT DAY" is day.
+DAY_NIGHT = [
+    ("DAWN", re.compile(r"\b(DAWN|SUNRISE)\b")),
+    ("DUSK", re.compile(r"\b(DUSK|SUNSET|TWILIGHT|MAGIC HOUR)\b")),
+    ("NIGHT", re.compile(r"\b(NIGHT|MIDNIGHT|EVENING)\b")),
+    ("DAY", re.compile(r"\b(DAY|MORNING|AFTERNOON|NOON|MIDDAY)\b")),
+]
 
 # Rough layout of a printed page in standard screenplay format.
 LINES_PER_PAGE = 55
@@ -72,6 +91,11 @@ class Scene:
     time_of_day: str | None = None
     scene_number: str | None = None
     elements: list[Element] = field(default_factory=list)
+    # DAY / NIGHT / DAWN / DUSK. Relative times (LATER, CONTINUOUS...) inherit
+    # the value of the scene before them.
+    day_night: str | None = None
+    # 1-based line of the heading in the source text.
+    line: int = 0
 
     @property
     def number(self) -> str:
@@ -89,6 +113,25 @@ class Scene:
         for d in self.dialogues:
             seen.setdefault(d.character, None)
         return list(seen)
+
+    @property
+    def action_text(self) -> str:
+        return "\n".join(e.text for e in self.elements if isinstance(e, Action))
+
+    def to_text(self) -> str:
+        """The scene as readable Fountain-like text."""
+        out = [self.heading]
+        for e in self.elements:
+            out.append("")
+            if isinstance(e, Action):
+                out.append(e.text)
+            elif isinstance(e, Transition):
+                out.append(f"> {e.text}")
+            else:
+                ext = "".join(f" ({x})" for x in e.extensions)
+                out.append(f"{e.character}{ext}")
+                out += e.parentheticals + e.lines
+        return "\n".join(out)
 
     @property
     def printed_lines(self) -> int:
@@ -151,6 +194,8 @@ def parse_heading(text: str) -> tuple[str | None, str, str | None]:
     ('INT', 'SALOON', 'NIGHT')
     >>> parse_heading("EXT. RANCH - CORRAL - DAY")
     ('EXT', 'RANCH - CORRAL', 'DAY')
+    >>> parse_heading("EXT. RANCH - CORRAL")
+    ('EXT', 'RANCH - CORRAL', None)
     """
     int_ext = None
     rest = text.strip()
@@ -160,15 +205,34 @@ def parse_heading(text: str) -> tuple[str | None, str, str | None]:
         int_ext = "INT/EXT" if prefix in ("INT/EXT", "I/E") else prefix
         rest = rest[m.end():]
     parts = TIME_SEPARATOR.split(rest)
-    if len(parts) > 1:
+    if len(parts) > 1 and TIME_HINT.search(parts[-1]):
         return int_ext, " - ".join(parts[:-1]).strip(), parts[-1].strip().upper()
-    return int_ext, rest.strip(), None
+    return int_ext, " - ".join(p.strip() for p in parts), None
+
+
+def day_night(time_of_day: str | None) -> str | None:
+    """Map a heading's time of day to DAY / NIGHT / DAWN / DUSK, if it says."""
+    for label, pattern in DAY_NIGHT:
+        if time_of_day and pattern.search(time_of_day.upper()):
+            return label
+    return None
 
 
 def _strip_invisible(text: str) -> str:
-    """Remove notes and boneyard, which never appear in the printed script."""
-    text = BONEYARD.sub("", text)
-    return NOTE.sub("", text)
+    """Remove notes and boneyard, which never appear in the printed script.
+
+    Newlines inside them are kept so line numbers still match the source.
+    """
+    keep_lines = lambda m: "\n" * m.group(0).count("\n")  # noqa: E731
+    return NOTE.sub(keep_lines, BONEYARD.sub(keep_lines, text))
+
+
+def _plain(text: str) -> str:
+    """Drop emphasis markers: *italic*, **bold**, _underline_."""
+    prev = None
+    while prev != text:
+        prev, text = text, EMPHASIS.sub(r"\2", text)
+    return ESCAPED.sub(r"\1", text)
 
 
 def _parse_title_page(lines: list[str]) -> tuple[dict[str, str], int]:
@@ -176,8 +240,15 @@ def _parse_title_page(lines: list[str]) -> tuple[dict[str, str], int]:
     i = 0
     while i < len(lines) and not lines[i].strip():
         i += 1
-    if i >= len(lines) or not TITLE_KEY.match(lines[i]):
+    first = TITLE_KEY.match(lines[i]) if i < len(lines) else None
+    if not first:
         return {}, 0
+    if not first.group(2).strip():
+        # "Key:" with no value needs an indented value on the next line.
+        # Otherwise it's a script that opens with "FADE IN:", not a title page.
+        following = lines[i + 1] if i + 1 < len(lines) else ""
+        if not (following.strip() and following[0].isspace()):
+            return {}, 0
 
     fields: dict[str, str] = {}
     key = None
@@ -224,9 +295,14 @@ def _character_name(line: str) -> tuple[str, list[str], bool] | None:
     return name, extensions, dual
 
 
+def normalize(text: str) -> str:
+    """Drop the BOM and use \\n line endings, so line numbers mean one thing."""
+    return text.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+
+
 def parse(text: str) -> Screenplay:
     """Parse Fountain text into a Screenplay."""
-    lines = _strip_invisible(text.replace("\r\n", "\n")).split("\n")
+    lines = _strip_invisible(normalize(text)).split("\n")
     title_page, i = _parse_title_page(lines)
     play = Screenplay(title_page=title_page)
     current: list[Element] = play.preamble
@@ -261,7 +337,9 @@ def parse(text: str) -> Screenplay:
                 location=location.upper(),
                 time_of_day=time,
                 scene_number=scene_number,
+                line=i + 1,
             )
+            scene.day_night = day_night(time) or (play.scenes[-1].day_night if play.scenes else None)
             play.scenes.append(scene)
             current = scene.elements
             i += 1
@@ -282,7 +360,7 @@ def parse(text: str) -> Screenplay:
                 if part.startswith("(") and part.endswith(")"):
                     block.parentheticals.append(part)
                 else:
-                    block.lines.append(part)
+                    block.lines.append(_plain(part))
                 i += 1
             current.append(block)
             continue
@@ -291,7 +369,11 @@ def parse(text: str) -> Screenplay:
         paragraph = []
         while i < n and lines[i].strip():
             part = lines[i].strip()
-            paragraph.append(part[1:] if part.startswith("!") else part)
+            if part.startswith("!"):
+                part = part[1:]
+            elif part.startswith(">") and part.endswith("<"):
+                part = part[1:-1].strip()  # centered text
+            paragraph.append(_plain(part))
             i += 1
         current.append(Action("\n".join(paragraph)))
         prev_blank = False
@@ -300,4 +382,4 @@ def parse(text: str) -> Screenplay:
 
 
 def parse_file(path: str | Path) -> Screenplay:
-    return parse(Path(path).read_text(encoding="utf-8"))
+    return parse(Path(path).read_text(encoding="utf-8-sig"))

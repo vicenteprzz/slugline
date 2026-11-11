@@ -69,7 +69,7 @@ def test_transitions_and_centered_text():
     assert play.scenes[0].elements[1:] == [
         Transition("CUT TO:"),
         Transition("FADE OUT."),
-        Action(">THE END<"),
+        Action("THE END"),  # centered: the > < markers are not printed
     ]
 
 
@@ -106,3 +106,42 @@ def test_dialogue_word_count():
 @pytest.mark.parametrize("eighths, text", [(1, "1/8"), (8, "1"), (11, "1 3/8"), (16, "2")])
 def test_format_eighths(eighths, text):
     assert format_eighths(eighths) == text
+
+
+def test_fade_in_is_not_a_title_page():
+    play = parse("FADE IN:\n\nINT. A - DAY\n\nX.\n")
+    assert play.title_page == {}
+    assert play.preamble == [Action("FADE IN:")]
+    assert len(play.scenes) == 1
+
+
+def test_bom_and_old_mac_line_endings():
+    play = parse("\ufeffTitle: X\r\rINT. A - DAY\r\rBOB\rHi.\r")
+    assert play.title == "X"
+    assert play.scenes[0].characters == ["BOB"]
+
+
+def test_last_dash_part_is_only_a_time_if_it_reads_like_one():
+    assert parse_heading("EXT. RANCH - CORRAL") == ("EXT", "RANCH - CORRAL", None)
+    assert parse_heading("INT. BAR - 3 AM") == ("INT", "BAR", "3 AM")
+    assert parse_heading("INT. BARN - A FEW MINUTES LATER") == ("INT", "BARN", "A FEW MINUTES LATER")
+
+
+def test_day_night_is_inherited_by_relative_times():
+    play = parse(
+        "EXT. A - SUNSET\n\nX.\n\nEXT. B - CONTINUOUS\n\nX.\n\n"
+        "INT. C - NIGHT\n\nX.\n\nINT. C - LATER\n\nX.\n\nEXT. D - THE NEXT MORNING\n\nX.\n"
+    )
+    assert [s.day_night for s in play.scenes] == ["DUSK", "DUSK", "NIGHT", "NIGHT", "DAY"]
+
+
+def test_emphasis_markers_are_not_printed():
+    play = parse("INT. A - DAY\n\nBOB\n*Really* _now_, **ok** and \\*literal\\*.\n\nHe ***runs***.\n")
+    scene = play.scenes[0]
+    assert scene.dialogues[0].lines == ["Really now, ok and *literal*."]
+    assert scene.elements[1] == Action("He runs.")
+
+
+def test_scene_line_numbers_survive_notes_and_boneyard():
+    play = parse("Title: X\n\n/* cut\nthis */\n\nINT. A - DAY\n\nX. [[a\nnote]]\n\nEXT. B - DAY\n\nY.\n")
+    assert [s.line for s in play.scenes] == [6, 11]

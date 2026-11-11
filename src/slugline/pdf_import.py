@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import BinaryIO
 
 from slugline.parser import SCENE_PREFIX
 
@@ -103,7 +104,7 @@ def pdf_text_to_fountain(text: str) -> str:
             out.append(s)
             last_cue, last = base, "cue"
         elif kind == "parenthetical":
-            if last == "parenthetical" and not out[-1].endswith(")"):
+            if last == "parenthetical" and out[-1] and not out[-1].endswith(")"):
                 out[-1] += " " + s
             else:
                 out.append(s)
@@ -128,12 +129,19 @@ def pdf_text_to_fountain(text: str) -> str:
     return body + "\n"
 
 
-def pdf_to_fountain(path: str | Path) -> str:
-    """Read a screenplay PDF and return it as Fountain text. Needs `pypdf`."""
+def pdf_to_fountain(path: str | Path | BinaryIO) -> str:
+    """Read a screenplay PDF (a path or an open binary file) and return it as
+    Fountain text. Needs `pypdf`."""
     try:
         from pypdf import PdfReader
     except ImportError as e:
         raise RuntimeError("PDF support needs pypdf: pip install 'slugline[pdf]'") from e
-    reader = PdfReader(str(path))
-    text = "\f".join(p.extract_text(extraction_mode="layout") for p in reader.pages)
+    from pypdf.errors import PyPdfError
+
+    try:
+        reader = PdfReader(path if hasattr(path, "read") else str(path))
+        text = "\f".join(p.extract_text(extraction_mode="layout") for p in reader.pages)
+    except PyPdfError as e:
+        name = "the file" if hasattr(path, "read") else path
+        raise RuntimeError(f"cannot read {name} as a PDF: {e}") from e
     return pdf_text_to_fountain(text)

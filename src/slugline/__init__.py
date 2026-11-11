@@ -1,5 +1,7 @@
-"""Slugline: screenplay breakdown and analysis for Fountain scripts."""
+"""Slugline: screenplay breakdown and analysis for Fountain and PDF scripts."""
 
+from slugline.breakdown import Breakdown, breakdown
+from slugline.lint import Issue, lint
 from slugline.parser import (
     Action,
     Dialogue,
@@ -12,12 +14,16 @@ from slugline.parser import (
 
 __all__ = [
     "Action",
+    "Breakdown",
     "Dialogue",
+    "Issue",
     "Scene",
     "Screenplay",
     "Transition",
+    "breakdown",
+    "lint",
     "parse",
     "parse_file",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
