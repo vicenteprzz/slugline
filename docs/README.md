@@ -32,7 +32,8 @@ Precios section too.
 1. Build the app: `packaging/macos/build.sh` (it makes `dist/Slugline.dmg`).
 2. On GitHub: **Releases → Draft a new release**, tag `v0.7.0`, and drag
    `Slugline.dmg` into the assets box. Publish it.
-3. Copy the link of the uploaded `.dmg` and paste it as `download` above.
+3. `download` already points to `releases/latest/download/Slugline.dmg`, so the
+   page always offers the newest release as long as the file is named `Slugline.dmg`.
 
 The app is not signed yet, so on other Macs the first launch needs a right
 click → **Open**. An Apple Developer ID (99 $/year) removes that warning.
