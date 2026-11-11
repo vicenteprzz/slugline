@@ -278,7 +278,7 @@ def test_api_schedule_and_new_drafts():
 
     from slugline.server import create_app
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
     sid = client.post("/api/scripts", params={"filename": "v1.fountain"}, content=DRAFT_1.encode()).json()["id"]
     assert client.get(f"/api/scripts/{sid}/export/schedule.pdf").status_code == 404
 

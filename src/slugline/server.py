@@ -1,6 +1,6 @@
 """Web API behind the dashboard. Run it with `slugline serve`.
 
-Scripts live in memory for as long as the server runs; nothing is uploaded
+Scripts are kept on this computer (see `library`); nothing is uploaded
 anywhere except, when the AI features are used, to the Anthropic API.
 """
 
@@ -16,11 +16,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import HTMLResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, elements, export, llm
+from slugline import __version__, elements, export, library, llm, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -28,6 +28,12 @@ from slugline.lint import Issue, lint
 from slugline.parser import parse
 
 STATIC = Path(__file__).parent / "static"
+EXAMPLES = {"johns-boys": Path(__file__).parent / "examples" / "johns_boys.fountain"}
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "[::1]", "testserver"}
+# Requests that change something must carry this header. Browsers don't let
+# another website add it without asking the server first, so a page open in
+# another tab can't use this app (and its API key) behind the user's back.
+APP_HEADER = "x-slugline"
 MAX_UPLOAD = 25 * 1024 * 1024
 BOM = "﻿"  # makes Excel read accented names in a CSV correctly
 
@@ -68,10 +74,16 @@ class Store:
     def __init__(self) -> None:
         self.scripts: dict[str, Script] = {}
 
-    def add(self, filename: str, text: str) -> Script:
+    def add(self, filename: str, text: str, keep: bool = True) -> Script:
+        """Open a script: from memory if it's open, else parsed and, if `keep`,
+        saved in the library so it's still there next time."""
+        script_id = library.save(text, filename).id if keep else uuid.uuid4().hex[:12]
+        if script_id in self.scripts:
+            self.scripts[script_id].filename = filename or self.scripts[script_id].filename
+            return self.scripts[script_id]
         play = parse(text)
         script = Script(
-            id=uuid.uuid4().hex[:12],
+            id=script_id,
             filename=filename,
             text=text,
             breakdown=breakdown(play),
@@ -87,10 +99,24 @@ class Store:
         return script
 
     def get(self, script_id: str) -> Script:
-        try:
+        if script_id in self.scripts:
             return self.scripts[script_id]
-        except KeyError:
-            raise HTTPException(404, "That script is no longer loaded. Upload it again.") from None
+        saved = library.load(script_id)
+        if saved is None:
+            raise HTTPException(404, "That script is not in your library. Open the file again.")
+        entry, text = saved
+        return self.add(entry.filename, text)
+
+    def remove(self, script_id: str) -> bool:
+        self.scripts.pop(script_id, None)
+        return library.remove(script_id)
+
+
+class SettingsIn(BaseModel):
+    # Omitted fields are left as they are; an empty string removes the setting.
+    anthropic_api_key: str | None = None
+    model: str | None = None
+    language: str | None = None
 
 
 class ChatRequest(BaseModel):
@@ -154,9 +180,34 @@ def _download(body: str | bytes, media_type: str, filename: str) -> Response:
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
-def create_app() -> FastAPI:
+def _settings_payload() -> dict:
+    saved = settings.load()
+    key = settings.api_key()
+    return {
+        "has_api_key": bool(key),
+        "api_key_hint": settings.key_hint(key),
+        "api_key_source": settings.key_source(),
+        "model": llm.model_name(),
+        "models": list(settings.MODELS),
+        "language": saved.get("language"),
+    }
+
+
+def create_app(check_host: bool = True) -> FastAPI:
     app = FastAPI(title="Slugline", version=__version__)
     store = app.state.store = Store()
+
+    @app.middleware("http")
+    async def guard(request: Request, call_next):
+        # Only answer to this computer's own addresses (protects against DNS
+        # rebinding), and only accept changes from the app itself.
+        host = (request.headers.get("host") or "").rsplit(":", 1)[0]
+        if check_host and host not in LOCAL_HOSTS:
+            return JSONResponse({"detail": "Slugline only answers on this computer."}, status_code=400)
+        if request.method in ("POST", "PUT", "DELETE") and request.url.path.startswith("/api/") \
+                and request.headers.get(APP_HEADER) != "1":
+            return JSONResponse({"detail": "Requests must come from the Slugline app."}, status_code=403)
+        return await call_next(request)
 
     @app.get("/api/status")
     def status() -> dict:
@@ -174,7 +225,47 @@ def create_app() -> FastAPI:
 
     @app.get("/api/scripts")
     def list_scripts() -> list[dict]:
-        return [{"id": s.id, "filename": s.filename, "title": s.breakdown.title} for s in store.scripts.values()]
+        """The library: every saved script, most recently opened first."""
+        return [e.to_dict() for e in library.entries()]
+
+    @app.delete("/api/scripts/{script_id}")
+    def remove_script(script_id: str) -> dict:
+        if not store.remove(script_id):
+            raise HTTPException(404, "That script is not in your library.")
+        return {"ok": True}
+
+    @app.post("/api/examples/{name}")
+    def open_example(name: str) -> dict:
+        path = EXAMPLES.get(name)
+        if path is None or not path.is_file():
+            raise HTTPException(404, "There is no example with that name.")
+        return store.add(path.name, path.read_text(encoding="utf-8")).payload()
+
+    @app.get("/api/settings")
+    def get_settings() -> dict:
+        return _settings_payload()
+
+    @app.put("/api/settings")
+    def put_settings(body: SettingsIn) -> dict:
+        changes: dict = {}
+        if body.anthropic_api_key is not None:
+            key = body.anthropic_api_key.strip()
+            if key and (not key.startswith("sk-ant-") or len(key) > 300 or any(c.isspace() for c in key)):
+                raise HTTPException(422, "That doesn't look like an Anthropic API key. Keys start with sk-ant-.")
+            changes["anthropic_api_key"] = key
+        if body.model is not None:
+            if body.model and body.model not in settings.MODELS:
+                raise HTTPException(422, f"Unknown model. Choose one of: {', '.join(settings.MODELS)}.")
+            changes["model"] = body.model
+        if body.language is not None:
+            if body.language and body.language not in settings.LANGUAGES:
+                raise HTTPException(422, "The interface is available in English (en) and Spanish (es).")
+            changes["language"] = body.language
+        try:
+            settings.update(changes)
+        except OSError as e:
+            raise HTTPException(500, f"The settings could not be saved: {e.strerror}") from None
+        return _settings_payload()
 
     @app.post("/api/scripts")
     async def upload(request: Request, filename: str = "script.fountain") -> dict:
@@ -184,10 +275,9 @@ def create_app() -> FastAPI:
         if len(data) > MAX_UPLOAD:
             raise HTTPException(413, "The file is larger than 25 MB.")
         text = await run_in_threadpool(_to_fountain, filename, data)
-        script = await run_in_threadpool(store.add, Path(filename).name, text)
-        if not script.breakdown.scenes:
-            del store.scripts[script.id]
+        if not parse(text).scenes:  # checked before anything is saved
             raise HTTPException(422, "No scene headings found. Is this a screenplay in Fountain, Final Draft or PDF format?")
+        script = await run_in_threadpool(store.add, Path(filename).name, text)
         return script.payload()
 
     @app.get("/api/scripts/{script_id}")
@@ -313,7 +403,8 @@ def create_app() -> FastAPI:
         return {"ok": True}
 
     @app.get("/api/scripts/{script_id}/export/{name}")
-    def export_file(script_id: str, name: str, day: int | None = None) -> Response:
+    def export_file(script_id: str, name: str, day: int | None = None, lang: str = "en") -> Response:
+        lang = lang if lang in settings.LANGUAGES else "en"
         script = store.get(script_id)
         stem = Path(script.filename).stem
         table, _, ext = name.partition(".")
@@ -337,11 +428,11 @@ def create_app() -> FastAPI:
                 return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-day-out-of-days.csv")
             try:
                 if name == "schedule.pdf":
-                    body = export.schedule_pdf(script.breakdown, script.schedule, script.elements)
+                    body = export.schedule_pdf(script.breakdown, script.schedule, script.elements, lang)
                     filename = f"{stem}-schedule.pdf"
                 else:
                     body = export.call_sheets_pdf(script.breakdown, script.schedule, script.elements,
-                                                  script.analysis, day)
+                                                  script.analysis, day, lang)
                     filename = f"{stem}-call-sheet-day-{day}.pdf" if day else f"{stem}-call-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
@@ -351,10 +442,10 @@ def create_app() -> FastAPI:
         if name in ("report.pdf", "breakdown-sheets.pdf"):
             try:
                 if name == "report.pdf":
-                    body = export.report_pdf(script.breakdown, script.issues, script.analysis, script.elements)
+                    body = export.report_pdf(script.breakdown, script.issues, script.analysis, script.elements, lang)
                     filename = f"{stem}-breakdown.pdf"
                 else:
-                    body = export.breakdown_sheets_pdf(script.breakdown, script.elements, script.analysis)
+                    body = export.breakdown_sheets_pdf(script.breakdown, script.elements, script.analysis, lang)
                     filename = f"{stem}-breakdown-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None

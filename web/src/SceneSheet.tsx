@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { eighths, stripColor, titleCase } from "./format";
+import { light, t } from "./i18n";
 import type { Category, Element, Script } from "./types";
 
 type Draft = { name: string; notes: string };
@@ -58,7 +59,7 @@ export default function SceneSheet(props: {
       await props.onSave(number, next);
       setEditing(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The change could not be saved.");
+      setError(e instanceof Error ? e.message : t("The change could not be saved."));
     } finally {
       setSaving(false);
     }
@@ -81,29 +82,29 @@ export default function SceneSheet(props: {
   const suggested = items.filter((e) => e.source === "ai").length;
 
   return (
-    <aside className="drawer sheet" aria-label={`Breakdown sheet, scene ${number}`}>
+    <aside className="drawer sheet" aria-label={t("Breakdown sheet, scene {n}", { n: number })}>
       <header className="drawer-head">
         <div className="sheet-title">
           <span className="sheet-strip" style={{ background: stripColor(scene.int_ext, scene.day_night) }} />
           <div>
-            <p className="eyebrow">Scene {scene.number}</p>
+            <p className="eyebrow">{t("Scene {n}", { n: scene.number })}</p>
             <h2 className="slug">{scene.heading}</h2>
           </div>
         </div>
         <div className="drawer-actions">
-          <button className="ghost small" disabled={position <= 0} onClick={() => props.onNavigate(scenes[position - 1].number)} aria-label="Previous scene">
+          <button className="ghost small" disabled={position <= 0} onClick={() => props.onNavigate(scenes[position - 1].number)} aria-label={t("Previous scene")}>
             ‹
           </button>
           <button
             className="ghost small"
             disabled={position >= scenes.length - 1}
             onClick={() => props.onNavigate(scenes[position + 1].number)}
-            aria-label="Next scene"
+            aria-label={t("Next scene")}
           >
             ›
           </button>
           <button className="ghost small" onClick={props.onClose}>
-            Close
+            {t("Close")}
           </button>
         </div>
       </header>
@@ -111,20 +112,20 @@ export default function SceneSheet(props: {
       <div className="drawer-body" ref={body}>
         <dl className="sheet-meta">
           <div>
-            <dt>Int./Ext.</dt>
+            <dt>{t("Int./Ext.")}</dt>
             <dd>{scene.int_ext ?? "–"}</dd>
           </div>
           <div>
-            <dt>Day/Night</dt>
-            <dd>{scene.day_night ? titleCase(scene.day_night) : "–"}</dd>
+            <dt>{t("Day/Night")}</dt>
+            <dd>{light(scene.day_night)}</dd>
           </div>
           <div>
-            <dt>Length</dt>
-            <dd>{eighths(scene.eighths)} pp.</dd>
+            <dt>{t("Length")}</dt>
+            <dd>{t("{n} pp.", { n: eighths(scene.eighths) })}</dd>
           </div>
           <div>
-            <dt>Starts</dt>
-            <dd>p. {Math.floor(scene.start_page)}</dd>
+            <dt>{t("Starts")}</dt>
+            <dd>{t("p. {n}", { n: Math.floor(scene.start_page) })}</dd>
           </div>
         </dl>
 
@@ -133,32 +134,36 @@ export default function SceneSheet(props: {
         {match?.status === "changed" && (
           <div className="revision-note">
             <p>
-              <strong>Rewritten in this draft</strong>
-              {match.old !== number && ` (it was scene ${match.old})`}. The elements below come from the previous draft: check them
-              against the new text.
+              <strong>{t("Rewritten in this draft")}</strong>
+              {match.old !== number && ` ${t("(it was scene {n})", { n: match.old })}`}.{" "}
+              {t("The elements below come from the previous draft: check them against the new text.")}
             </p>
             <button className="primary small" disabled={saving} onClick={() => void save(items)}>
-              Mark as reviewed
+              {t("Mark as reviewed")}
             </button>
           </div>
         )}
         {isNew && (
           <div className="revision-note">
             <p>
-              <strong>New in this draft.</strong> It has no elements from the previous draft.
+              <strong>{t("New in this draft.")}</strong> {t("It has no elements from the previous draft.")}
             </p>
           </div>
         )}
 
         <section className="dept">
-          <h3>Cast</h3>
+          <h3>{t("Cast")}</h3>
           <p>{scene.characters.map(titleCase).join(", ") || "–"}</p>
-          {scene.silent.length > 0 && <p className="muted">No lines: {scene.silent.map(titleCase).join(", ")}</p>}
+          {scene.silent.length > 0 && (
+            <p className="muted">
+              {t("No lines")}: {scene.silent.map(titleCase).join(", ")}
+            </p>
+          )}
         </section>
 
         {suggested > 0 && (
           <p className="sheet-hint">
-            {suggested} element{suggested === 1 ? " was" : "s were"} suggested by Claude. Check them against the scene: edit or remove what's wrong.
+            {t("{n} suggested by Claude. Check them against the scene: edit or remove what's wrong.", { n: suggested })}
           </p>
         )}
         {error && <p className="notice error">{error}</p>}
@@ -171,11 +176,11 @@ export default function SceneSheet(props: {
               <div className="dept-head">
                 <h3>
                   <span className="swatch" style={{ background: category.color }} />
-                  {category.label}
+                  {t(category.label)}
                 </h3>
                 {!adding && (
                   <button className="link small-link" onClick={() => startEdit(category.key, null)} disabled={saving}>
-                    + Add
+                    + {t("Add")}
                   </button>
                 )}
               </div>
@@ -188,18 +193,18 @@ export default function SceneSheet(props: {
                       </li>
                     ) : (
                       <li key={i} className="item">
-                        <button className="item-main" onClick={() => startEdit(category.key, i)} disabled={saving} title="Edit">
+                        <button className="item-main" onClick={() => startEdit(category.key, i)} disabled={saving} title={t("Edit")}>
                           <span className="item-name">{e.name}</span>
                           {e.notes && <span className="item-notes">{e.notes}</span>}
                           {e.source === "ai" && (
-                            <span className="tag" title="Suggested by Claude">
-                              suggested
+                            <span className="tag" title={t("Suggested by Claude")}>
+                              {t("suggested")}
                             </span>
                           )}
                         </button>
                         <button
                           className="item-remove"
-                          aria-label={`Remove ${e.name}`}
+                          aria-label={t("Remove {name}", { name: e.name })}
                           disabled={saving}
                           onClick={() => void save(items.filter((_, k) => k !== i))}
                         >
@@ -236,14 +241,14 @@ function ElementForm(props: {
       }}
       onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), props.onCancel())}
     >
-      <input autoFocus placeholder="Element, e.g. Revolver" value={draft.name} maxLength={120} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
-      <input placeholder="Notes (optional)" value={draft.notes} maxLength={300} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
+      <input autoFocus placeholder={t("Element, e.g. Revolver")} value={draft.name} maxLength={120} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
+      <input placeholder={t("Notes (optional)")} value={draft.notes} maxLength={300} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} />
       <div className="item-form-actions">
         <button type="button" className="ghost small" onClick={props.onCancel}>
-          Cancel
+          {t("Cancel")}
         </button>
         <button type="submit" className="primary small" disabled={props.saving || !draft.name.trim()}>
-          {props.saving ? "Saving…" : "Save"}
+          {props.saving ? t("Saving…") : t("Save")}
         </button>
       </div>
     </form>

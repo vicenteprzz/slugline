@@ -6,19 +6,25 @@ import {
   exportUrl,
   extractElements,
   getScript,
+  getSettings,
   getStatus,
   listScripts,
+  openExample,
+  removeScript,
   saveSceneElements,
+  saveSettings,
   uploadScript,
 } from "./api";
 import Chat from "./Chat";
 import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart, useDismiss } from "./charts";
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
+import { type Language, initialLanguage, language, setLanguage, t } from "./i18n";
 import SceneSheet from "./SceneSheet";
 import ScheduleBoard, { CastCard } from "./ScheduleBoard";
-import type { Analysis, Breakdown, Category, Element, Elements, Issue, Schedule, Script, Status } from "./types";
+import SettingsPanel from "./SettingsPanel";
+import type { Analysis, Breakdown, Category, Element, Elements, Issue, LibraryEntry, Schedule, Script, Settings, Status } from "./types";
 
-type Panel = { kind: "chat" } | { kind: "scene"; number: string } | null;
+type Panel = { kind: "chat" } | { kind: "scene"; number: string } | { kind: "settings" } | null;
 
 const SERIES = ["var(--series-1)", "var(--series-2)", "var(--series-3)", "var(--series-4)", "var(--series-5)", "var(--series-6)"];
 const OTHER = "var(--series-other)";
@@ -36,10 +42,24 @@ const INT_EXT = [
   { key: "INT/EXT", name: "Int./Ext.", color: "var(--series-3)", ink: "#ffffff" },
 ];
 
+/** The script id in the address (#/scripts/<id>), so a reload or the back button keeps your place. */
+const routeId = () => location.hash.match(/^#\/scripts\/(\w+)/)?.[1] ?? null;
+const goTo = (id: string | null) => {
+  location.hash = id ? `#/scripts/${id}` : "#/";
+};
+
 export default function App() {
+  const [lang, setLang] = useState<Language>(() => {
+    const initial = initialLanguage(null);
+    setLanguage(initial);
+    return initial;
+  });
   const [status, setStatus] = useState<Status | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [library, setLibrary] = useState<LibraryEntry[] | null>(null);
+  const [route, setRoute] = useState(routeId);
   const [script, setScript] = useState<Script | null>(null);
-  const [loading, setLoading] = useState<string | null>("Loading…");
+  const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -47,33 +67,89 @@ export default function App() {
   const [dragging, setDragging] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const changeLanguage = useCallback((next: Language, save = true) => {
+    setLanguage(next);
+    setLang(next);
+    if (save) void saveSettings({ language: next }).then(setSettings).catch(() => {});
+  }, []);
+
+  const refreshStatus = useCallback(async () => {
+    const [s, conf] = await Promise.all([getStatus(), getSettings()]);
+    setStatus(s);
+    setSettings(conf);
+    return conf;
+  }, []);
+
   useEffect(() => {
-    (async () => {
+    refreshStatus()
+      .then((conf) => conf.language && changeLanguage(initialLanguage(conf.language), false))
+      .catch(() => setError(t("Could not reach the Slugline server. Is it running?")));
+    const onHash = () => setRoute(routeId());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [refreshStatus, changeLanguage]);
+
+  // Follow the address: a script id opens that script, no id shows the library.
+  useEffect(() => {
+    if (!route) {
+      setScript(null);
+      setPanel(null);
+      listScripts()
+        .then(setLibrary)
+        .catch(() => setLibrary([]));
+      return;
+    }
+    if (script?.id === route) return;
+    setLoading(t("Opening the script…"));
+    getScript(route)
+      .then((s) => {
+        setScript(s);
+        setPanel(null);
+      })
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : t("Could not open that script."));
+        goTo(null);
+      })
+      .finally(() => setLoading(null));
+  }, [route]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const show = useCallback((opened: Script) => {
+    setScript(opened);
+    setPanel(null);
+    goTo(opened.id);
+  }, []);
+
+  const open = useCallback(
+    async (file: File) => {
+      setError(null);
+      setLoading(t("Reading {name}…", { name: file.name }));
       try {
-        const [s, scripts] = await Promise.all([getStatus(), listScripts()]);
-        setStatus(s);
-        // `slugline serve script.fountain` starts with a script already loaded.
-        if (scripts.length) setScript(await getScript(scripts[scripts.length - 1].id));
-      } catch {
-        setError("Could not reach the Slugline server. Is `slugline serve` running?");
+        show(await uploadScript(file));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("Could not read that file."));
       } finally {
         setLoading(null);
       }
-    })();
-  }, []);
+    },
+    [show],
+  );
 
-  const open = useCallback(async (file: File) => {
+  const tryExample = useCallback(async () => {
     setError(null);
-    setLoading(`Reading ${file.name}…`);
+    setLoading(t("Opening the example…"));
     try {
-      setScript(await uploadScript(file));
-      setPanel(null);
+      show(await openExample("johns-boys"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not read that file.");
+      setError(e instanceof Error ? e.message : t("Could not open the example."));
     } finally {
       setLoading(null);
     }
-  }, []);
+  }, [show]);
+
+  const update = useCallback(
+    (id: string, change: Partial<Script>) => setScript((current) => (current && current.id === id ? { ...current, ...change } : current)),
+    [],
+  );
 
   const analyze = useCallback(
     async (refresh = false) => {
@@ -81,15 +157,14 @@ export default function App() {
       setError(null);
       setAnalyzing(true);
       try {
-        const analysis = await analyzeScript(script.id, refresh);
-        setScript((current) => (current && current.id === script.id ? { ...current, analysis } : current));
+        update(script.id, { analysis: await analyzeScript(script.id, refresh) });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "The analysis failed.");
+        setError(e instanceof Error ? e.message : t("The analysis failed."));
       } finally {
         setAnalyzing(false);
       }
     },
-    [script],
+    [script, update],
   );
 
   const extract = useCallback(async () => {
@@ -97,40 +172,38 @@ export default function App() {
     setError(null);
     setExtracting(true);
     try {
-      const elements = await extractElements(script.id);
-      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+      update(script.id, { elements: await extractElements(script.id) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The element breakdown failed.");
+      setError(e instanceof Error ? e.message : t("The element breakdown failed."));
     } finally {
       setExtracting(false);
     }
-  }, [script]);
+  }, [script, update]);
 
   const saveScene = useCallback(
     async (number: string, items: Element[]) => {
       if (!script) return;
-      const elements = await saveSceneElements(script.id, number, items);
-      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+      update(script.id, { elements: await saveSceneElements(script.id, number, items) });
     },
-    [script],
+    [script, update],
   );
 
   const clear = useCallback(async () => {
     if (!script) return;
     setError(null);
     try {
-      const elements = await clearElements(script.id);
-      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+      update(script.id, { elements: await clearElements(script.id) });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The breakdown could not be cleared.");
+      setError(e instanceof Error ? e.message : t("The breakdown could not be cleared."));
     }
-  }, [script]);
+  }, [script, update]);
 
   const categories = status?.categories ?? [];
 
   return (
     <div
-      className={`app${panel && script ? " with-panel" : ""}`}
+      className={`app${panel ? " with-panel" : ""}`}
+      data-lang={lang}
       onDragOver={(e) => {
         e.preventDefault();
         setDragging(true);
@@ -156,7 +229,9 @@ export default function App() {
       />
       <header className="topbar">
         <div className="brand">
-          <span className="wordmark">Slugline</span>
+          <a className="wordmark" href="#/" title={t("Your scripts")}>
+            Slugline
+          </a>
           {script && (
             <span className="doc">
               <strong>{script.breakdown.title ?? script.filename}</strong>
@@ -165,13 +240,28 @@ export default function App() {
           )}
         </div>
         <nav className="actions">
+          {script && (
+            <a className="ghost button-link nav-link" href="#/">
+              {t("Scripts")}
+            </a>
+          )}
           <button className="ghost" onClick={() => fileInput.current?.click()}>
-            Open script
+            {t("Open script")}
           </button>
           {script && <ExportMenu script={script} status={status} />}
+          <button
+            className="ghost"
+            aria-pressed={panel?.kind === "settings"}
+            onClick={() => setPanel(panel?.kind === "settings" ? null : { kind: "settings" })}
+          >
+            {t("Settings")}
+          </button>
+          <button className="ghost lang" onClick={() => changeLanguage(lang === "es" ? "en" : "es")} title={t("Change language")}>
+            {lang === "es" ? "EN" : "ES"}
+          </button>
           {script && (
             <button className="primary" aria-pressed={panel?.kind === "chat"} onClick={() => setPanel(panel?.kind === "chat" ? null : { kind: "chat" })}>
-              Ask the script
+              {t("Ask the script")}
             </button>
           )}
         </nav>
@@ -182,7 +272,7 @@ export default function App() {
           <div className="banner" role="alert">
             <span>{error}</span>
             <button className="ghost small" onClick={() => setError(null)}>
-              Dismiss
+              {t("Dismiss")}
             </button>
           </div>
         )}
@@ -195,31 +285,53 @@ export default function App() {
             extracting={extracting}
             onExtract={extract}
             onClearElements={clear}
-            onScheduleChange={(schedule) =>
-              setScript((current) => (current && current.id === script.id ? { ...current, schedule } : current))
-            }
+            onScheduleChange={(schedule) => update(script.id, { schedule })}
             onError={setError}
             onOpenScene={(number) => setPanel({ kind: "scene", number })}
+            onOpenSettings={() => setPanel({ kind: "settings" })}
           />
-        ) : (
+        ) : route || loading ? (
           <div className="empty">
-            {loading ? (
-              <p>{loading}</p>
-            ) : (
-              <>
-                <h1>Break down a screenplay</h1>
-                <p>Drop a Fountain, Final Draft or PDF script anywhere on this page. It stays on this computer.</p>
-                <button className="primary" onClick={() => fileInput.current?.click()}>
-                  Choose a file
-                </button>
-              </>
-            )}
+            <p>{loading ?? t("Opening the script…")}</p>
           </div>
+        ) : (
+          <Home
+            library={library}
+            onPick={() => fileInput.current?.click()}
+            onExample={tryExample}
+            onRemove={async (entry) => {
+              if (!window.confirm(t("Remove “{name}” from your scripts? The file on your computer is not touched.", { name: entry.title ?? entry.filename })))
+                return;
+              try {
+                await removeScript(entry.id);
+                setLibrary((list) => (list ?? []).filter((e) => e.id !== entry.id));
+              } catch (e) {
+                setError(e instanceof Error ? e.message : t("Could not remove it."));
+              }
+            }}
+          />
         )}
       </main>
 
+      {panel?.kind === "settings" && (
+        <SettingsPanel
+          settings={settings}
+          language={lang}
+          onLanguage={(next) => changeLanguage(next)}
+          onSaved={async () => {
+            await refreshStatus();
+          }}
+          onClose={() => setPanel(null)}
+        />
+      )}
       {script && panel?.kind === "chat" && (
-        <Chat scriptId={script.id} title={script.breakdown.title ?? script.filename} status={status} onClose={() => setPanel(null)} />
+        <Chat
+          scriptId={script.id}
+          title={script.breakdown.title ?? script.filename}
+          status={status}
+          onClose={() => setPanel(null)}
+          onOpenSettings={() => setPanel({ kind: "settings" })}
+        />
       )}
       {script && panel?.kind === "scene" && (
         <SceneSheet
@@ -231,7 +343,61 @@ export default function App() {
           onSave={saveScene}
         />
       )}
-      {dragging && <div className="drop-veil">Drop the script to open it</div>}
+      {dragging && <div className="drop-veil">{t("Drop the script to open it")}</div>}
+    </div>
+  );
+}
+
+function Home(props: { library: LibraryEntry[] | null; onPick: () => void; onExample: () => void; onRemove: (entry: LibraryEntry) => void }) {
+  const { library } = props;
+  const date = (iso: string) =>
+    new Date(iso).toLocaleDateString(language() === "es" ? "es-ES" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return (
+    <div className="home">
+      <section className="hero">
+        <h1>{t("From screenplay to shooting schedule")}</h1>
+        <p>
+          {t(
+            "Open a script and Slugline breaks it down: scenes, cast, locations and every department's elements, a shooting schedule, call sheets and the cast's day out of days. Your scripts stay on this computer.",
+          )}
+        </p>
+        <div className="hero-actions">
+          <button className="primary" onClick={props.onPick}>
+            {t("Open a script")}
+          </button>
+          <button className="ghost" onClick={props.onExample}>
+            {t("Try it with an example script")}
+          </button>
+        </div>
+        <p className="fine">{t("Fountain, Final Draft (.fdx) and PDF. You can also drop the file anywhere on this page.")}</p>
+      </section>
+
+      {library && library.length > 0 && (
+        <section className="card">
+          <header className="card-head">
+            <div>
+              <h3>{t("Your scripts")}</h3>
+              <p>{t("Everything you did on each one is saved: breakdown, schedule, cast and notes.")}</p>
+            </div>
+          </header>
+          <ul className="library">
+            {library.map((entry) => (
+              <li key={entry.id}>
+                <a className="library-open" href={`#/scripts/${entry.id}`}>
+                  <strong>{entry.title ?? entry.filename}</strong>
+                  <span>
+                    {entry.title ? `${entry.filename} · ` : ""}
+                    {plural(entry.scenes, "scene")} · {t("opened {date}", { date: date(entry.opened_at) })}
+                  </span>
+                </a>
+                <button className="item-remove" aria-label={t("Remove {name}", { name: entry.title ?? entry.filename })} onClick={() => props.onRemove(entry)}>
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
@@ -244,7 +410,17 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
   );
   const hasElements = (script.elements?.totals.length ?? 0) > 0;
   const hasSchedule = (script.schedule?.days.length ?? 0) > 0;
-  const items = [
+  const pdfs = [
+    ["report.pdf", "Production report (PDF)"],
+    ["breakdown-sheets.pdf", "Breakdown sheets, one per scene (PDF)"],
+    ...(hasSchedule
+      ? [
+          ["schedule.pdf", "Shooting schedule (PDF)"],
+          ["call-sheets.pdf", "Call sheets, every day (PDF)"],
+        ]
+      : []),
+  ];
+  const tables = [
     ...(hasSchedule
       ? [
           ["schedule.csv", "Shooting schedule (CSV)"],
@@ -257,42 +433,20 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
     ["locations.csv", "Locations (CSV)"],
     ["script.fountain", "Script (Fountain)"],
   ];
+  const link = ([name, label]: string[]) => (
+    <a key={name} role="menuitem" href={exportUrl(script.id, name)} download onClick={() => setOpen(false)}>
+      {t(label)}
+    </a>
+  );
   return (
     <div className="menu" ref={ref}>
       <button className="ghost" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        Export
+        {t("Export")}
       </button>
       {open && (
         <div className="menu-list" role="menu">
-          {status?.pdf_export ? (
-            <>
-              <a role="menuitem" href={exportUrl(script.id, "report.pdf")} download onClick={() => setOpen(false)}>
-                Production report (PDF)
-              </a>
-              <a role="menuitem" href={exportUrl(script.id, "breakdown-sheets.pdf")} download onClick={() => setOpen(false)}>
-                Breakdown sheets, one per scene (PDF)
-              </a>
-              {hasSchedule && (
-                <>
-                  <a role="menuitem" href={exportUrl(script.id, "schedule.pdf")} download onClick={() => setOpen(false)}>
-                    Shooting schedule (PDF)
-                  </a>
-                  <a role="menuitem" href={exportUrl(script.id, "call-sheets.pdf")} download onClick={() => setOpen(false)}>
-                    Call sheets, every day (PDF)
-                  </a>
-                </>
-              )}
-            </>
-          ) : (
-            <span className="menu-off" title="Install it with: pip install 'slugline[export]'">
-              Production report (PDF) needs reportlab
-            </span>
-          )}
-          {items.map(([name, label]) => (
-            <a key={name} role="menuitem" href={exportUrl(script.id, name)} download onClick={() => setOpen(false)}>
-              {label}
-            </a>
-          ))}
+          {status?.pdf_export ? pdfs.map(link) : <span className="menu-off">{t("PDF exports need reportlab: pip install 'slugline[export]'")}</span>}
+          {tables.map(link)}
         </div>
       )}
     </div>
@@ -310,6 +464,7 @@ function Dashboard(props: {
   onScheduleChange: (schedule: Schedule | null) => void;
   onError: (message: string) => void;
   onOpenScene: (number: string) => void;
+  onOpenSettings: () => void;
 }) {
   const { script, status, analyzing } = props;
   const b = script.breakdown;
@@ -318,28 +473,29 @@ function Dashboard(props: {
   const issues = useMemo(() => [...script.issues, ...(analysis?.issues ?? [])], [script.issues, analysis]);
   const totalEighths = b.scenes.reduce((sum, s) => sum + s.eighths, 0);
   const totalWords = b.characters.reduce((sum, c) => sum + c.words, 0);
+  const pages = t("{n} pages", { n: eighths(totalEighths) });
 
   return (
     <>
       <section className="tiles">
-        <Tile label="Scenes" value={count(b.scene_count)} />
-        <Tile label="Pages, estimated" value={b.page_count.toFixed(1)} />
-        <Tile label="Speaking characters" value={count(b.characters.length)} />
-        <Tile label="Locations" value={count(b.locations.length)} />
+        <Tile label={t("Scenes")} value={count(b.scene_count)} />
+        <Tile label={t("Pages, estimated")} value={b.page_count.toLocaleString(language() === "es" ? "es-ES" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
+        <Tile label={t("Speaking characters")} value={count(b.characters.length)} />
+        <Tile label={t("Locations")} value={count(b.locations.length)} />
       </section>
 
-      <Story analysis={analysis} status={status} analyzing={analyzing} onAnalyze={props.onAnalyze} />
+      <Story analysis={analysis} status={status} analyzing={analyzing} onAnalyze={props.onAnalyze} onOpenSettings={props.onOpenSettings} />
 
       <div className="grid">
         <ChartCard
-          title="Day and night"
-          subtitle={`Share of the ${eighths(totalEighths)} pages. Scenes marked LATER or CONTINUOUS count with the scene before.`}
+          title={t("Day and night")}
+          subtitle={t("Share of the {pages}. Scenes marked LATER or CONTINUOUS count with the scene before.", { pages })}
           table={splitTable(b, "day_night", DAY_NIGHT)}
         >
-          <SegmentedBar parts={split(b, "day_night", DAY_NIGHT)} total={`${eighths(totalEighths)} pages`} />
+          <SegmentedBar parts={split(b, "day_night", DAY_NIGHT)} total={pages} />
         </ChartCard>
-        <ChartCard title="Interior and exterior" subtitle={`Share of the ${eighths(totalEighths)} pages.`} table={splitTable(b, "int_ext", INT_EXT)}>
-          <SegmentedBar parts={split(b, "int_ext", INT_EXT)} total={`${eighths(totalEighths)} pages`} />
+        <ChartCard title={t("Interior and exterior")} subtitle={t("Share of the {pages}.", { pages })} table={splitTable(b, "int_ext", INT_EXT)}>
+          <SegmentedBar parts={split(b, "int_ext", INT_EXT)} total={pages} />
         </ChartCard>
       </div>
 
@@ -350,11 +506,11 @@ function Dashboard(props: {
         elements={script.elements}
         categories={status?.categories ?? []}
         available={status?.llm.available ?? false}
-        reason={status?.llm.reason ?? ""}
         extracting={props.extracting}
         onExtract={props.onExtract}
         onClear={props.onClearElements}
         onOpenScene={props.onOpenScene}
+        onOpenSettings={props.onOpenSettings}
       />
 
       <ScheduleBoard
@@ -364,15 +520,15 @@ function Dashboard(props: {
         onError={props.onError}
         onOpenScene={props.onOpenScene}
       />
-      <CastCard script={script} pdfExport={status?.pdf_export ?? false} onChange={props.onScheduleChange} onError={props.onError} />
+      <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />
         <ChartCard
-          title="Dialogue share"
-          subtitle={`Words spoken by each character, out of ${count(totalWords)}.`}
+          title={t("Dialogue share")}
+          subtitle={t("Words spoken by each character, out of {n}.", { n: count(totalWords) })}
           table={{
-            columns: ["Character", "Words", "Share", "Cues", "Scenes"],
+            columns: [t("Character"), t("Words"), t("Share"), t("Cues"), t("Scenes")],
             rows: b.characters.map((c) => [c.name, c.words, percent(c.words, totalWords), c.dialogue_blocks, c.scenes.length]),
           }}
         >
@@ -382,10 +538,10 @@ function Dashboard(props: {
               name: titleCase(c.name),
               value: c.words,
               label: `${count(c.words)} · ${percent(c.words, totalWords)}`,
-              detail: `words in ${plural(c.dialogue_blocks, "cue")}, ${plural(c.scenes.length, "scene")}`,
+              detail: t("words in {cues}, {scenes}", { cues: plural(c.dialogue_blocks, "cue"), scenes: plural(c.scenes.length, "scene") }),
             }))}
           />
-          {b.characters.length > 14 && <p className="more">{b.characters.length - 14} more in the table view.</p>}
+          {b.characters.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.characters.length - 14 })}</p>}
         </ChartCard>
         <Presence breakdown={b} />
         <Tone breakdown={b} analysis={analysis} />
@@ -393,10 +549,10 @@ function Dashboard(props: {
 
       <div className="grid">
         <ChartCard
-          title="Locations"
-          subtitle="Pages to shoot at each one."
+          title={t("Locations")}
+          subtitle={t("Pages to shoot at each one.")}
           table={{
-            columns: ["Location", "Scenes", "Length (pages)", "Scene numbers"],
+            columns: [t("Location"), t("Scenes"), t("Length (pages)"), t("Scene numbers")],
             rows: b.locations.map((l) => [l.location, l.scenes.length, eighths(l.eighths), l.scenes.join(", ")]),
           }}
         >
@@ -406,10 +562,10 @@ function Dashboard(props: {
               name: titleCase(l.location),
               value: l.eighths,
               label: `${eighths(l.eighths)} · ${plural(l.scenes.length, "scene")}`,
-              detail: `pages, in scene${l.scenes.length > 1 ? "s" : ""} ${l.scenes.join(", ")}`,
+              detail: t("pages, in scenes {list}", { list: l.scenes.join(", ") }),
             }))}
           />
-          {b.locations.length > 14 && <p className="more">{b.locations.length - 14} more in the table view.</p>}
+          {b.locations.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.locations.length - 14 })}</p>}
         </ChartCard>
         <Issues issues={issues} analyzed={analysis !== null} />
       </div>
@@ -442,39 +598,57 @@ function eighthsBy(b: Breakdown, field: "day_night" | "int_ext"): Map<string, { 
 
 function split(b: Breakdown, field: "day_night" | "int_ext", parts: Part[]) {
   const totals = eighthsBy(b, field);
-  const known = parts.map((p) => ({ ...p, value: totals.get(p.key)?.eighths ?? 0 }));
+  const known = parts.map((p) => ({ ...p, name: t(p.name), value: totals.get(p.key)?.eighths ?? 0 }));
   const rest = [...totals].filter(([key]) => !parts.some((p) => p.key === key)).reduce((sum, [, v]) => sum + v.eighths, 0);
-  return [...known, { key: "?", name: "Not stated", color: OTHER, ink: "#0b0b0b", value: rest }].map((p) => ({
+  return [...known, { key: "?", name: t("Not stated"), color: OTHER, ink: "#0b0b0b", value: rest }].map((p) => ({
     ...p,
-    label: `${eighths(p.value)} pages`,
+    label: t("{n} pages", { n: eighths(p.value) }),
   }));
 }
 
 function splitTable(b: Breakdown, field: "day_night" | "int_ext", parts: Part[]) {
   const totals = eighthsBy(b, field);
-  const names = new Map(parts.map((p) => [p.key, p.name]));
+  const names = new Map(parts.map((p) => [p.key, t(p.name)]));
   return {
-    columns: ["", "Scenes", "Length (pages)"],
-    rows: [...totals].map(([key, v]) => [names.get(key) ?? "Not stated", v.scenes, eighths(v.eighths)]),
+    columns: ["", t("Scenes"), t("Length (pages)")],
+    rows: [...totals].map(([key, v]) => [names.get(key) ?? t("Not stated"), v.scenes, eighths(v.eighths)]),
   };
 }
 
-function Story(props: { analysis: Analysis | null; status: Status | null; analyzing: boolean; onAnalyze: (refresh?: boolean) => void }) {
+function AiOff({ onOpenSettings }: { onOpenSettings: () => void }) {
+  return (
+    <p className="notice">
+      {t("The AI features need your Anthropic API key.")}{" "}
+      <button className="link" onClick={onOpenSettings}>
+        {t("Add it in Settings")}
+      </button>
+    </p>
+  );
+}
+
+function Story(props: {
+  analysis: Analysis | null;
+  status: Status | null;
+  analyzing: boolean;
+  onAnalyze: (refresh?: boolean) => void;
+  onOpenSettings: () => void;
+}) {
   const { analysis, status, analyzing } = props;
   const available = status?.llm.available ?? false;
   if (!analysis) {
     return (
       <section className="card story">
         <div>
-          <h3>Story notes</h3>
+          <h3>{t("Story notes")}</h3>
           <p>
-            Claude can read the script and add a logline, a synopsis, a summary and emotional tone for every scene, and a
-            proofread of the formatting.
+            {t(
+              "Claude can read the script and add a logline, a synopsis, a summary and emotional tone for every scene, and a proofread of the formatting.",
+            )}
           </p>
-          {!available && <p className="notice">{status?.llm.reason || "The AI features are not available."}</p>}
+          {!available && status && <AiOff onOpenSettings={props.onOpenSettings} />}
         </div>
         <button className="primary" disabled={!available || analyzing} onClick={() => props.onAnalyze()}>
-          {analyzing ? "Reading the script… about a minute" : "Analyze the script"}
+          {analyzing ? t("Reading the script… about a minute") : t("Analyze the script")}
         </button>
       </section>
     );
@@ -482,20 +656,20 @@ function Story(props: { analysis: Analysis | null; status: Status | null; analyz
   return (
     <section className={`card story done${analyzing ? " stale" : ""}`}>
       <div>
-        <h3>Story notes</h3>
+        <h3>{t("Story notes")}</h3>
         <p className="logline">{analysis.logline}</p>
         <p>{analysis.synopsis}</p>
         {analysis.themes.length > 0 && (
           <ul className="themes">
-            {analysis.themes.map((t) => (
-              <li key={t}>{t}</li>
+            {analysis.themes.map((theme) => (
+              <li key={theme}>{theme}</li>
             ))}
           </ul>
         )}
         <p className="fine">
-          Written by {analysis.model}. Check it against the script before it goes on a call sheet.{" "}
+          {t("Written by {model}. Check it against the script before it goes on a call sheet.", { model: analysis.model })}{" "}
           <button className="link" disabled={!available || analyzing} onClick={() => props.onAnalyze(true)}>
-            {analyzing ? "Analyzing again…" : "Analyze again"}
+            {analyzing ? t("Analyzing again…") : t("Analyze again")}
           </button>
         </p>
       </div>
@@ -514,8 +688,8 @@ function Stripboard(props: {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>Stripboard</h3>
-          <p>Every scene in script order, lengths in pages and eighths. Open a scene for its breakdown sheet.</p>
+          <h3>{t("Stripboard")}</h3>
+          <p>{t("Every scene in script order, lengths in pages and eighths. Open a scene for its breakdown sheet.")}</p>
         </div>
         <ul className="legend strips">
           {[
@@ -528,7 +702,7 @@ function Stripboard(props: {
           ].map(([ie, dn, label]) => (
             <li key={label}>
               <span className="swatch strip" style={{ background: stripColor(ie, dn) }} />
-              {label}
+              {t(label)}
             </li>
           ))}
         </ul>
@@ -538,12 +712,12 @@ function Stripboard(props: {
           <thead>
             <tr>
               <th className="num">#</th>
-              <th>Scene</th>
-              <th className="num">Length</th>
-              <th className="num">Starts p.</th>
-              <th>Cast</th>
-              <th className="num">Elements</th>
-              {notes.size > 0 && <th>Tone</th>}
+              <th>{t("Scene")}</th>
+              <th className="num">{t("Length")}</th>
+              <th className="num">{t("Starts p.")}</th>
+              <th>{t("Cast")}</th>
+              <th className="num">{t("Elements")}</th>
+              {notes.size > 0 && <th>{t("Tone")}</th>}
             </tr>
           </thead>
           <tbody>
@@ -565,11 +739,16 @@ function Stripboard(props: {
                   <td className="num">{Math.floor(s.start_page)}</td>
                   <td className="cast">
                     {s.characters.map(titleCase).join(", ") || "–"}
-                    {s.silent.length > 0 && <span className="silent"> · no lines: {s.silent.map(titleCase).join(", ")}</span>}
+                    {s.silent.length > 0 && (
+                      <span className="silent">
+                        {" "}
+                        · {t("no lines")}: {s.silent.map(titleCase).join(", ")}
+                      </span>
+                    )}
                   </td>
                   <td className="num">
-                    {elements?.revision?.scenes[s.number]?.status === "changed" && <span className="flag">changed</span>}
-                    {elements?.revision?.new.includes(s.number) && <span className="flag">new</span>}
+                    {elements?.revision?.scenes[s.number]?.status === "changed" && <span className="flag">{t("changed")}</span>}
+                    {elements?.revision?.new.includes(s.number) && <span className="flag">{t("new")}</span>}
                     {elements?.scenes[s.number]?.length || "–"}
                   </td>
                   {notes.size > 0 && <td className="tone">{note?.tone ?? "–"}</td>}
@@ -587,7 +766,7 @@ function WhoSpeaks({ breakdown: b }: { breakdown: Breakdown }) {
   // The six characters with most words keep a colour each; the rest fold into "Other".
   const lead = b.characters.slice(0, SERIES.length).map((c) => c.name);
   const hasOther = b.characters.length > lead.length;
-  const series = [...lead.map((name, i) => ({ name: titleCase(name), color: SERIES[i] })), ...(hasOther ? [{ name: "Other", color: OTHER }] : [])];
+  const series = [...lead.map((name, i) => ({ name: titleCase(name), color: SERIES[i] })), ...(hasOther ? [{ name: t("Other"), color: OTHER }] : [])];
   const columns = b.scenes.map((s) => {
     const values = lead.map((name) => s.words[name] ?? 0);
     if (hasOther) {
@@ -597,14 +776,14 @@ function WhoSpeaks({ breakdown: b }: { breakdown: Breakdown }) {
   });
   return (
     <ChartCard
-      title="Who speaks in each scene"
-      subtitle="Words of dialogue per scene, by character."
+      title={t("Who speaks in each scene")}
+      subtitle={t("Words of dialogue per scene, by character.")}
       table={{
-        columns: ["Scene", ...series.map((s) => s.name)],
+        columns: [t("Scene"), ...series.map((s) => s.name)],
         rows: columns.map((c) => [c.title, ...c.values]),
       }}
     >
-      <StackedColumns columns={columns} series={series} unit="words" xTitle="Scene" />
+      <StackedColumns columns={columns} series={series} unit={t("words")} xTitle={t("Scene")} />
     </ChartCard>
   );
 }
@@ -617,20 +796,20 @@ function Presence({ breakdown: b }: { breakdown: Breakdown }) {
   }));
   return (
     <ChartCard
-      title="Character presence"
-      subtitle="Who is in which scene, and how much they say there."
+      title={t("Character presence")}
+      subtitle={t("Who is in which scene, and how much they say there.")}
       table={{
-        columns: ["Character", "Speaks in scenes", "Named without lines in"],
+        columns: [t("Character"), t("Speaks in scenes"), t("Named without lines in")],
         rows: b.characters.map((c) => [c.name, c.scenes.join(", ") || "–", c.silent_scenes.join(", ") || "–"]),
       }}
     >
       <Heatmap
         rows={rows}
         columns={b.scenes.map((s) => ({ label: s.number, title: `${s.number}. ${s.heading}` }))}
-        unit="words"
-        markedLabel="named in the action, no lines"
+        unit={t("words")}
+        markedLabel={t("named in the action, no lines")}
       />
-      {b.characters.length > cast.length && <p className="more">{b.characters.length - cast.length} more in the table view.</p>}
+      {b.characters.length > cast.length && <p className="more">{t("{n} more in the table view.", { n: b.characters.length - cast.length })}</p>}
     </ChartCard>
   );
 }
@@ -639,8 +818,8 @@ function Tone({ breakdown: b, analysis }: { breakdown: Breakdown; analysis: Anal
   if (!analysis || analysis.scenes.length === 0) {
     return (
       <section className="card placeholder">
-        <h3>Tone across the story</h3>
-        <p>Tension and mood, scene by scene. It appears here once the script has been analyzed.</p>
+        <h3>{t("Tone across the story")}</h3>
+        <p>{t("Tension and mood, scene by scene. It appears here once the script has been analyzed.")}</p>
       </section>
     );
   }
@@ -651,10 +830,10 @@ function Tone({ breakdown: b, analysis }: { breakdown: Breakdown; analysis: Anal
   });
   return (
     <ChartCard
-      title="Tone across the story"
-      subtitle="Claude's reading of each scene, scored against the rest of this script."
+      title={t("Tone across the story")}
+      subtitle={t("Claude's reading of each scene, scored against the rest of this script.")}
       table={{
-        columns: ["Scene", "Tone", "Tension (1–5)", "Mood (−2 to +2)"],
+        columns: [t("Scene"), t("Tone"), t("Tension (1–5)"), t("Mood (−2 to +2)")],
         rows: b.scenes.map((s) => {
           const n = notes.get(s.number);
           return [`${s.number}. ${s.heading}`, n?.tone ?? "–", n?.tension ?? "–", n?.valence ?? "–"];
@@ -671,24 +850,24 @@ function Issues({ issues, analyzed }: { issues: Issue[]; analyzed: boolean }) {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>Formatting notes</h3>
-          <p>{analyzed ? "From the rule-based checks and Claude's proofread." : "From the rule-based checks. Analyzing the script adds a proofread."}</p>
+          <h3>{t("Formatting notes")}</h3>
+          <p>{analyzed ? t("From the rule-based checks and Claude's proofread.") : t("From the rule-based checks. Analyzing the script adds a proofread.")}</p>
         </div>
       </header>
       {issues.length === 0 ? (
-        <p className="clean">Nothing to fix: headings, cues and numbering all look consistent.</p>
+        <p className="clean">{t("Nothing to fix: headings, cues and numbering all look consistent.")}</p>
       ) : (
         <ul className="issues">
           {issues.map((issue, i) => (
             <li key={i}>
               <span className={`badge ${issue.severity}`}>
                 <span aria-hidden="true">{issue.severity === "warning" ? "▲" : "●"}</span>
-                {issue.severity === "warning" ? "Fix" : "Note"}
+                {issue.severity === "warning" ? t("Fix") : t("Note")}
               </span>
               <span className="issue-text">
-                {issue.scene && <strong>Scene {issue.scene}. </strong>}
+                {issue.scene && <strong>{t("Scene {n}.", { n: issue.scene })} </strong>}
                 {issue.message}
-                {issue.source === "ai" && <span className="source"> Found by Claude.</span>}
+                {issue.source === "ai" && <span className="source"> {t("Found by Claude.")}</span>}
               </span>
             </li>
           ))}
@@ -703,68 +882,67 @@ function ElementsCard(props: {
   elements: Elements | null;
   categories: Category[];
   available: boolean;
-  reason: string;
   extracting: boolean;
   onExtract: () => void;
   onClear: () => void;
   onOpenScene: (number: string) => void;
+  onOpenSettings: () => void;
 }) {
   const { elements, categories } = props;
   const [filter, setFilter] = useState<string | null>(null);
   const totals = elements?.totals ?? [];
   const byKey = new Map(categories.map((c) => [c.key, c]));
   const counts = new Map<string, number>();
-  for (const t of totals) counts.set(t.category, (counts.get(t.category) ?? 0) + 1);
-  const shown = filter ? totals.filter((t) => t.category === filter) : totals;
-  const suggested = Object.values(elements?.scenes ?? {}).flat().filter((e) => e.source === "ai").length;
+  for (const total of totals) counts.set(total.category, (counts.get(total.category) ?? 0) + 1);
+  const shown = filter ? totals.filter((total) => total.category === filter) : totals;
+  const suggested = Object.values(elements?.scenes ?? {})
+    .flat()
+    .filter((e) => e.source === "ai").length;
   const first = props.breakdown.scenes[0]?.number;
-
-  const action = (
-    <button className={totals.length ? "ghost" : "primary"} disabled={!props.available || props.extracting} onClick={props.onExtract}>
-      {props.extracting ? "Breaking down the script… about a minute" : totals.length ? "Suggest again with AI" : "Suggest elements with AI"}
-    </button>
-  );
 
   return (
     <section className={`card${props.extracting ? " busy" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>Elements</h3>
+          <h3>{t("Elements")}</h3>
           <p>
-            What each department needs, scene by scene: extras, stunts, props, wardrobe, makeup, vehicles, effects and more.
-            {totals.length > 0 && " Suggesting again keeps everything you added or edited by hand."}
+            {t("What each department needs, scene by scene: extras, stunts, props, wardrobe, makeup, vehicles, effects and more.")}
+            {totals.length > 0 && ` ${t("Suggesting again keeps everything you added or edited by hand.")}`}
           </p>
         </div>
-        {action}
+        <button className={totals.length ? "ghost" : "primary"} disabled={!props.available || props.extracting} onClick={props.onExtract}>
+          {props.extracting
+            ? t("Breaking down the script… about a minute")
+            : totals.length
+              ? t("Suggest again with AI")
+              : t("Suggest elements with AI")}
+        </button>
       </header>
 
       {elements?.revision && <RevisionBanner revision={elements.revision} onOpenScene={props.onOpenScene} onClear={props.onClear} />}
 
       {totals.length === 0 ? (
         <div className="elements-empty">
-          <p>
-            No elements yet. Claude can read the script and suggest them for every scene, or you can open a scene and add them by
-            hand.
-          </p>
-          {!props.available && <p className="notice">{props.reason || "The AI features are not available."} Adding by hand still works.</p>}
+          <p>{t("No elements yet. Claude can read the script and suggest them for every scene, or you can open a scene and add them by hand.")}</p>
+          {!props.available && <AiOff onOpenSettings={props.onOpenSettings} />}
           {first && (
             <button className="ghost" onClick={() => props.onOpenScene(first)}>
-              Open scene {first}
+              {t("Open scene {n}", { n: first })}
             </button>
           )}
         </div>
       ) : (
         <>
-          <div className="filters" role="group" aria-label="Filter by department">
+          <div className="filters" role="group" aria-label={t("Filter by department")}>
             <button className="chip" aria-pressed={filter === null} onClick={() => setFilter(null)}>
-              All <span>{totals.length}</span>
+              {t("All")} <span>{totals.length}</span>
             </button>
             {categories
               .filter((c) => counts.has(c.key))
               .map((c) => (
                 <button key={c.key} className="chip" aria-pressed={filter === c.key} onClick={() => setFilter(filter === c.key ? null : c.key)}>
                   <span className="swatch" style={{ background: c.color }} />
-                  {c.label} <span>{counts.get(c.key)}</span>
+                  {t(c.label)} <span>{counts.get(c.key)}</span>
                 </button>
               ))}
           </div>
@@ -772,32 +950,32 @@ function ElementsCard(props: {
             <table className="data elements">
               <thead>
                 <tr>
-                  <th>Element</th>
-                  <th>Department</th>
-                  <th>Scenes</th>
-                  <th className="num">Pages</th>
+                  <th>{t("Element")}</th>
+                  <th>{t("Department")}</th>
+                  <th>{t("Scenes")}</th>
+                  <th className="num">{t("Pages")}</th>
                 </tr>
               </thead>
               <tbody>
-                {shown.map((t) => {
-                  const category = byKey.get(t.category);
+                {shown.map((total) => {
+                  const category = byKey.get(total.category);
                   return (
-                    <tr key={`${t.category}|${t.name}`}>
-                      <td className="element-name">{t.name}</td>
+                    <tr key={`${total.category}|${total.name}`}>
+                      <td className="element-name">{total.name}</td>
                       <td className="dept-cell">
                         <span className="swatch" style={{ background: category?.color }} />
-                        {category?.label ?? t.category}
+                        {category ? t(category.label) : total.category}
                       </td>
                       <td>
                         <span className="scene-links">
-                          {t.scenes.map((n) => (
-                            <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={`Open scene ${n}`}>
+                          {total.scenes.map((n) => (
+                            <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={t("Open scene {n}", { n })}>
                               {n}
                             </button>
                           ))}
                         </span>
                       </td>
-                      <td className="num">{eighths(t.eighths)}</td>
+                      <td className="num">{eighths(total.eighths)}</td>
                     </tr>
                   );
                 })}
@@ -806,8 +984,9 @@ function ElementsCard(props: {
           </div>
           {suggested > 0 && (
             <p className="fine">
-              {plural(suggested, "element")} still as Claude suggested them. Open a scene to check, edit or remove them before you print the
-              breakdown sheets.
+              {t("{elements} still as Claude suggested them. Open a scene to check, edit or remove them before you print the breakdown sheets.", {
+                elements: plural(suggested, "element"),
+              })}
             </p>
           )}
         </>
@@ -822,31 +1001,46 @@ function RevisionBanner(props: { revision: NonNullable<Elements["revision"]>; on
   const changed = statuses.filter(([, m]) => m.status === "changed").map(([n]) => n);
   const unchanged = statuses.filter(([, m]) => m.status === "unchanged").length;
   const reviewed = statuses.filter(([, m]) => m.status === "reviewed").length;
-  const when = revision.from.saved_at ? new Date(revision.from.saved_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+  const when = revision.from.saved_at
+    ? new Date(revision.from.saved_at).toLocaleDateString(language() === "es" ? "es-ES" : "en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : "";
   const links = (numbers: string[]) => (
     <span className="scene-links inline">
       {numbers.map((n) => (
-        <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={`Open scene ${n}`}>
+        <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={t("Open scene {n}", { n })}>
           {n}
         </button>
       ))}
     </span>
   );
+  const parts = [
+    t("{scenes} unchanged", { scenes: plural(unchanged, "scene") }),
+    ...(reviewed ? [t("{n} reviewed", { n: reviewed })] : []),
+    t("{scenes} to check", { scenes: plural(changed.length, "rewritten scene") }),
+    plural(revision.new.length, "new scene"),
+    ...(revision.omitted.length ? [t("{scenes} cut", { scenes: plural(revision.omitted.length, "scene") })] : []),
+  ];
   return (
     <div className="revision">
       <p>
-        <strong>New draft.</strong> This breakdown was carried over from the previous draft{when && ` (saved ${when})`}: {plural(unchanged, "scene")}{" "}
-        unchanged
-        {reviewed > 0 && `, ${reviewed} reviewed`}, {plural(changed.length, "rewritten scene")} to check, {plural(revision.new.length, "new scene")}
-        {revision.omitted.length > 0 && `, ${plural(revision.omitted.length, "scene")} cut`}.
+        <strong>{t("New draft.")}</strong> {when ? t("This breakdown was carried over from the previous draft (saved {date}):", { date: when }) : t("This breakdown was carried over from the previous draft:")}{" "}
+        {parts.join(", ")}.
       </p>
-      {changed.length > 0 && <p>Check the rewritten scenes: {links(changed)}</p>}
-      {revision.new.length > 0 && <p>Break down the new scenes: {links(revision.new)}</p>}
+      {changed.length > 0 && (
+        <p>
+          {t("Check the rewritten scenes:")} {links(changed)}
+        </p>
+      )}
+      {revision.new.length > 0 && (
+        <p>
+          {t("Break down the new scenes:")} {links(revision.new)}
+        </p>
+      )}
       {revision.omitted.length > 0 && (
         <p className="muted">
-          Cut from this draft:{" "}
+          {t("Cut from this draft:")}{" "}
           {revision.omitted
-            .map((o) => `${o.number}. ${o.heading}` + (o.elements ? ` (${plural(o.elements, "element")} dropped)` : ""))
+            .map((o) => `${o.number}. ${o.heading}` + (o.elements ? ` (${t("{elements} dropped", { elements: plural(o.elements, "element") })})` : ""))
             .join("; ")}
         </p>
       )}
@@ -854,10 +1048,10 @@ function RevisionBanner(props: { revision: NonNullable<Elements["revision"]>; on
         <button
           className="link"
           onClick={() => {
-            if (window.confirm("Start this draft's breakdown empty? The carried-over elements will be removed from this draft.")) props.onClear();
+            if (window.confirm(t("Start this draft's breakdown empty? The carried-over elements will be removed from this draft."))) props.onClear();
           }}
         >
-          Start this draft empty instead
+          {t("Start this draft empty instead")}
         </button>
       </p>
     </div>

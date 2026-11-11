@@ -263,7 +263,7 @@ def test_api_extract_edit_and_export(monkeypatch):
 
     from slugline.server import create_app
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
     api = FakeAPI(elements_reply({"1": [("props", "Mug", "")], "2": [("vehicles", "Taxi", "")]}))
     monkeypatch.setattr(llm, "make_client", lambda: api.client)
 
@@ -305,7 +305,7 @@ def test_api_extract_without_credentials_is_a_502():
 
     from slugline.server import create_app
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
     sid = client.post("/api/scripts", params={"filename": "two.fountain"}, content=SCRIPT.encode()).json()["id"]
     response = client.post(f"/api/scripts/{sid}/elements")
     assert response.status_code == 502 and "ANTHROPIC_API_KEY" in response.json()["detail"]

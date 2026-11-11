@@ -8,6 +8,16 @@ runs. Slugline reads a screenplay and does that breakdown for you, as tables in 
 terminal, as CSV and PDF reports, or as a web dashboard with an AI assistant that
 can answer questions about the script.
 
+## Get it
+
+**Mac:** download `Slugline.dmg`, drag Slugline to Applications and open it.
+Your scripts, breakdowns and schedules are saved on your computer; nothing
+needs a terminal or an account. The interface is in Spanish and English.
+
+The AI features (story notes, element suggestions, the script assistant) use
+your own Anthropic API key, which you add in **Settings**. Everything else
+works without it.
+
 ## What it does
 
 **Parsing**
@@ -100,7 +110,7 @@ can answer questions about the script.
   counts and page lengths it gives are the same exact numbers as the breakdown,
   not the model's estimate
 
-## Quick start
+## Quick start (from the source code)
 
 ```bash
 git clone https://github.com/vicenteprzz/slugline.git
@@ -125,7 +135,26 @@ slugline serve examples/johns_boys.fountain           # http://127.0.0.1:8000
 ```
 
 You can also start `slugline serve` with no script and drop a file on the page.
-Scripts stay in memory on your machine.
+Every script you open is kept in your library (in `~/.local/share/slugline`,
+or `SLUGLINE_DATA`) with everything you did on it.
+
+### The desktop app
+
+```bash
+pip install -e ".[desktop]"
+slugline-app                        # the dashboard in its own window
+```
+
+To build the Mac app and its disk image (`dist/Slugline.app`, `dist/Slugline.dmg`):
+
+```bash
+pip install -e ".[package]"
+packaging/macos/build.sh
+```
+
+The build is not signed. On your own Mac it opens normally; to give it to
+other people without a security warning it needs an Apple Developer ID
+signature and notarization.
 
 ### AI features
 
@@ -139,8 +168,10 @@ slugline chat examples/johns_boys.fountain             # a conversation
 slugline export examples/johns_boys.fountain --pdf report.pdf --ai
 ```
 
-With the key set, the dashboard shows **Analyze the script**, **Suggest
-elements with AI** and an **Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
+Or add the key in the dashboard's **Settings** panel: it is saved only on
+this computer, readable only by you, and never sent back to the page. With a
+key, the dashboard shows **Analyze the script**, **Suggest elements with AI**
+and an **Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
 to use another one. An analysis is cached in `~/.cache/slugline` by script
 content and model, so asking twice for the same script makes no new request.
 Element breakdowns and schedules, with your edits, are saved in
@@ -215,7 +246,12 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
   to call (list scenes, read scenes, a character's dialogue, search...) and the
   answers come back from the parsed script.
 - `server.py` is a small FastAPI app; the chat endpoint streams the answer as
-  it is written. `web/` is the React dashboard, with charts drawn in plain SVG.
+  it is written. It only answers on this computer's own addresses, and only
+  accepts changes that carry the app's header, so another website open in the
+  browser can't use it (or the API key in it). `web/` is the React dashboard,
+  with charts drawn in plain SVG and the interface in Spanish and English.
+- `library.py` keeps every opened script; `settings.py` the API key, model
+  and language; `desktop.py` runs it all in a native window.
 
 The core (parser, breakdown, lint, CSV) uses only the Python standard library.
 Everything else is an optional extra:
@@ -246,8 +282,6 @@ To work on the dashboard, run `slugline serve` in one terminal and
   the capitalised word "Will" at the start of a sentence.
 - `INTERCUT` blocks stay inside the scene where they start.
 - PDF import expects standard screenplay layout; dual dialogue in PDFs isn't supported yet.
-- The dashboard keeps scripts in memory: restarting the server forgets them
-  (cached AI analyses, breakdowns and schedules survive).
 - Drafts are recognised as the same script by their title page (or, without
   one, by their scene headings). Matching scenes is a judgement from the text:
   check the scenes it flags, and a scene moved to a new location with new
@@ -268,8 +302,9 @@ To work on the dashboard, run `slugline serve` in one terminal and
 5. **Element breakdown** — elements per department and scene, editable, breakdown sheets ✅
 6. **Revised drafts and shooting schedule** — carry work across drafts, schedule board ✅
 7. **Call sheets, day out of days, Final Draft import** ✅
-8. **Next** — individual cast call times and crew lists; a Spanish interface;
-   accounts and shared projects for a whole crew
+8. **Desktop app** — Mac app, script library, API key in Settings, Spanish interface and PDFs ✅
+9. **Next** — signed and notarized Mac build, Windows build; individual cast
+   call times and crew lists; shared projects for a whole crew
 
 ## Built with an AI coding assistant
 

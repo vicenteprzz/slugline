@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { count, niceTicks } from "./format";
+import { t } from "./i18n";
 
 // ---------------------------------------------------------------------------
 // Shared pieces
@@ -99,7 +100,7 @@ export function ChartCard(props: {
         </div>
         {props.table && (
           <button className="ghost small" aria-pressed={asTable} onClick={() => setAsTable(!asTable)}>
-            {asTable ? "Chart" : "Table"}
+            {asTable ? t("Chart") : t("Table")}
           </button>
         )}
       </header>
@@ -195,7 +196,7 @@ export function StackedColumns(props: {
         ...series
           .map((s, k) => ({ key: s.color, label: s.name, value: count(columns[i].values[k]) }))
           .filter((_, k) => columns[i].values[k] > 0),
-        { label: `${unit} in total`, value: count(totals[i]) },
+        { label: t("{unit} in total", { unit }), value: count(totals[i]) },
       ]}
     />
   );
@@ -364,11 +365,11 @@ export function Heatmap(props: {
         </svg>
       )}
       <div className="heat-legend">
-        <span>Fewer {props.unit}</span>
+        <span>{t("Fewer {unit}", { unit: props.unit })}</span>
         {[1, 2, 3, 4, 5].map((s) => (
           <span key={s} className={`heat-chip heat-${s}`} />
         ))}
-        <span>More</span>
+        <span>{t("More")}</span>
         <span className="heat-legend-mark">
           <svg width="12" height="12" aria-hidden="true">
             <circle cx="6" cy="6" r="3.5" className="heat-mark" />
@@ -397,7 +398,7 @@ export function SegmentedBar(props: { parts: { name: string; value: number; labe
           const text = `${share}%`;
           // Print the share only where it fits with padding; the legend and tooltip carry the rest.
           const fits = (p.value / sum) * width > text.length * 8 + 16;
-          const describe = <TipRows title={p.name} rows={[{ label: `of ${props.total}`, value: `${p.label} · ${share}%` }]} />;
+          const describe = <TipRows title={p.name} rows={[{ label: t("of {total}", { total: props.total }), value: `${p.label} · ${share}%` }]} />;
           return (
             <span
               key={p.name}
@@ -448,9 +449,9 @@ export function ToneChart({ points }: { points: TonePoint[] }) {
   return (
     <div ref={ref} className="chart">
       {width > 0 && (
-        <svg width={width} height={height} role="img" aria-label="Tension and mood in each scene">
+        <svg width={width} height={height} role="img" aria-label={t("Tension and mood in each scene")}>
           <text x={m.left} y={tensionTop - 10} className="panel-title">
-            Tension, 1 to 5
+            {t("Tension, 1 to 5")}
           </text>
           {[0, 1, 3, 5].map((t) => (
             <g key={t}>
@@ -463,7 +464,7 @@ export function ToneChart({ points }: { points: TonePoint[] }) {
             </g>
           ))}
           <text x={m.left} y={moodTop - 10} className="panel-title">
-            Mood, −2 to +2
+            {t("Mood, −2 to +2")}
           </text>
           {[2, 0, -2].map((t) => (
             <g key={t}>
@@ -481,9 +482,9 @@ export function ToneChart({ points }: { points: TonePoint[] }) {
                 <TipRows
                   title={p.title}
                   rows={[
-                    { label: "tone", value: p.tone },
-                    { label: "tension, out of 5", value: String(p.tension) },
-                    { label: "mood, from −2 to +2", value: p.valence > 0 ? `+${p.valence}` : String(p.valence).replace("-", "−") },
+                    { label: t("tone"), value: p.tone },
+                    { label: t("tension, out of 5"), value: String(p.tension) },
+                    { label: t("mood, from −2 to +2"), value: p.valence > 0 ? `+${p.valence}` : String(p.valence).replace("-", "−") },
                   ]}
                 />
                 <div className="tip-text">{p.summary}</div>
@@ -515,18 +516,18 @@ export function ToneChart({ points }: { points: TonePoint[] }) {
             );
           })}
           <text x={m.left + innerW / 2} y={height - 4} textAnchor="middle" className="axis-title">
-            Scene
+            {t("Scene")}
           </text>
         </svg>
       )}
       <ul className="legend">
         <li>
           <span className="swatch tone-up" />
-          Lighter mood
+          {t("Lighter mood")}
         </li>
         <li>
           <span className="swatch tone-down" />
-          Darker mood
+          {t("Darker mood")}
         </li>
       </ul>
       <TipBox tip={tip} />

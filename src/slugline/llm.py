@@ -82,7 +82,9 @@ class Analysis:
 # --- client -----------------------------------------------------------------
 
 def model_name() -> str:
-    return os.environ.get("SLUGLINE_MODEL") or DEFAULT_MODEL
+    from slugline import settings
+
+    return os.environ.get("SLUGLINE_MODEL") or settings.load().get("model") or DEFAULT_MODEL
 
 
 def make_client() -> Any:
@@ -90,7 +92,12 @@ def make_client() -> Any:
         import anthropic
     except ImportError as e:
         raise LLMError("LLM features need the Anthropic SDK: pip install 'slugline[llm]'") from e
-    return anthropic.Anthropic()
+    from slugline import settings
+
+    # A key saved in the app is used unless the environment provides one;
+    # with neither, the SDK looks for its other credentials as usual.
+    key = settings.api_key()
+    return anthropic.Anthropic(api_key=key) if key else anthropic.Anthropic()
 
 
 def status() -> dict:
@@ -100,14 +107,16 @@ def status() -> dict:
     except ImportError:
         return {"available": False, "model": model_name(),
                 "reason": "Install the Anthropic SDK: pip install 'slugline[llm]'"}
+    from slugline import settings
+
     has_credentials = (
-        os.environ.get("ANTHROPIC_API_KEY")
+        settings.api_key()
         or os.environ.get("ANTHROPIC_AUTH_TOKEN")
         or (Path.home() / ".config" / "anthropic").is_dir()
     )
     if not has_credentials:
         return {"available": False, "model": model_name(),
-                "reason": "Set ANTHROPIC_API_KEY to turn on the AI features."}
+                "reason": "Add an Anthropic API key in Settings to turn on the AI features."}
     return {"available": True, "model": model_name(), "reason": ""}
 
 
@@ -115,7 +124,7 @@ def _explain(error: Exception) -> str:
     import anthropic
 
     if isinstance(error, anthropic.AuthenticationError):
-        return "The Anthropic API rejected the credentials. Check ANTHROPIC_API_KEY."
+        return "The Anthropic API rejected the API key. Check it in Settings."
     if isinstance(error, anthropic.PermissionDeniedError):
         return "This API key is not allowed to use the model."
     if isinstance(error, anthropic.NotFoundError):
@@ -148,7 +157,7 @@ def open_stream(client: Any, *, model: str, **params: Any) -> Iterator[Any]:
     except TypeError as e:  # the SDK raises this when it finds no credentials
         if "auth" not in str(e).lower() and "api_key" not in str(e).lower():
             raise
-        raise LLMError("No Anthropic credentials found. Set ANTHROPIC_API_KEY.") from e
+        raise LLMError("No Anthropic API key found. Add one in Settings, or set ANTHROPIC_API_KEY.") from e
 
 
 def check_stop(message: Any) -> None:

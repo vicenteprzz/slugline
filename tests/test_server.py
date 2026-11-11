@@ -18,7 +18,7 @@ from test_llm import SCRIPT, overview_reply, scenes_reply  # noqa: E402
 
 @pytest.fixture
 def client():
-    return TestClient(create_app())
+    return TestClient(create_app(), headers={"x-slugline": "1"})
 
 
 def upload(client, text_=SCRIPT, filename="two_rooms.fountain"):
@@ -33,7 +33,7 @@ def use_api(monkeypatch, api):
 
 def test_status_without_credentials(client):
     status = client.get("/api/status").json()
-    assert status["llm"]["available"] is False and "ANTHROPIC_API_KEY" in status["llm"]["reason"]
+    assert status["llm"]["available"] is False and "API key" in status["llm"]["reason"]
     assert status["llm"]["model"] == "claude-opus-5-5"
 
 
@@ -48,7 +48,8 @@ def test_upload_returns_the_breakdown(client):
     assert script["issues"] == []
 
     assert client.get(f"/api/scripts/{script['id']}").json() == script
-    assert client.get("/api/scripts").json() == [{"id": script["id"], "filename": "two_rooms.fountain", "title": "Two Rooms"}]
+    [entry] = client.get("/api/scripts").json()
+    assert (entry["id"], entry["filename"], entry["title"], entry["scenes"]) == (script["id"], "two_rooms.fountain", "Two Rooms", 2)
 
 
 @pytest.mark.parametrize(
@@ -139,7 +140,7 @@ def test_chat_errors_arrive_as_an_event(client):
     script_id = upload(client).json()["id"]
     response = client.post(f"/api/scripts/{script_id}/chat", json={"message": "Hi"})
     events = [json.loads(line) for line in response.text.splitlines()]
-    assert events == [{"type": "error", "message": "No Anthropic credentials found. Set ANTHROPIC_API_KEY."}]
+    assert events == [{"type": "error", "message": "No Anthropic API key found. Add one in Settings, or set ANTHROPIC_API_KEY."}]
     assert client.post(f"/api/scripts/{script_id}/chat", json={"message": "  "}).status_code == 422
 
 

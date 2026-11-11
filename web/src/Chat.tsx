@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { chat, resetChat } from "./api";
+import { t } from "./i18n";
 import type { Status } from "./types";
 
 type Step = { name: string; input: Record<string, unknown> };
@@ -10,29 +11,33 @@ type Message =
 
 const SUGGESTIONS = [
   "Which scenes could be shot on the same day?",
+  "What props do we need for the night scenes?",
   "Who has the most dialogue, and in which scenes?",
-  "Summarize the story in five lines.",
 ];
 
 function describeStep(step: Step): string {
   const input = step.input ?? {};
   switch (step.name) {
     case "list_scenes":
-      return "Looked at the scene list";
+      return t("Looked at the scene list");
     case "read_scenes": {
       const numbers = Array.isArray(input.numbers) ? input.numbers.map(String) : [];
-      return numbers.length ? `Read scene${numbers.length > 1 ? "s" : ""} ${numbers.join(", ")}` : "Read scenes";
+      return t("Read scenes {list}", { list: numbers.join(", ") });
     }
     case "list_characters":
-      return "Checked the cast";
+      return t("Checked the cast");
     case "character_dialogue":
-      return `Read ${typeof input.name === "string" ? input.name : "a character"}'s dialogue`;
+      return t("Read {name}'s dialogue", { name: typeof input.name === "string" ? input.name : "?" });
     case "list_locations":
-      return "Checked the locations";
+      return t("Checked the locations");
     case "search_script":
-      return `Searched for "${typeof input.query === "string" ? input.query : ""}"`;
+      return t("Searched for “{query}”", { query: typeof input.query === "string" ? input.query : "" });
+    case "list_elements":
+      return t("Checked the elements");
+    case "shooting_schedule":
+      return t("Checked the shooting schedule");
     case "format_issues":
-      return "Checked the formatting";
+      return t("Checked the formatting");
     default:
       return step.name;
   }
@@ -92,7 +97,7 @@ function Markdown({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
-export default function Chat(props: { scriptId: string; title: string; status: Status | null; onClose: () => void }) {
+export default function Chat(props: { scriptId: string; title: string; status: Status | null; onClose: () => void; onOpenSettings: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -148,7 +153,7 @@ export default function Chat(props: { scriptId: string; title: string; status: S
       );
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
-        patch((m) => void (m.error = error instanceof Error ? error.message : "The request failed."));
+        patch((m) => void (m.error = error instanceof Error ? error.message : t("The request failed.")));
       }
     } finally {
       patch((m) => void (m.pending = false));
@@ -169,17 +174,17 @@ export default function Chat(props: { scriptId: string; title: string; status: S
     <aside className="drawer chat" aria-label="Script assistant">
       <header className="drawer-head chat-head">
         <div>
-          <h2>Ask the script</h2>
+          <h2>{t("Ask the script")}</h2>
           <p>{props.title}</p>
         </div>
         <div className="chat-actions">
           {messages.length > 0 && (
             <button className="ghost small" onClick={restart}>
-              New chat
+              {t("New chat")}
             </button>
           )}
-          <button className="ghost small" onClick={props.onClose} aria-label="Close the assistant">
-            Close
+          <button className="ghost small" onClick={props.onClose} aria-label={t("Close the assistant")}>
+            {t("Close")}
           </button>
         </div>
       </header>
@@ -187,22 +192,24 @@ export default function Chat(props: { scriptId: string; title: string; status: S
       <div className="chat-body">
         {messages.length === 0 && (
           <div className="chat-empty">
-            <p>
-              The assistant reads the parsed script with tools, so its counts and page lengths are the same ones you see in the
-              breakdown.
-            </p>
+            <p>{t("The assistant reads the parsed script with tools, so its counts and page lengths are the same ones you see in the breakdown. It also sees the elements and the shooting schedule.")}</p>
             {available ? (
               <ul>
                 {SUGGESTIONS.map((s) => (
                   <li key={s}>
-                    <button className="suggestion" onClick={() => void send(s)}>
-                      {s}
+                    <button className="suggestion" onClick={() => void send(t(s))}>
+                      {t(s)}
                     </button>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="notice">{props.status?.llm.reason || "The AI features are not available."}</p>
+              <p className="notice">
+                {t("The AI features need your Anthropic API key.")}{" "}
+                <button className="link" onClick={props.onOpenSettings}>
+                  {t("Add it in Settings")}
+                </button>
+              </p>
             )}
           </div>
         )}
@@ -221,7 +228,7 @@ export default function Chat(props: { scriptId: string; title: string; status: S
                 </ul>
               )}
               <Markdown text={m.text.trim()} />
-              {m.pending && !m.text.trim() && <p className="thinking">{m.steps.length ? "Reading…" : "Thinking…"}</p>}
+              {m.pending && !m.text.trim() && <p className="thinking">{m.steps.length ? t("Reading…") : t("Thinking…")}</p>}
               {m.error && <p className="notice error">{m.error}</p>}
             </div>
           ),
@@ -240,7 +247,7 @@ export default function Chat(props: { scriptId: string; title: string; status: S
           ref={input}
           value={draft}
           rows={2}
-          placeholder={available ? "Ask about scenes, characters, schedule…" : "AI features are off"}
+          placeholder={available ? t("Ask about scenes, characters, schedule…") : t("AI features are off")}
           disabled={!available}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -251,7 +258,7 @@ export default function Chat(props: { scriptId: string; title: string; status: S
           }}
         />
         <button className="primary" type="submit" disabled={!available || busy || !draft.trim()}>
-          {busy ? "Answering…" : "Ask"}
+          {busy ? t("Answering…") : t("Ask")}
         </button>
       </form>
     </aside>

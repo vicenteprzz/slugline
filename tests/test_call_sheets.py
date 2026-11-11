@@ -84,7 +84,7 @@ def test_cli_and_api_read_fdx(tmp_path, capsys):
 
     from slugline.server import create_app
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
     ok = client.post("/api/scripts", params={"filename": "two.fdx"}, content=FDX.encode())
     assert ok.status_code == 200 and ok.json()["breakdown"]["title"] == "Two Rooms"
     bad = client.post("/api/scripts", params={"filename": "two.fdx"}, content=b"<html/>")
@@ -190,7 +190,7 @@ def test_api_call_sheets_and_cast():
 
     from slugline.server import create_app
 
-    client = TestClient(create_app())
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
     sid = client.post("/api/scripts", params={"filename": "four.fountain"}, content=SCRIPT.encode()).json()["id"]
     assert client.get(f"/api/scripts/{sid}/export/call-sheets.pdf").status_code == 404  # no schedule yet
 

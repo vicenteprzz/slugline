@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { clearSchedule, exportUrl, saveSchedule, suggestSchedule } from "./api";
 import { eighths, plural, stripColor, titleCase } from "./format";
+import { light, t } from "./i18n";
 import type { Schedule, Script, ShootDay } from "./types";
 
 const UNSCHEDULED = -1;
@@ -29,7 +30,7 @@ export default function ScheduleBoard(props: {
     try {
       apply(await task());
     } catch (e) {
-      props.onError(e instanceof Error ? e.message : "The schedule could not be saved.");
+      props.onError(e instanceof Error ? e.message : t("The schedule could not be saved."));
     } finally {
       setBusy(false);
     }
@@ -47,7 +48,7 @@ export default function ScheduleBoard(props: {
       .then(props.onChange)
       .catch((e) => {
         props.onChange(previous);
-        props.onError(e instanceof Error ? e.message : "The schedule could not be saved.");
+        props.onError(e instanceof Error ? e.message : t("The schedule could not be saved."));
       })
       .finally(() => setBusy(false));
   }
@@ -91,27 +92,28 @@ export default function ScheduleBoard(props: {
       <section className="card">
         <header className="card-head">
           <div>
-            <h3>Shooting schedule</h3>
+            <h3>{t("Shooting schedule")}</h3>
             <p>
-              Put the scenes in shooting order, day by day. Slugline can suggest a first plan: day work first and nights in one block, each
-              location kept together, and each day filled up to the pages you expect to shoot.
+              {t(
+                "Put the scenes in shooting order, day by day. Slugline can suggest a first plan: day work first and nights in one block, each location kept together, and each day filled up to the pages you expect to shoot.",
+              )}
             </p>
           </div>
         </header>
         <div className="schedule-start">
           <label>
-            Pages a day
+            {t("Pages a day")}
             <input type="number" min={0.5} max={30} step={0.5} value={pages} onChange={(e) => setPages(Number(e.target.value) || 5)} />
           </label>
           <button className="primary" disabled={busy} onClick={suggest}>
-            {busy ? "Planning…" : "Suggest a schedule"}
+            {busy ? t("Planning…") : t("Suggest a schedule")}
           </button>
           <button
             className="ghost"
             disabled={busy}
             onClick={() => run(() => saveSchedule(script.id, [emptyDay()], { pagesPerDay: pages }), props.onChange)}
           >
-            Start with an empty day
+            {t("Start with an empty day")}
           </button>
         </div>
       </section>
@@ -159,17 +161,17 @@ export default function ScheduleBoard(props: {
         <span className="strip-cast">{s.characters.map(titleCase).join(", ") || "–"}</span>
         <select
           className="strip-move"
-          aria-label={`Move scene ${s.number}`}
+          aria-label={t("Move scene {n}", { n: s.number })}
           value={dayIndex}
           disabled={busy}
           onChange={(e) => move(number, Number(e.target.value))}
         >
           {plan.days.map((_, i) => (
             <option key={i} value={i}>
-              Day {i + 1}
+              {t("Day {n}", { n: i + 1 })}
             </option>
           ))}
-          <option value={UNSCHEDULED}>Not scheduled</option>
+          <option value={UNSCHEDULED}>{t("Not scheduled")}</option>
         </select>
       </li>
     );
@@ -193,15 +195,18 @@ export default function ScheduleBoard(props: {
     <section className={`card${busy ? " saving" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>Shooting schedule</h3>
+          <h3>{t("Shooting schedule")}</h3>
           <p>
-            {plural(plan.days.length, "shooting day")} · {eighths(total)} pages · planned at {plan.pages_per_day} pages a day. Drag the
-            strips to reorder them, or use the menu on each strip.
+            {t("{days} · {pages} pages · planned at {perDay} pages a day. Drag the strips to reorder them, or use the menu on each strip.", {
+              days: plural(plan.days.length, "shooting day"),
+              pages: eighths(total),
+              perDay: plan.pages_per_day,
+            })}
           </p>
         </div>
         <div className="schedule-actions">
           <button className="ghost small" disabled={busy} onClick={() => commit([...plainDays(), emptyDay()])}>
-            Add day
+            {t("Add day")}
           </button>
           <label className="replan">
             <input
@@ -210,30 +215,30 @@ export default function ScheduleBoard(props: {
               max={30}
               step={0.5}
               value={pages}
-              aria-label="Pages a day"
+              aria-label={t("Pages a day")}
               onChange={(e) => setPages(Number(e.target.value) || 5)}
             />
-            pages a day
+            {t("pages a day")}
           </label>
           <button
             className="ghost small"
             disabled={busy}
-            onClick={() => window.confirm("Replace this schedule with a new suggestion? Your changes to it will be lost.") && void suggest()}
+            onClick={() => window.confirm(t("Replace this schedule with a new suggestion? Your changes to it will be lost.")) && void suggest()}
           >
-            Suggest again
+            {t("Suggest again")}
           </button>
           <button
             className="ghost small"
             disabled={busy}
             onClick={() =>
-              window.confirm("Delete this shooting schedule?") &&
+              window.confirm(t("Delete this shooting schedule?")) &&
               void run(
                 () => clearSchedule(script.id),
                 () => props.onChange(null),
               )
             }
           >
-            Delete
+            {t("Delete")}
           </button>
         </div>
       </header>
@@ -241,8 +246,8 @@ export default function ScheduleBoard(props: {
       {newScenes.length > 0 && (
         <p className="revision-note schedule-note">
           <span>
-            <strong>New draft.</strong> The schedule was carried over from the previous draft. {plural(newScenes.length, "new scene")} still{" "}
-            {newScenes.length === 1 ? "needs" : "need"} a day: {newScenes.join(", ")}.
+            <strong>{t("New draft.")}</strong>{" "}
+            {t("The schedule was carried over from the previous draft. New scenes without a day: {list}.", { list: newScenes.join(", ") })}
           </span>
         </p>
       )}
@@ -253,52 +258,57 @@ export default function ScheduleBoard(props: {
           return (
             <li key={day.id || i} className={`day${over === i ? " drop" : ""}`} {...dropZone(i)}>
               <div className="day-head">
-                <strong>Day {i + 1}</strong>
-                <input type="date" value={day.date} aria-label={`Date of day ${i + 1}`} onChange={(e) => editDay(i, { date: e.target.value })} />
+                <strong>{t("Day {n}", { n: i + 1 })}</strong>
+                <input type="date" value={day.date} aria-label={t("Date of day {n}", { n: i + 1 })} onChange={(e) => editDay(i, { date: e.target.value })} />
                 <label className="call">
-                  Call
-                  <input type="time" value={day.call_time} aria-label={`Crew call, day ${i + 1}`} onChange={(e) => editDay(i, { call_time: e.target.value })} />
+                  {t("Call")}
+                  <input
+                    type="time"
+                    value={day.call_time}
+                    aria-label={t("Crew call, day {n}", { n: i + 1 })}
+                    onChange={(e) => editDay(i, { call_time: e.target.value })}
+                  />
                 </label>
                 <span className={stats.over ? "day-pages over" : "day-pages"}>
                   {stats.over && <span aria-hidden="true">▲ </span>}
-                  {eighths(stats.eighths)} of {plan.pages_per_day} pages
+                  {t("{n} of {max} pages", { n: eighths(stats.eighths), max: plan.pages_per_day })}
                 </span>
                 <span className="day-meta">
-                  {stats.locations.map(titleCase).join(" · ") || "No scenes yet"}
-                  {stats.light.length > 0 && ` · ${stats.light.map(titleCase).join(", ")}`}
+                  {stats.locations.map(titleCase).join(" · ") || t("No scenes yet")}
+                  {stats.light.length > 0 && ` · ${stats.light.map(light).join(", ")}`}
                 </span>
                 {pdf && day.scenes.length > 0 && (
                   <a className="small-link" href={exportUrl(script.id, "call-sheets.pdf", `?day=${i + 1}`)} download>
-                    Call sheet
+                    {t("Call sheet")}
                   </a>
                 )}
                 <button
                   className="link small-link"
                   disabled={busy}
                   onClick={() => commit(plainDays().filter((_, k) => k !== i))}
-                  title="Its scenes go back to Not scheduled"
+                  title={t("Its scenes go back to Not scheduled")}
                 >
-                  Remove day
+                  {t("Remove day")}
                 </button>
               </div>
               {day.scenes.length ? (
                 <ol className="strips">{day.scenes.map((n, k) => strip(n, i, k))}</ol>
               ) : (
-                <p className="day-empty">Drag scenes here.</p>
+                <p className="day-empty">{t("Drag scenes here.")}</p>
               )}
               <div className="day-fields">
                 <input
                   className="day-notes"
-                  placeholder="Meeting point or address"
-                  aria-label={`Meeting point, day ${i + 1}`}
+                  placeholder={t("Meeting point or address")}
+                  aria-label={t("Meeting point, day {n}", { n: i + 1 })}
                   defaultValue={day.address}
                   maxLength={300}
                   onBlur={(e) => e.target.value !== day.address && editDay(i, { address: e.target.value })}
                 />
                 <input
                   className="day-notes"
-                  placeholder="Notes for the call sheet (company move, weather cover…)"
-                  aria-label={`Notes, day ${i + 1}`}
+                  placeholder={t("Notes for the call sheet (company move, weather cover…)")}
+                  aria-label={t("Notes, day {n}", { n: i + 1 })}
                   defaultValue={day.notes}
                   maxLength={500}
                   onBlur={(e) => e.target.value !== day.notes && editDay(i, { notes: e.target.value })}
@@ -311,8 +321,8 @@ export default function ScheduleBoard(props: {
 
       <div className={`day unscheduled${over === UNSCHEDULED ? " drop" : ""}`} {...dropZone(UNSCHEDULED)}>
         <div className="day-head">
-          <strong>Not scheduled</strong>
-          <span className="day-meta">{plan.unscheduled.length ? plural(plan.unscheduled.length, "scene") : "Every scene has a day."}</span>
+          <strong>{t("Not scheduled")}</strong>
+          <span className="day-meta">{plan.unscheduled.length ? plural(plan.unscheduled.length, "scene") : t("Every scene has a day.")}</span>
         </div>
         {plan.unscheduled.length > 0 && <ol className="strips">{plan.unscheduled.map((n, k) => strip(n, UNSCHEDULED, k))}</ol>}
       </div>
@@ -331,7 +341,6 @@ const CODE_HELP: Record<string, string> = {
 /** Who works which day, as production tracks it for contracts, with the actor's name for each character. */
 export function CastCard(props: {
   script: Script;
-  pdfExport: boolean;
   onChange: (schedule: Schedule) => void;
   onError: (message: string) => void;
 }) {
@@ -346,7 +355,7 @@ export function CastCard(props: {
     try {
       props.onChange(await saveSchedule(props.script.id, days, { actors }));
     } catch (e) {
-      props.onError(e instanceof Error ? e.message : "The cast list could not be saved.");
+      props.onError(e instanceof Error ? e.message : t("The cast list could not be saved."));
     }
   }
 
@@ -354,29 +363,30 @@ export function CastCard(props: {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>Cast and day out of days</h3>
+          <h3>{t("Cast and day out of days")}</h3>
           <p>
-            Which shooting days each character works, from the schedule above. Holds are days between work days when the actor is paid but
-            not shooting: moving scenes to cut them saves money. Add the actors' names for the call sheets.
+            {t(
+              "Which shooting days each character works, from the schedule above. Holds are days between work days when the actor is paid but not shooting: moving scenes to cut them saves money. Add the actors' names for the call sheets.",
+            )}
           </p>
         </div>
         <a className="ghost small button-link" href={exportUrl(props.script.id, "day-out-of-days.csv")} download>
-          Download CSV
+          {t("Download CSV")}
         </a>
       </header>
       <div className="table-scroll">
         <table className="data dood">
           <thead>
             <tr>
-              <th>Character</th>
-              <th>Actor</th>
+              <th>{t("Character")}</th>
+              <th>{t("Actor")}</th>
               {plan.days.map((d, i) => (
                 <th key={d.id || i} className="num" title={d.date || undefined}>
                   {i + 1}
                 </th>
               ))}
-              <th className="num">Work</th>
-              <th className="num">Hold</th>
+              <th className="num">{t("Work")}</th>
+              <th className="num">{t("Hold")}</th>
             </tr>
           </thead>
           <tbody>
@@ -386,15 +396,15 @@ export function CastCard(props: {
                 <td>
                   <input
                     className="actor"
-                    placeholder="Actor's name"
-                    aria-label={`Actor playing ${titleCase(c.character)}`}
+                    placeholder={t("Actor's name")}
+                    aria-label={t("Actor playing {name}", { name: titleCase(c.character) })}
                     defaultValue={c.actor}
                     maxLength={80}
                     onBlur={(e) => void setActor(c.character, e.target.value)}
                   />
                 </td>
                 {c.codes.map((code, i) => (
-                  <td key={i} className={`code${code ? ` code-${code === "H" ? "hold" : "work"}` : ""}`} title={code ? `Day ${i + 1}: ${CODE_HELP[code]}` : undefined}>
+                  <td key={i} className={`code${code ? ` code-${code === "H" ? "hold" : "work"}` : ""}`} title={code ? `${t("Day {n}", { n: i + 1 })}: ${t(CODE_HELP[code])}` : undefined}>
                     {code}
                   </td>
                 ))}
@@ -405,7 +415,7 @@ export function CastCard(props: {
           </tbody>
         </table>
       </div>
-      <p className="fine">SW starts work · W works · WF finishes · SWF one day only · H on hold.</p>
+      <p className="fine">{t("SW starts work · W works · WF finishes · SWF one day only · H on hold.")}</p>
     </section>
   );
 }

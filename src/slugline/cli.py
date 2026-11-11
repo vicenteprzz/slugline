@@ -300,10 +300,20 @@ def cmd_serve(args: argparse.Namespace) -> int:
         from slugline.server import create_app
     except ImportError:
         raise CLIError("the dashboard needs FastAPI: pip install 'slugline[web]'") from None
-    app = create_app()
+    local = args.host in ("127.0.0.1", "localhost", "::1")
+    # Listening on the network means being reached by other names; on this
+    # computer only, requests for any other host name are refused.
+    app = create_app(check_host=local)
+    url = f"http://{'127.0.0.1' if local else args.host}:{args.port}/"
     if args.script:
-        app.state.store.add(Path(args.script).name, read_script(args.script))
-    print(f"Slugline dashboard: http://{args.host}:{args.port}")
+        script = app.state.store.add(Path(args.script).name, read_script(args.script))
+        url += f"#/scripts/{script.id}"
+    print(f"Slugline dashboard: {url}")
+    if args.open:
+        import threading
+        import webbrowser
+
+        threading.Timer(1.0, webbrowser.open, [url]).start()
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0
 
@@ -364,6 +374,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("script", nargs="?", help="a .fountain, .fdx or .pdf file to open")
     p.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1)")
     p.add_argument("--port", type=int, default=8000, help="port to listen on (default: 8000)")
+    p.add_argument("--open", action="store_true", help="open the dashboard in the browser")
     return ap
 
 

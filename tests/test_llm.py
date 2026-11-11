@@ -109,7 +109,7 @@ def test_other_models_skip_the_fallback_beta(monkeypatch):
 @pytest.mark.parametrize(
     "response, expected",
     [
-        (api_error(401, "authentication_error", "invalid x-api-key"), "rejected the credentials"),
+        (api_error(401, "authentication_error", "invalid x-api-key"), "rejected the API key"),
         (api_error(404, "not_found_error", "model: nope"), "model was not found"),
         (api_error(429, "rate_limit_error", "slow down"), "rate limit"),
         (api_error(529, "overloaded_error", "Overloaded"), "returned an error (529)"),

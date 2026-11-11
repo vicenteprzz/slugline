@@ -96,6 +96,17 @@ export type Script = {
   schedule: Schedule | null;
 };
 
+export type LibraryEntry = { id: string; filename: string; title: string | null; scenes: number; added_at: string; opened_at: string };
+
+export type Settings = {
+  has_api_key: boolean;
+  api_key_hint: string | null;
+  api_key_source: "environment" | "app" | null;
+  model: string;
+  models: string[];
+  language: string | null;
+};
+
 export type Status = {
   version: string;
   llm: { available: boolean; model: string; reason: string };

@@ -7,9 +7,11 @@ export function eighths(value: number): string {
   return `${rest}/8`;
 }
 
-export const count = (n: number) => n.toLocaleString("en-US");
+import { language } from "./i18n";
 
-export const plural = (n: number, word: string) => `${count(n)} ${word}${n === 1 ? "" : "s"}`;
+export { plural } from "./i18n";
+
+export const count = (n: number) => n.toLocaleString(language() === "es" ? "es-ES" : "en-US");
 
 export const percent = (part: number, whole: number) => (whole ? `${Math.round((part / whole) * 100)}%` : "0%");
 
