@@ -27,6 +27,8 @@ MAX_DAYS = 400
 MAX_NOTES = 500
 MAX_ADDRESS = 300
 MAX_ACTOR = 80
+MAX_CREW = 200
+MAX_CREW_FIELD = 80
 CALL_TIME = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
@@ -42,6 +44,9 @@ class ShootDay:
     id: str = field(default_factory=_day_id)
     call_time: str = ""  # crew call, "07:30"
     address: str = ""  # where the unit meets: location address, base camp, parking
+    hospital: str = ""  # nearest hospital or emergency service, for the call sheet
+    # Call times for individual characters this day; the rest are called at call_time.
+    cast_calls: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -50,13 +55,15 @@ class Schedule:
     pages_per_day: float = DEFAULT_PAGES_PER_DAY
     revision: dict | None = None  # set when carried over from an earlier draft
     actors: dict[str, str] = field(default_factory=dict)  # character -> actor's name
+    # The crew list printed on every call sheet: {"role", "name", "phone"}.
+    crew: list[dict[str, str]] = field(default_factory=list)
 
     def scheduled(self) -> set[str]:
         return {n for d in self.days for n in d.scenes}
 
     def to_dict(self) -> dict:
         return {"days": [asdict(d) for d in self.days], "pages_per_day": self.pages_per_day,
-                "revision": self.revision, "actors": self.actors}
+                "revision": self.revision, "actors": self.actors, "crew": self.crew}
 
     @classmethod
     def from_dict(cls, data: dict) -> Schedule:
@@ -65,6 +72,7 @@ class Schedule:
             pages_per_day=float(data.get("pages_per_day", DEFAULT_PAGES_PER_DAY)),
             revision=data.get("revision"),
             actors={str(k): str(v) for k, v in data.get("actors", {}).items()},
+            crew=[{k: str(c.get(k, "")) for k in ("role", "name", "phone")} for c in data.get("crew", [])],
         )
 
 
@@ -121,11 +129,13 @@ def set_days(
     pages_per_day: float | None = None,
     previous: Schedule | None = None,
     actors: dict[str, str] | None = None,
+    crew: list[dict] | None = None,
 ) -> Schedule:
     """A schedule from what the user sent. Raises ValueError with a readable message."""
     if len(days) > MAX_DAYS:
         raise ValueError(f"A schedule can have at most {MAX_DAYS} days.")
     known = {s.number for s in b.scenes}
+    cast = {c for s in b.scenes for c in [*s.characters, *s.silent]}
     seen: set[str] = set()
     result = []
     for i, day in enumerate(days, start=1):
@@ -140,27 +150,52 @@ def set_days(
             seen.add(n)
         date, notes = day.get("date", "") or "", day.get("notes", "") or ""
         call_time, address = day.get("call_time", "") or "", day.get("address", "") or ""
-        if not all(isinstance(v, str) for v in (date, notes, call_time, address)):
-            raise ValueError(f"Day {i}: the date, call time, address and notes must be text.")
-        if len(notes) > MAX_NOTES or len(address) > MAX_ADDRESS:
-            raise ValueError(f"Day {i}: the notes or the address are too long.")
+        hospital = day.get("hospital", "") or ""
+        if not all(isinstance(v, str) for v in (date, notes, call_time, address, hospital)):
+            raise ValueError(f"Day {i}: the date, call time, address, hospital and notes must be text.")
+        if len(notes) > MAX_NOTES or len(address) > MAX_ADDRESS or len(hospital) > MAX_ADDRESS:
+            raise ValueError(f"Day {i}: the notes, the address or the hospital are too long.")
         if call_time and not CALL_TIME.match(call_time):
             raise ValueError(f"Day {i}: the call time must look like 07:30.")
+        cast_calls = day.get("cast_calls") or {}
+        if not isinstance(cast_calls, dict):
+            raise ValueError(f"Day {i}: the cast's call times are not valid.")
+        for name, time in cast_calls.items():
+            if name not in cast:
+                raise ValueError(f"Day {i}: {name} is not a character in this script.")
+            if not isinstance(time, str) or (time and not CALL_TIME.match(time)):
+                raise ValueError(f"Day {i}: the call time for {name} must look like 07:30.")
         result.append(ShootDay(scenes=list(scenes), date=date[:10], notes=notes, id=str(day.get("id") or _day_id())[:16],
-                               call_time=call_time, address=address))
+                               call_time=call_time, address=address, hospital=hospital,
+                               cast_calls={k: v for k, v in cast_calls.items() if v}))
     if actors is None:
         actors = previous.actors if previous else {}
-    cast = {c for s in b.scenes for c in s.characters}
-    unknown = [name for name in actors if name not in cast]
+    speaking = {c for s in b.scenes for c in s.characters}
+    unknown = [name for name in actors if name not in speaking]
     if unknown:
         raise ValueError(f"{unknown[0]} is not a character in this script.")
     if any(not isinstance(v, str) or len(v) > MAX_ACTOR for v in actors.values()):
         raise ValueError(f"Actors' names are limited to {MAX_ACTOR} characters.")
+    if crew is None:
+        crew = previous.crew if previous else []
+    if len(crew) > MAX_CREW:
+        raise ValueError(f"The crew list is limited to {MAX_CREW} people.")
+    clean_crew = []
+    for member in crew:
+        if not isinstance(member, dict):
+            raise ValueError("Each crew member needs a role, a name and a phone.")
+        row = {k: member.get(k, "") or "" for k in ("role", "name", "phone")}
+        if not all(isinstance(v, str) and len(v) <= MAX_CREW_FIELD for v in row.values()):
+            raise ValueError(f"Crew roles, names and phones are limited to {MAX_CREW_FIELD} characters.")
+        row = {k: v.strip() for k, v in row.items()}
+        if any(row.values()):
+            clean_crew.append(row)
     return Schedule(
         days=result,
         pages_per_day=pages_per_day or (previous.pages_per_day if previous else DEFAULT_PAGES_PER_DAY),
         revision=previous.revision if previous else None,
         actors={k: v.strip() for k, v in actors.items() if v.strip()},
+        crew=clean_crew,
     )
 
 
@@ -238,6 +273,7 @@ def to_payload(schedule: Schedule | None, b: Breakdown) -> dict | None:
         "unscheduled": [s.number for s in b.scenes if s.number not in scheduled],
         "revision": schedule.revision,
         "actors": schedule.actors,
+        "crew": schedule.crew,
         "day_out_of_days": [asdict(c) for c in day_out_of_days(schedule, b)],
     }
 
@@ -271,15 +307,17 @@ def carry_over(text: str) -> Schedule | None:
     old = Schedule.from_dict(previous)
     matching = revisions.match_scenes(previous["meta"]["scenes"], [revisions.fingerprint(s) for s in play.scenes])
     new_number = {m.old: n for n, m in matching.scenes.items()}
+    present = {c for s in play.scenes for d in s.dialogues for c in [d.character]}
     days = [
         ShootDay(scenes=[new_number[n] for n in d.scenes if n in new_number], date=d.date, notes=d.notes, id=d.id,
-                 call_time=d.call_time, address=d.address)
+                 call_time=d.call_time, address=d.address, hospital=d.hospital,
+                 cast_calls={k: v for k, v in d.cast_calls.items() if k in present})
         for d in old.days
     ]
     # Actors keep their characters, as long as the character is still in the script.
     cast = {c for s in play.scenes for d in s.dialogues for c in [d.character]}
     actors = {k: v for k, v in old.actors.items() if k in cast}
-    return Schedule(days=days, pages_per_day=old.pages_per_day, actors=actors,
+    return Schedule(days=days, pages_per_day=old.pages_per_day, actors=actors, crew=old.crew,
                     revision=revisions.matching_payload(matching, previous["meta"]))
 
 

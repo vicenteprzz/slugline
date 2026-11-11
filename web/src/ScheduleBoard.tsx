@@ -3,7 +3,20 @@ import { useState } from "react";
 import { clearSchedule, exportUrl, saveSchedule, suggestSchedule } from "./api";
 import { eighths, plural, stripColor, titleCase } from "./format";
 import { light, t } from "./i18n";
-import type { Schedule, Script, ShootDay } from "./types";
+import type { CrewMember, Schedule, Script, ShootDay } from "./types";
+
+/** The editable fields of each day, without what the server computes. */
+export const plainDays = (days: Schedule["days"]): ShootDay[] =>
+  days.map(({ id, scenes, date, notes, call_time, address, hospital, cast_calls }) => ({
+    id,
+    scenes: [...scenes],
+    date,
+    notes,
+    call_time,
+    address,
+    hospital,
+    cast_calls: { ...cast_calls },
+  }));
 
 const UNSCHEDULED = -1;
 
@@ -44,13 +57,22 @@ export default function ScheduleBoard(props: {
     // Show the change at once; the server's answer replaces it, or the old plan comes back on error.
     props.onChange({ ...plan, days: days.map((d) => ({ ...d, stats: localStats(d) })), unscheduled: unscheduledOf(days) });
     setBusy(true);
-    saveSchedule(script.id, days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes, date, notes, call_time, address })))
+    saveSchedule(script.id, days)
       .then(props.onChange)
       .catch((e) => {
         props.onChange(previous);
         props.onError(e instanceof Error ? e.message : t("The schedule could not be saved."));
       })
       .finally(() => setBusy(false));
+  }
+
+  // Everyone on set that day: who speaks and who the action names.
+  function castOf(day: ShootDay): string[] {
+    const names = day.scenes.flatMap((n) => {
+      const s = rows.get(n);
+      return s ? [...s.characters, ...s.silent] : [];
+    });
+    return [...new Set(names)];
   }
 
   function unscheduledOf(days: ShootDay[]): string[] {
@@ -74,18 +96,17 @@ export default function ScheduleBoard(props: {
   /** Move a scene to a day (or out of the schedule), before the scene at `position`. */
   function move(number: string, toDay: number, position?: number) {
     if (!plan) return;
-    const days = plainDays().map((d) => ({ ...d, scenes: d.scenes.filter((n) => n !== number) }));
+    const next = days().map((d) => ({ ...d, scenes: d.scenes.filter((n) => n !== number) }));
     if (toDay !== UNSCHEDULED) {
-      const target = days[toDay].scenes;
+      const target = next[toDay].scenes;
       target.splice(position ?? target.length, 0, number);
     }
-    commit(days);
+    commit(next);
   }
 
-  const plainDays = (): ShootDay[] =>
-    plan!.days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes: [...scenes], date, notes, call_time, address }));
-  const emptyDay = (): ShootDay => ({ id: "", scenes: [], date: "", notes: "", call_time: "", address: "" });
-  const editDay = (i: number, change: Partial<ShootDay>) => commit(plainDays().map((d, k) => (k === i ? { ...d, ...change } : d)));
+  const days = (): ShootDay[] => plainDays(plan!.days);
+  const emptyDay = (): ShootDay => ({ id: "", scenes: [], date: "", notes: "", call_time: "", address: "", hospital: "", cast_calls: {} });
+  const editDay = (i: number, change: Partial<ShootDay>) => commit(days().map((d, k) => (k === i ? { ...d, ...change } : d)));
 
   if (!plan) {
     return (
@@ -205,7 +226,7 @@ export default function ScheduleBoard(props: {
           </p>
         </div>
         <div className="schedule-actions">
-          <button className="ghost small" disabled={busy} onClick={() => commit([...plainDays(), emptyDay()])}>
+          <button className="ghost small" disabled={busy} onClick={() => commit([...days(), emptyDay()])}>
             {t("Add day")}
           </button>
           <label className="replan">
@@ -285,7 +306,7 @@ export default function ScheduleBoard(props: {
                 <button
                   className="link small-link"
                   disabled={busy}
-                  onClick={() => commit(plainDays().filter((_, k) => k !== i))}
+                  onClick={() => commit(days().filter((_, k) => k !== i))}
                   title={t("Its scenes go back to Not scheduled")}
                 >
                   {t("Remove day")}
@@ -307,6 +328,14 @@ export default function ScheduleBoard(props: {
                 />
                 <input
                   className="day-notes"
+                  placeholder={t("Nearest hospital")}
+                  aria-label={t("Nearest hospital, day {n}", { n: i + 1 })}
+                  defaultValue={day.hospital}
+                  maxLength={300}
+                  onBlur={(e) => e.target.value !== day.hospital && editDay(i, { hospital: e.target.value })}
+                />
+                <input
+                  className="day-notes"
                   placeholder={t("Notes for the call sheet (company move, weather cover…)")}
                   aria-label={t("Notes, day {n}", { n: i + 1 })}
                   defaultValue={day.notes}
@@ -314,6 +343,9 @@ export default function ScheduleBoard(props: {
                   onBlur={(e) => e.target.value !== day.notes && editDay(i, { notes: e.target.value })}
                 />
               </div>
+              {stats.cast.length > 0 && (
+                <CastCalls day={day} dayNumber={i + 1} cast={castOf(day)} actors={plan.actors} onChange={(cast_calls) => editDay(i, { cast_calls })} />
+              )}
             </li>
           );
         })}
@@ -351,9 +383,8 @@ export function CastCard(props: {
   async function setActor(character: string, actor: string) {
     if (!plan || (plan.actors[character] ?? "") === actor.trim()) return;
     const actors = { ...plan.actors, [character]: actor.trim() };
-    const days = plan.days.map(({ id, scenes, date, notes, call_time, address }) => ({ id, scenes, date, notes, call_time, address }));
     try {
-      props.onChange(await saveSchedule(props.script.id, days, { actors }));
+      props.onChange(await saveSchedule(props.script.id, plainDays(plan.days), { actors }));
     } catch (e) {
       props.onError(e instanceof Error ? e.message : t("The cast list could not be saved."));
     }
@@ -416,6 +447,122 @@ export function CastCard(props: {
         </table>
       </div>
       <p className="fine">{t("SW starts work · W works · WF finishes · SWF one day only · H on hold.")}</p>
+    </section>
+  );
+}
+
+/** Call times for the actors working a day, when they differ from the crew call. */
+function CastCalls(props: {
+  day: ShootDay;
+  dayNumber: number;
+  cast: string[];
+  actors: Record<string, string>;
+  onChange: (calls: Record<string, string>) => void;
+}) {
+  const { day } = props;
+  const set = Object.keys(day.cast_calls).filter((name) => props.cast.includes(name)).length;
+  return (
+    <details className="cast-calls">
+      <summary>
+        {t("Cast call times")}
+        <span className="muted">
+          {" "}
+          · {set ? t("{n} set, the rest at the crew call", { n: set }) : t("everyone at the crew call")}
+        </span>
+      </summary>
+      <ul>
+        {props.cast.map((name) => (
+          <li key={name}>
+            <span>
+              {titleCase(name)}
+              {props.actors[name] && <span className="muted"> · {props.actors[name]}</span>}
+            </span>
+            <input
+              type="time"
+              value={day.cast_calls[name] ?? ""}
+              placeholder={day.call_time}
+              aria-label={t("Call time for {name}, day {n}", { name: titleCase(name), n: props.dayNumber })}
+              onChange={(e) => {
+                const next = { ...day.cast_calls };
+                if (e.target.value) next[name] = e.target.value;
+                else delete next[name];
+                props.onChange(next);
+              }}
+            />
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** The crew list printed on every call sheet. */
+export function CrewCard(props: { script: Script; onChange: (schedule: Schedule) => void; onError: (message: string) => void }) {
+  const plan = props.script.schedule;
+  const [rows, setRows] = useState<CrewMember[] | null>(null);
+  if (!plan || !plan.days.length) return null;
+  const crew = rows ?? (plan.crew.length ? plan.crew : [{ role: "", name: "", phone: "" }]);
+
+  async function save(next: CrewMember[]) {
+    if (!plan) return;
+    try {
+      const saved = await saveSchedule(props.script.id, plainDays(plan.days), { crew: next });
+      setRows(null);
+      props.onChange(saved);
+    } catch (e) {
+      props.onError(e instanceof Error ? e.message : t("The crew list could not be saved."));
+    }
+  }
+
+  const edit = (i: number, field: keyof CrewMember, value: string) => setRows(crew.map((m, k) => (k === i ? { ...m, [field]: value } : m)));
+
+  return (
+    <section className="card">
+      <header className="card-head">
+        <div>
+          <h3>{t("Crew")}</h3>
+          <p>{t("Printed on every call sheet, called at the crew call of each day.")}</p>
+        </div>
+      </header>
+      <div className="table-scroll">
+        <table className="data crew">
+          <thead>
+            <tr>
+              <th>{t("Role")}</th>
+              <th>{t("Name")}</th>
+              <th>{t("Phone")}</th>
+              <th aria-label={t("Remove")} />
+            </tr>
+          </thead>
+          <tbody>
+            {crew.map((m, i) => (
+              <tr key={i}>
+                {(["role", "name", "phone"] as const).map((field) => (
+                  <td key={field}>
+                    <input
+                      className="actor"
+                      value={m[field]}
+                      maxLength={80}
+                      placeholder={field === "role" ? t("e.g. First AD") : field === "name" ? t("Name") : t("Phone")}
+                      aria-label={`${t(field === "role" ? "Role" : field === "name" ? "Name" : "Phone")} ${i + 1}`}
+                      onChange={(e) => edit(i, field, e.target.value)}
+                      onBlur={() => rows && void save(rows)}
+                    />
+                  </td>
+                ))}
+                <td className="num">
+                  <button className="item-remove" aria-label={t("Remove")} onClick={() => void save(crew.filter((_, k) => k !== i))}>
+                    ×
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <button className="ghost small add-row" onClick={() => setRows([...crew, { role: "", name: "", phone: "" }])}>
+        + {t("Add a person")}
+      </button>
     </section>
   );
 }

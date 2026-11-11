@@ -1606,7 +1606,7 @@ line.axis {
 
 .day-fields {
   display: grid;
-  grid-template-columns: 1fr 1.4fr;
+  grid-template-columns: 1fr 1fr 1.4fr;
   gap: 6px;
 }
 
@@ -1832,4 +1832,47 @@ a.wordmark {
   background: var(--page);
   resize: vertical;
   word-break: break-all;
+}
+
+/* --- call sheet details ---------------------------------------------------- */
+
+.cast-calls summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.cast-calls ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 4px 16px;
+}
+
+.cast-calls li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.cast-calls input {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--page);
+}
+
+table.crew td {
+  padding: 4px 6px;
+}
+
+.add-row {
+  margin-top: 10px;
 }

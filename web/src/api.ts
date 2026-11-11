@@ -1,5 +1,5 @@
 import { language, t } from "./i18n";
-import type { Analysis, ChatEvent, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
+import type { Analysis, ChatEvent, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
 
 /** Every request carries the app's header; the server refuses changes without it. */
 const call = (url: string, init: RequestInit = {}) =>
@@ -76,12 +76,16 @@ export const suggestSchedule = (id: string, pagesPerDay: number) =>
     }),
   );
 
-export const saveSchedule = (id: string, days: ShootDay[], options: { pagesPerDay?: number; actors?: Record<string, string> } = {}) =>
+export const saveSchedule = (
+  id: string,
+  days: ShootDay[],
+  options: { pagesPerDay?: number; actors?: Record<string, string>; crew?: CrewMember[] } = {},
+) =>
   json<Schedule>(
     call(`/api/scripts/${id}/schedule`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ days, pages_per_day: options.pagesPerDay ?? null, actors: options.actors ?? null }),
+      body: JSON.stringify({ days, pages_per_day: options.pagesPerDay ?? null, actors: options.actors ?? null, crew: options.crew ?? null }),
     }),
   );
 

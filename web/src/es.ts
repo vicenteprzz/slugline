@@ -279,6 +279,22 @@ export const ES: Record<string, string> = {
   "Notes, day {n}": "Notas, jornada {n}",
   "Every scene has a day.": "Todas las secuencias tienen jornada.",
 
+  // Call sheet details
+  "Nearest hospital": "Hospital más cercano",
+  "Nearest hospital, day {n}": "Hospital más cercano, jornada {n}",
+  "Cast call times": "Citaciones del reparto",
+  "{n} set, the rest at the crew call": "{n} con hora propia, el resto a la citación general",
+  "everyone at the crew call": "todos a la citación general",
+  "Call time for {name}, day {n}": "Citación de {name}, jornada {n}",
+  Crew: "Equipo técnico",
+  "Printed on every call sheet, called at the crew call of each day.": "Sale en todas las órdenes de rodaje, citado a la hora general de cada jornada.",
+  Role: "Puesto",
+  Name: "Nombre",
+  Phone: "Teléfono",
+  "e.g. First AD": "p. ej. Ayudante de dirección",
+  "Add a person": "Añadir persona",
+  "The crew list could not be saved.": "No se ha podido guardar el equipo técnico.",
+
   // Day out of days
   "The cast list could not be saved.": "No se ha podido guardar el reparto.",
   "Cast and day out of days": "Reparto y días por actor",

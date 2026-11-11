@@ -235,3 +235,64 @@ def test_cli_prints_day_out_of_days_and_writes_call_sheets(tmp_path, capsys):
     out = capsys.readouterr().out
     assert "DAY OUT OF DAYS" in out and "ANNA" in out
     assert sheets.read_bytes().startswith(b"%PDF")
+
+
+# --- individual call times, hospital and crew ------------------------------------
+
+def test_cast_calls_hospital_and_crew_are_validated_and_kept():
+    b = breakdown(parse(SCRIPT))
+    plan = set_days(
+        b,
+        [{"scenes": ["1", "2"], "call_time": "07:00", "hospital": "Hospital La Paz", "cast_calls": {"ANNA": "06:30", "BOB": ""}}],
+        crew=[{"role": "1st AD", "name": " Laura ", "phone": "600 000 000"}, {"role": "", "name": "", "phone": ""}],
+    )
+    day = plan.days[0]
+    assert (day.hospital, day.cast_calls) == ("Hospital La Paz", {"ANNA": "06:30"})  # an empty time is dropped
+    assert plan.crew == [{"role": "1st AD", "name": "Laura", "phone": "600 000 000"}]  # blank rows dropped
+    # Anna is named in scene 2's action without lines: she can have her own call too.
+    assert set_days(b, [{"scenes": ["2"], "cast_calls": {"ANNA": "09:00"}}]).days[0].cast_calls == {"ANNA": "09:00"}
+    # The crew is kept when not sent again.
+    assert set_days(b, [{"scenes": []}], previous=plan).crew == plan.crew
+    for kwargs, message in [
+        ({"days": [{"scenes": [], "cast_calls": {"ZED": "07:00"}}]}, "not a character"),
+        ({"days": [{"scenes": [], "cast_calls": {"ANNA": "7am"}}]}, "07:30"),
+        ({"days": [{"scenes": [], "hospital": "x" * 301}]}, "too long"),
+        ({"days": [], "crew": [{"role": "x" * 81}]}, "80 characters"),
+        ({"days": [], "crew": ["Laura"]}, "role, a name and a phone"),
+    ]:
+        with pytest.raises(ValueError, match=message):
+            set_days(b, **kwargs)
+
+
+def test_call_sheet_prints_individual_calls_hospital_and_crew():
+    pytest.importorskip("reportlab")
+    pypdf = pytest.importorskip("pypdf")
+    from slugline.export import call_sheets_pdf
+
+    b = breakdown(parse(SCRIPT))
+    plan = Schedule(
+        days=[ShootDay(["1", "4"], call_time="07:00", hospital="Hospital La Paz", cast_calls={"BOB": "09:15"})],
+        crew=[{"role": "1st AD", "name": "Laura Gómez", "phone": "600 111 222"}],
+    )
+    text = pypdf.PdfReader(io.BytesIO(call_sheets_pdf(b, plan))).pages[0].extract_text()
+    for expected in ("NEAREST HOSPITAL", "Hospital La Paz", "09:15", "Crew", "Laura Gómez", "600 111 222"):
+        assert expected in text, expected
+    es = pypdf.PdfReader(io.BytesIO(call_sheets_pdf(b, plan, lang="es"))).pages[0].extract_text()
+    assert "HOSPITAL MÁS CERCANO" in es and "Equipo técnico" in es
+
+
+def test_details_carry_over_and_survive_a_new_plan():
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from slugline.server import create_app
+
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
+    sid = client.post("/api/scripts", params={"filename": "four.fountain"}, content=SCRIPT.encode()).json()["id"]
+    client.post(f"/api/scripts/{sid}/schedule", json={"pages_per_day": 1})
+    days = [{"id": "a", "scenes": ["1", "4"], "hospital": "La Paz", "cast_calls": {"ANNA": "06:00"}}]
+    saved = client.put(f"/api/scripts/{sid}/schedule", json={"days": days, "crew": [{"role": "DoP", "name": "Ana", "phone": "1"}]}).json()
+    assert saved["days"][0]["cast_calls"] == {"ANNA": "06:00"} and saved["crew"][0]["name"] == "Ana"
+    assert client.put(f"/api/scripts/{sid}/schedule", json={"days": [{"scenes": [], "cast_calls": {"ANNA": "6"}}]}).status_code == 422
+    replanned = client.post(f"/api/scripts/{sid}/schedule", json={"pages_per_day": 2}).json()
+    assert replanned["crew"] == saved["crew"]  # a new suggestion keeps the crew list

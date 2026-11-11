@@ -264,6 +264,7 @@ class ScriptAgent:
         for i, day in enumerate(plan.days, start=1):
             stats = day_stats(day, self.breakdown, plan.pages_per_day)
             days.append({"day": i, "date": day.date or None, "call_time": day.call_time or None,
+                         "cast_call_times": day.cast_calls or None, "nearest_hospital": day.hospital or None,
                          "meeting_point": day.address or None, "scenes": day.scenes, "eighths": stats.eighths,
                          "locations": stats.locations, "cast": stats.cast, "notes": day.notes or None,
                          "over_planned_pages": stats.over})

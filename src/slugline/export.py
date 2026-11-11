@@ -49,6 +49,8 @@ PDF_ES = {
         "Plan de rodaje · {days} jornadas · {pages} páginas · a {per_day} páginas por jornada",
     "DAY": "JORNADA", "DATE": "FECHA", "CREW CALL": "CITACIÓN GENERAL", "CALL SHEET": "ORDEN DE RODAJE", "{i} of {n}": "{i} de {n}",
     "LOCATIONS": "LOCALIZACIONES", "MEETING POINT / ADDRESS": "PUNTO DE ENCUENTRO / DIRECCIÓN", "NOTES": "NOTAS",
+    "NEAREST HOSPITAL": "HOSPITAL MÁS CERCANO", "Crew": "Equipo técnico", "Role": "Puesto", "Name": "Nombre",
+    "Phone": "Teléfono",
     "Scenes · {pages} pages": "Secuencias · {pages} páginas", "Synopsis": "Sinopsis", "Actor": "Actor/actriz", "Status": "Estado",
     "Call": "Citación", "SW start work · W work · WF work finished · SWF one day only · H on hold today":
         "SW empieza · W trabaja · WF termina · SWF un solo día · H en espera hoy",
@@ -261,7 +263,7 @@ def report_pdf(
         rows.append([s.number, s.int_ext or "-", p(s.location), p(s.time_of_day or "-"),
                      _light(s.day_night, lang), format_eighths(s.eighths), last])
         style.append(("BACKGROUND", (0, i), (4, i), colors.HexColor(strip_color(s.int_ext, s.day_night))))
-    story.append(Table(rows, colWidths=[10 * mm, 14 * mm, 62 * mm, 34 * mm, 15 * mm, 15 * mm, 117 * mm],
+    story.append(Table(rows, colWidths=[10 * mm, 14 * mm, 58 * mm, 32 * mm, 23 * mm, 15 * mm, 115 * mm],
                        repeatRows=1, style=TableStyle(style)))
 
     story.append(Paragraph(tr("Cast"), h2))
@@ -467,7 +469,7 @@ def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None
     title = b.title or tr("Untitled")
     total = sum(s.eighths for s in b.scenes)
 
-    widths = [12 * mm, 12 * mm, 88 * mm, 15 * mm, 16 * mm, 70 * mm, 54 * mm]
+    widths = [12 * mm, 12 * mm, 82 * mm, 23 * mm, 14 * mm, 70 * mm, 54 * mm]
     rows: list[list] = [["#", "I/E", tr("Set"), "D/N", tr("Pages"), tr("Cast"), tr("Elements")]]
     style = [
         ("FONTSIZE", (0, 0), (-1, -1), 8),
@@ -601,9 +603,9 @@ def call_sheets_pdf(
             ("BOTTOMPADDING", (0, -1), (-1, -1), 8),
         ])))
 
-        where = [[p(tr("LOCATIONS"), label), p(tr("MEETING POINT / ADDRESS"), label)],
-                 [p(", ".join(stats.locations) or "-"), p(d.address or "-")]]
-        story.append(Table(where, colWidths=[width / 2] * 2, style=TableStyle([
+        where = [[p(tr("LOCATIONS"), label), p(tr("MEETING POINT / ADDRESS"), label), p(tr("NEAREST HOSPITAL"), label)],
+                 [p(", ".join(stats.locations) or "-"), p(d.address or "-"), p(d.hospital or "-")]]
+        story.append(Table(where, colWidths=[width / 3] * 3, style=TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 6),
         ])))
         if d.notes:
@@ -617,7 +619,7 @@ def call_sheets_pdf(
                                p(", ".join(s.characters) or "-"), p(notes[s.number].summary if s.number in notes else "", muted)])
             style.append(("BACKGROUND", (0, len(scene_rows) - 1), (3, len(scene_rows) - 1),
                           colors.HexColor(strip_color(s.int_ext, s.day_night))))
-        story.append(Table(scene_rows, colWidths=[10 * mm, 52 * mm, 15 * mm, 13 * mm, 40 * mm, width - 130 * mm],
+        story.append(Table(scene_rows, colWidths=[10 * mm, 48 * mm, 23 * mm, 13 * mm, 40 * mm, width - 134 * mm],
                            repeatRows=1, style=TableStyle(style)))
 
         working = [c for c in dood if c.codes[i] and c.codes[i] != "H"]
@@ -626,7 +628,8 @@ def call_sheets_pdf(
         cast_rows = [[tr("Character"), tr("Actor"), tr("Status"), tr("Scenes"), tr("Call")]]
         for c in working:
             their = [s.number for s in scenes if c.character in s.characters or c.character in s.silent]
-            cast_rows.append([p(c.character), p(c.actor or "-"), c.codes[i], p(", ".join(their)), d.call_time or ""])
+            call = d.cast_calls.get(c.character) or d.call_time or ""
+            cast_rows.append([p(c.character), p(c.actor or "-"), c.codes[i], p(", ".join(their)), call])
         story.append(Table(cast_rows, colWidths=[50 * mm, 50 * mm, 18 * mm, 40 * mm, width - 158 * mm],
                            repeatRows=1, style=TableStyle(table_style)))
         story.append(Spacer(1, 2 * mm))
@@ -652,6 +655,16 @@ def call_sheets_pdf(
                           for r, k in enumerate(k for k in LABELS if k in needs)],
                     ])),
                 ]))
+
+        if schedule.crew:
+            crew_rows = [[tr("Role"), tr("Name"), tr("Phone"), tr("Call")]]
+            crew_rows += [[p(m["role"] or "-"), p(m["name"] or "-"), p(m["phone"] or "-"), d.call_time or ""]
+                          for m in schedule.crew]
+            story.append(KeepTogether([
+                p(tr("Crew"), h2),
+                Table(crew_rows, colWidths=[50 * mm, 55 * mm, 45 * mm, width - 150 * mm], repeatRows=1,
+                      style=TableStyle(table_style)),
+            ]))
 
         if i + 1 < len(schedule.days):
             nxt = schedule.days[i + 1]

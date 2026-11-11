@@ -20,7 +20,7 @@ import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
 import { type Language, initialLanguage, language, setLanguage, t } from "./i18n";
 import SceneSheet from "./SceneSheet";
-import ScheduleBoard, { CastCard } from "./ScheduleBoard";
+import ScheduleBoard, { CastCard, CrewCard } from "./ScheduleBoard";
 import SettingsPanel from "./SettingsPanel";
 import type { Analysis, Breakdown, Category, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
 
@@ -544,6 +544,7 @@ function Dashboard(props: {
         onOpenScene={props.onOpenScene}
       />
       <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
+      <CrewCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />

@@ -73,7 +73,18 @@ export type Elements = {
 
 export type Category = { key: string; label: string; color: string };
 
-export type ShootDay = { id: string; scenes: string[]; date: string; notes: string; call_time: string; address: string };
+export type ShootDay = {
+  id: string;
+  scenes: string[];
+  date: string;
+  notes: string;
+  call_time: string;
+  address: string;
+  hospital: string;
+  cast_calls: Record<string, string>;
+};
+
+export type CrewMember = { role: string; name: string; phone: string };
 
 export type CastDays = { character: string; actor: string; codes: string[]; work: number; hold: number };
 
@@ -83,6 +94,7 @@ export type Schedule = {
   unscheduled: string[];
   revision: Revision | null;
   actors: Record<string, string>;
+  crew: CrewMember[];
   day_out_of_days: CastDays[];
 };
 

@@ -149,12 +149,21 @@ class DayIn(BaseModel):
     notes: str = ""
     call_time: str = ""
     address: str = ""
+    hospital: str = ""
+    cast_calls: dict[str, str] = {}
+
+
+class CrewIn(BaseModel):
+    role: str = ""
+    name: str = ""
+    phone: str = ""
 
 
 class ScheduleIn(BaseModel):
     days: list[DayIn]
     pages_per_day: float | None = None
     actors: dict[str, str] | None = None
+    crew: list[CrewIn] | None = None
 
 
 def _to_fountain(filename: str, data: bytes) -> str:
@@ -392,7 +401,8 @@ def create_app(check_host: bool = True) -> FastAPI:
         with script.lock:
             plan = scheduling.suggest(script.breakdown, body.pages_per_day)
             if script.schedule:
-                plan.actors = script.schedule.actors  # a new plan keeps the cast list
+                plan.actors = script.schedule.actors  # a new plan keeps the cast and crew lists
+                plan.crew = script.schedule.crew
             return _save_schedule(script, plan)
 
     @app.put("/api/scripts/{script_id}/schedule")
@@ -402,8 +412,9 @@ def create_app(check_host: bool = True) -> FastAPI:
             raise HTTPException(422, "Pages per day must be between 0.5 and 30.")
         with script.lock:
             try:
+                crew = [c.model_dump() for c in body.crew] if body.crew is not None else None
                 plan = scheduling.set_days(script.breakdown, [d.model_dump() for d in body.days],
-                                           body.pages_per_day, script.schedule, body.actors)
+                                           body.pages_per_day, script.schedule, body.actors, crew)
             except ValueError as e:
                 raise HTTPException(422, str(e)) from None
             return _save_schedule(script, plan)
