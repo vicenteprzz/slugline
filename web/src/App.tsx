@@ -22,7 +22,7 @@ import { type Language, initialLanguage, language, setLanguage, t } from "./i18n
 import SceneSheet from "./SceneSheet";
 import ScheduleBoard, { CastCard } from "./ScheduleBoard";
 import SettingsPanel from "./SettingsPanel";
-import type { Analysis, Breakdown, Category, Element, Elements, Issue, LibraryEntry, Schedule, Script, Settings, Status } from "./types";
+import type { Analysis, Breakdown, Category, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
 
 type Panel = { kind: "chat" } | { kind: "scene"; number: string } | { kind: "settings" } | null;
 
@@ -125,13 +125,14 @@ export default function App() {
       setLoading(t("Reading {name}…", { name: file.name }));
       try {
         show(await uploadScript(file));
+        void refreshStatus();
       } catch (e) {
         setError(e instanceof Error ? e.message : t("Could not read that file."));
       } finally {
         setLoading(null);
       }
     },
-    [show],
+    [show, refreshStatus],
   );
 
   const tryExample = useCallback(async () => {
@@ -297,6 +298,8 @@ export default function App() {
         ) : (
           <Home
             library={library}
+            license={status?.license ?? null}
+            onOpenSettings={() => setPanel({ kind: "settings" })}
             onPick={() => fileInput.current?.click()}
             onExample={tryExample}
             onRemove={async (entry) => {
@@ -305,6 +308,7 @@ export default function App() {
               try {
                 await removeScript(entry.id);
                 setLibrary((list) => (list ?? []).filter((e) => e.id !== entry.id));
+                void refreshStatus();
               } catch (e) {
                 setError(e instanceof Error ? e.message : t("Could not remove it."));
               }
@@ -316,6 +320,7 @@ export default function App() {
       {panel?.kind === "settings" && (
         <SettingsPanel
           settings={settings}
+          license={status?.license ?? null}
           language={lang}
           onLanguage={(next) => changeLanguage(next)}
           onSaved={async () => {
@@ -348,7 +353,14 @@ export default function App() {
   );
 }
 
-function Home(props: { library: LibraryEntry[] | null; onPick: () => void; onExample: () => void; onRemove: (entry: LibraryEntry) => void }) {
+function Home(props: {
+  library: LibraryEntry[] | null;
+  license: LicenseStatus | null;
+  onOpenSettings: () => void;
+  onPick: () => void;
+  onExample: () => void;
+  onRemove: (entry: LibraryEntry) => void;
+}) {
   const { library } = props;
   const date = (iso: string) =>
     new Date(iso).toLocaleDateString(language() === "es" ? "es-ES" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -370,6 +382,17 @@ function Home(props: { library: LibraryEntry[] | null; onPick: () => void; onExa
           </button>
         </div>
         <p className="fine">{t("Fountain, Final Draft (.fdx) and PDF. You can also drop the file anywhere on this page.")}</p>
+        {props.license && !props.license.licensed && (
+          <p className="trial">
+            {t("Trial version · {used} of {n} scripts.", {
+              used: Math.min(props.license.scripts, props.license.free_scripts),
+              n: props.license.free_scripts,
+            })}{" "}
+            <button className="link" onClick={props.onOpenSettings}>
+              {t("Activate a licence")}
+            </button>
+          </p>
+        )}
       </section>
 
       {library && library.length > 0 && (

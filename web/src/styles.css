@@ -1810,3 +1810,26 @@ a.wordmark {
 .key-row code {
   font: 12px var(--mono);
 }
+
+/* --- licence --------------------------------------------------------------- */
+
+.trial {
+  font-size: 13px;
+  color: var(--ink-2);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  align-self: flex-start;
+}
+
+.key-form textarea {
+  width: 100%;
+  font: 12px/1.4 var(--mono);
+  color: inherit;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  resize: vertical;
+  word-break: break-all;
+}

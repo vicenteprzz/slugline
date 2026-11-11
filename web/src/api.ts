@@ -1,5 +1,5 @@
-import { language } from "./i18n";
-import type { Analysis, ChatEvent, Elements, LibraryEntry, Schedule, Script, Settings, ShootDay, Status } from "./types";
+import { language, t } from "./i18n";
+import type { Analysis, ChatEvent, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
 
 /** Every request carries the app's header; the server refuses changes without it. */
 const call = (url: string, init: RequestInit = {}) =>
@@ -10,7 +10,8 @@ async function check(response: Response): Promise<Response> {
   let message = `The server answered ${response.status}.`;
   try {
     const body = await response.json();
-    if (typeof body.detail === "string") message = body.detail;
+    // Known server messages are shown in the interface's language.
+    if (typeof body.detail === "string") message = t(body.detail);
   } catch {
     // not JSON: keep the generic message
   }
@@ -26,6 +27,11 @@ export const listScripts = () => json<LibraryEntry[]>(call("/api/scripts"));
 export const removeScript = (id: string) => json<{ ok: boolean }>(call(`/api/scripts/${id}`, { method: "DELETE" }));
 
 export const openExample = (name: string) => json<Script>(call(`/api/examples/${name}`, { method: "POST" }));
+
+export const activateLicense = (key: string) =>
+  json<LicenseStatus>(call("/api/license", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key }) }));
+
+export const removeLicense = () => json<LicenseStatus>(call("/api/license", { method: "DELETE" }));
 
 export const getSettings = () => json<Settings>(call("/api/settings"));
 

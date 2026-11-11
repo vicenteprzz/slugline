@@ -18,6 +18,29 @@ The AI features (story notes, element suggestions, the script assistant) use
 your own Anthropic API key, which you add in **Settings**. Everything else
 works without it.
 
+Without a licence Slugline runs as a **trial**: everything works, but the
+library keeps two scripts and the PDFs are marked as a trial. Paste a licence
+key in **Settings** to lift both.
+
+## Selling licences
+
+Licences are signed text keys checked on the buyer's computer: no server, no
+accounts, and nobody can make one without the seller's private key.
+
+```bash
+slugline license keygen                                   # once: makes ~/.slugline-seller/private_key.pem
+slugline license issue "Escuela de Cine" --kind school --days 365
+slugline license issue "Ana Gil" --kind pro --days 0       # 0 days: never expires
+slugline license check SLUG1-…
+```
+
+`keygen` writes the matching public key into `src/slugline/license_public_key.txt`,
+which ships in the app. Back up the private key and never commit or share it
+(`*.pem` is ignored by git): if it's lost, no new licence can be made for the
+builds already out there, and if it leaks anyone can make licences. Kinds are
+`pro`, `school`, `studio` and `pilot`. Set `SLUGLINE_PURCHASE_URL` when you
+build the app to show a "Buy a licence" link in Settings.
+
 ## What it does
 
 **Parsing**

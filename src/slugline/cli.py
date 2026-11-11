@@ -9,6 +9,7 @@
     slugline ask SCRIPT "question"   ask the script assistant one question
     slugline chat SCRIPT             talk to the script assistant
     slugline serve [SCRIPT]          open the dashboard
+    slugline license ...             make and check licences (for the seller)
 
 SCRIPT is a .fountain, .fdx (Final Draft) or .pdf file.
 """
@@ -23,7 +24,7 @@ from pathlib import Path
 from slugline.breakdown import breakdown, render_text
 from slugline.parser import parse
 
-COMMANDS = ("breakdown", "lint", "export", "analyze", "elements", "schedule", "ask", "chat", "serve")
+COMMANDS = ("breakdown", "lint", "export", "analyze", "elements", "schedule", "ask", "chat", "serve", "license")
 
 
 class CLIError(Exception):
@@ -318,6 +319,29 @@ def cmd_serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_license(args: argparse.Namespace) -> int:
+    from slugline import licensing
+
+    try:
+        if args.action == "keygen":
+            public = licensing.keygen(Path(args.key), force=args.force)
+            print(f"Private key: {args.key}  (keep it safe and backed up; never share it)")
+            print(f"Public key, now built into the app: {public}")
+        elif args.action == "issue":
+            key = licensing.issue(args.name, args.kind, None if args.days == 0 else args.days, Path(args.key))
+            print(key)
+        elif args.action == "check":
+            found = licensing.parse(args.licence)
+            until = f"until {found.expires}" if found.expires else "with no expiry"
+            print(f"Valid: {found.kind} licence for {found.name}, issued {found.issued}, {until}.")
+        elif args.action == "activate":
+            found = licensing.activate(args.licence)
+            print(f"Activated: {found.kind} licence for {found.name}.")
+    except licensing.LicenseError as e:
+        raise CLIError(str(e)) from None
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     ap = argparse.ArgumentParser(
         prog="slugline",
@@ -375,6 +399,24 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default="127.0.0.1", help="address to listen on (default: 127.0.0.1)")
     p.add_argument("--port", type=int, default=8000, help="port to listen on (default: 8000)")
     p.add_argument("--open", action="store_true", help="open the dashboard in the browser")
+
+    p = command("license", cmd_license, "Make and check licences. The keygen and issue actions are for the seller.",
+                script=False)
+    actions = p.add_subparsers(dest="action", required=True, metavar="ACTION")
+    from slugline.licensing import DEFAULT_PRIVATE_KEY, KINDS
+
+    a = actions.add_parser("keygen", help="make the seller's key pair (once)")
+    a.add_argument("--key", default=str(DEFAULT_PRIVATE_KEY), help=f"where to save the private key (default: {DEFAULT_PRIVATE_KEY})")
+    a.add_argument("--force", action="store_true", help="replace an existing key: licences already sold stop working")
+    a = actions.add_parser("issue", help="make a licence for a buyer")
+    a.add_argument("name", help="who it is for, as it will show in the app")
+    a.add_argument("--kind", choices=KINDS, default="pro", help="kind of licence (default: pro)")
+    a.add_argument("--days", type=int, default=365, help="days it lasts; 0 for no expiry (default: 365)")
+    a.add_argument("--key", default=str(DEFAULT_PRIVATE_KEY), help="the private key to sign with")
+    a = actions.add_parser("check", help="check a licence")
+    a.add_argument("licence")
+    a = actions.add_parser("activate", help="activate a licence on this computer")
+    a.add_argument("licence")
     return ap
 
 

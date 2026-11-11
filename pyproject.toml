@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "slugline"
-version = "0.6.0"
+version = "0.7.0"
 description = "Screenplay breakdown and analysis for Fountain and PDF scripts"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -15,7 +15,7 @@ dependencies = []
 [project.optional-dependencies]
 pdf = ["pypdf>=4"]
 llm = ["anthropic>=1.1"]
-web = ["fastapi>=0.110", "uvicorn>=0.27"]
+web = ["fastapi>=0.110", "uvicorn>=0.27", "cryptography>=42"]
 export = ["reportlab>=4"]
 all = ["slugline[pdf,llm,web,export]"]
 # The desktop app: the dashboard in its own window, and the tools to package it.
@@ -32,7 +32,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 # The built dashboard (cd web && npm run build).
-slugline = ["static/**/*", "examples/*"]
+slugline = ["static/**/*", "examples/*", "license_public_key.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

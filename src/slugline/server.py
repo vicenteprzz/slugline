@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, elements, export, library, llm, settings
+from slugline import __version__, elements, export, library, licensing, llm, revisions, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -119,6 +119,10 @@ class SettingsIn(BaseModel):
     language: str | None = None
 
 
+class LicenseIn(BaseModel):
+    key: str
+
+
 class ChatRequest(BaseModel):
     message: str
     session: str = "default"
@@ -193,6 +197,17 @@ def _settings_payload() -> dict:
     }
 
 
+def _example_ids() -> set[str]:
+    return {revisions.script_key(p.read_text(encoding="utf-8")) for p in EXAMPLES.values() if p.is_file()}
+
+
+def _license_status() -> dict:
+    found = licensing.status()
+    examples = _example_ids()
+    found["scripts"] = sum(1 for e in library.entries() if e.id not in examples)
+    return found
+
+
 def create_app(check_host: bool = True) -> FastAPI:
     app = FastAPI(title="Slugline", version=__version__)
     store = app.state.store = Store()
@@ -220,6 +235,7 @@ def create_app(check_host: bool = True) -> FastAPI:
             "version": __version__,
             "llm": llm.status(),
             "pdf_export": pdf,
+            "license": _license_status(),
             "categories": [{"key": k, "label": label, "color": c} for k, label, c in elements.CATEGORIES],
         }
 
@@ -240,6 +256,21 @@ def create_app(check_host: bool = True) -> FastAPI:
         if path is None or not path.is_file():
             raise HTTPException(404, "There is no example with that name.")
         return store.add(path.name, path.read_text(encoding="utf-8")).payload()
+
+    @app.put("/api/license")
+    def activate_license(body: LicenseIn) -> dict:
+        try:
+            licensing.activate(body.key)
+        except licensing.LicenseError as e:
+            raise HTTPException(422, str(e)) from None
+        except OSError as e:
+            raise HTTPException(500, f"The licence could not be saved: {e.strerror}") from None
+        return _license_status()
+
+    @app.delete("/api/license")
+    def remove_license() -> dict:
+        licensing.deactivate()
+        return _license_status()
 
     @app.get("/api/settings")
     def get_settings() -> dict:
@@ -277,6 +308,16 @@ def create_app(check_host: bool = True) -> FastAPI:
         text = await run_in_threadpool(_to_fountain, filename, data)
         if not parse(text).scenes:  # checked before anything is saved
             raise HTTPException(422, "No scene headings found. Is this a screenplay in Fountain, Final Draft or PDF format?")
+        if licensing.current() is None:
+            known = {e.id for e in library.entries()}
+            examples = _example_ids()
+            kept = len(known - examples)
+            if revisions.script_key(text) not in known and kept >= licensing.FREE_SCRIPTS:
+                raise HTTPException(
+                    402,
+                    f"The trial keeps {licensing.FREE_SCRIPTS} scripts. Remove one from your scripts, "
+                    "or activate a licence in Settings.",
+                )
         script = await run_in_threadpool(store.add, Path(filename).name, text)
         return script.payload()
 
@@ -405,6 +446,7 @@ def create_app(check_host: bool = True) -> FastAPI:
     @app.get("/api/scripts/{script_id}/export/{name}")
     def export_file(script_id: str, name: str, day: int | None = None, lang: str = "en") -> Response:
         lang = lang if lang in settings.LANGUAGES else "en"
+        trial = licensing.current() is None
         script = store.get(script_id)
         stem = Path(script.filename).stem
         table, _, ext = name.partition(".")
@@ -428,11 +470,11 @@ def create_app(check_host: bool = True) -> FastAPI:
                 return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-day-out-of-days.csv")
             try:
                 if name == "schedule.pdf":
-                    body = export.schedule_pdf(script.breakdown, script.schedule, script.elements, lang)
+                    body = export.schedule_pdf(script.breakdown, script.schedule, script.elements, lang, trial)
                     filename = f"{stem}-schedule.pdf"
                 else:
                     body = export.call_sheets_pdf(script.breakdown, script.schedule, script.elements,
-                                                  script.analysis, day, lang)
+                                                  script.analysis, day, lang, trial)
                     filename = f"{stem}-call-sheet-day-{day}.pdf" if day else f"{stem}-call-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
@@ -442,10 +484,10 @@ def create_app(check_host: bool = True) -> FastAPI:
         if name in ("report.pdf", "breakdown-sheets.pdf"):
             try:
                 if name == "report.pdf":
-                    body = export.report_pdf(script.breakdown, script.issues, script.analysis, script.elements, lang)
+                    body = export.report_pdf(script.breakdown, script.issues, script.analysis, script.elements, lang, trial)
                     filename = f"{stem}-breakdown.pdf"
                 else:
-                    body = export.breakdown_sheets_pdf(script.breakdown, script.elements, script.analysis, lang)
+                    body = export.breakdown_sheets_pdf(script.breakdown, script.elements, script.analysis, lang, trial)
                     filename = f"{stem}-breakdown-sheets.pdf"
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None

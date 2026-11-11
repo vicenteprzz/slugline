@@ -323,6 +323,50 @@ export const ES: Record<string, string> = {
   "PDF exports use this language too. AI notes keep the language of the script.":
     "Los PDF también usan este idioma. Las notas de la IA mantienen el idioma del guion.",
 
+  // Licence
+  Licence: "Licencia",
+  Professional: "Profesional",
+  School: "Centro educativo",
+  "Production company": "Productora",
+  Pilot: "Piloto",
+  "{kind} licence for {name}.": "Licencia {kind} a nombre de {name}.",
+  "Valid until {date}.": "Válida hasta el {date}.",
+  "It does not expire.": "No caduca.",
+  "Thank you for supporting Slugline.": "Gracias por apoyar Slugline.",
+  "Licence removed from this computer.": "Licencia quitada de este ordenador.",
+  "Trial version: everything works, but your library keeps {n} scripts ({used} used) and PDFs are marked as a trial.":
+    "Versión de prueba: todo funciona, pero tu biblioteca guarda {n} guiones ({used} usados) y los PDF llevan la marca de prueba.",
+  "Licence key": "Clave de licencia",
+  "Checking…": "Comprobando…",
+  Activate: "Activar",
+  "Licence activated. Thank you!": "Licencia activada. ¡Gracias!",
+  "The licence could not be activated.": "No se ha podido activar la licencia.",
+  "Buy a licence": "Comprar una licencia",
+  "Trial version · {used} of {n} scripts.": "Versión de prueba · {used} de {n} guiones.",
+  "Activate a licence": "Activar una licencia",
+
+  // Messages from the server
+  "The trial keeps 2 scripts. Remove one from your scripts, or activate a licence in Settings.":
+    "La versión de prueba guarda 2 guiones. Quita uno de tus guiones o activa una licencia en Ajustes.",
+  "That is not a Slugline licence. It should start with SLUG1-.": "Eso no es una licencia de Slugline. Debe empezar por SLUG1-.",
+  "That licence is not valid. Check that it was copied whole.": "Esa licencia no es válida. Comprueba que la has copiado entera.",
+  "The file is empty.": "El archivo está vacío.",
+  "The file is larger than 25 MB.": "El archivo pesa más de 25 MB.",
+  "The file is not UTF-8 text. Upload a .fountain, .fdx or .pdf file.": "El archivo no es texto UTF-8. Sube un archivo .fountain, .fdx o .pdf.",
+  "No scene headings found. Is this a screenplay in Fountain, Final Draft or PDF format?":
+    "No hay encabezados de secuencia. ¿Es un guion en formato Fountain, Final Draft o PDF?",
+  "That script is not in your library. Open the file again.": "Ese guion no está en tu biblioteca. Vuelve a abrir el archivo.",
+  "That doesn't look like an Anthropic API key. Keys start with sk-ant-.": "Eso no parece una clave de API de Anthropic. Empiezan por sk-ant-.",
+  "No Anthropic API key found. Add one in Settings, or set ANTHROPIC_API_KEY.":
+    "No hay clave de API de Anthropic. Añade una en Ajustes.",
+  "The Anthropic API rejected the API key. Check it in Settings.": "Anthropic ha rechazado la clave de API. Revísala en Ajustes.",
+  "The Anthropic API rate limit was hit. Wait a moment and try again.": "Se ha alcanzado el límite de peticiones de Anthropic. Espera un momento y vuelve a intentarlo.",
+  "Could not reach the Anthropic API. Check the internet connection.": "No se puede conectar con Anthropic. Revisa la conexión a internet.",
+  "The model declined this request.": "El modelo ha rechazado esta petición.",
+  "The model's answer was cut off before it finished.": "La respuesta del modelo se cortó antes de terminar.",
+  "This script has no shooting schedule yet.": "Este guion aún no tiene plan de rodaje.",
+  "This script has no elements yet.": "Este guion aún no tiene elementos.",
+
   // Charts
   Chart: "Gráfico",
   Table: "Tabla",

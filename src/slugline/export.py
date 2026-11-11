@@ -166,6 +166,37 @@ def write_csv(
     return paths
 
 
+def _trial_mark(canvas, doc, lang: str) -> None:
+    """What a trial prints on every page: a faint diagonal mark and a line at the top."""
+    from reportlab.lib import colors
+
+    width, height = doc.pagesize
+    text = "SLUGLINE · VERSIÓN DE PRUEBA" if lang == "es" else "SLUGLINE · TRIAL VERSION"
+    canvas.saveState()
+    canvas.setFillColor(colors.Color(0.55, 0.55, 0.5, alpha=0.10))
+    canvas.setFont("Helvetica-Bold", 46)
+    canvas.translate(width / 2, height / 2)
+    canvas.rotate(35)
+    canvas.drawCentredString(0, 0, text)
+    canvas.restoreState()
+    canvas.saveState()
+    canvas.setFont("Helvetica", 7)
+    canvas.setFillColor(colors.HexColor("#b4532a"))
+    line = ("Hecho con la versión de prueba de Slugline" if lang == "es" else "Made with the trial version of Slugline")
+    canvas.drawCentredString(width / 2, height - 7 * 2.835, line)
+    canvas.restoreState()
+
+
+def _page_decor(lang: str, trial: bool, footer=None):
+    """onPage callback: the document's own footer, plus the trial mark if needed."""
+    def decorate(canvas, doc) -> None:
+        if footer:
+            footer(canvas, doc)
+        if trial:
+            _trial_mark(canvas, doc, lang)
+    return decorate
+
+
 def _reportlab():
     try:
         import reportlab  # noqa: F401
@@ -179,6 +210,7 @@ def report_pdf(
     analysis: Analysis | None = None,
     elements: ElementSheet | None = None,
     lang: str = "en",
+    trial: bool = False,
 ) -> bytes:
     """A printable production report: stripboard, cast, locations, elements and
     notes. Needs `reportlab`."""
@@ -263,7 +295,8 @@ def report_pdf(
     out = io.BytesIO()
     doc = SimpleDocTemplate(out, pagesize=landscape(A4), title=f"{title} - breakdown", author="Slugline",
                             leftMargin=15 * mm, rightMargin=15 * mm, topMargin=14 * mm, bottomMargin=14 * mm)
-    doc.build(story)
+    decor = _page_decor(lang, trial)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
 
 
@@ -272,6 +305,7 @@ def breakdown_sheets_pdf(
     elements: ElementSheet | None = None,
     analysis: Analysis | None = None,
     lang: str = "en",
+    trial: bool = False,
 ) -> bytes:
     """One breakdown sheet per scene, the page each department head works from.
     Empty boxes are left open for notes by hand. Needs `reportlab`."""
@@ -377,7 +411,8 @@ def breakdown_sheets_pdf(
     out = io.BytesIO()
     doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - breakdown sheets", author="Slugline",
                             leftMargin=14 * mm, rightMargin=14 * mm, topMargin=14 * mm, bottomMargin=16 * mm)
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    decor = _page_decor(lang, trial, footer)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
 
 
@@ -409,7 +444,8 @@ def schedule_csv(b: Breakdown, schedule: Schedule) -> str:
     return _csv(["day", "date", "order", "scene", "int_ext", "location", "day_night", "eighths", "length", "cast"], rows)
 
 
-def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None = None, lang: str = "en") -> bytes:
+def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None = None, lang: str = "en",
+                 trial: bool = False) -> bytes:
     """The shooting schedule as a stripboard, day by day. Needs `reportlab`."""
     _reportlab()
     tr = _translator(lang)
@@ -488,7 +524,8 @@ def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None
     out = io.BytesIO()
     doc = SimpleDocTemplate(out, pagesize=landscape(A4), title=f"{title} - shooting schedule", author="Slugline",
                             leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
-    doc.build(story)
+    decor = _page_decor(lang, trial)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
 
 
@@ -499,6 +536,7 @@ def call_sheets_pdf(
     analysis: Analysis | None = None,
     day: int | None = None,
     lang: str = "en",
+    trial: bool = False,
 ) -> bytes:
     """Call sheets: one per shooting day (or only `day`, counted from 1), with
     the day's scenes, cast with their day-out-of-days status, what each
@@ -641,7 +679,8 @@ def call_sheets_pdf(
     out = io.BytesIO()
     doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - call sheets", author="Slugline",
                             leftMargin=14 * mm, rightMargin=14 * mm, topMargin=14 * mm, bottomMargin=16 * mm)
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    decor = _page_decor(lang, trial, footer)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
 
 

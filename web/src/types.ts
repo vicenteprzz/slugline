@@ -107,8 +107,17 @@ export type Settings = {
   language: string | null;
 };
 
+export type LicenseStatus = {
+  licensed: boolean;
+  license: { name: string; kind: string; issued: string; expires: string | null } | null;
+  free_scripts: number;
+  scripts: number;
+  purchase_url: string | null;
+};
+
 export type Status = {
   version: string;
+  license: LicenseStatus;
   llm: { available: boolean; model: string; reason: string };
   pdf_export: boolean;
   categories: Category[];

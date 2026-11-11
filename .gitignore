@@ -12,3 +12,5 @@ build/
 .DS_Store
 # Keep private scripts out of the repo
 scripts/private/
+# Never commit a licence signing key
+*.pem
