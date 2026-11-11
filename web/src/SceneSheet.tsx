@@ -21,6 +21,9 @@ export default function SceneSheet(props: {
   const scene = scenes[position];
   const note = script.analysis?.scenes.find((n) => n.number === number);
   const items = script.elements?.scenes[number] ?? [];
+  const revision = script.elements?.revision ?? null;
+  const match = revision?.scenes[number];
+  const isNew = revision?.new.includes(number) ?? false;
 
   const [editing, setEditing] = useState<Editing | null>(null);
   const [draft, setDraft] = useState<Draft>({ name: "", notes: "" });
@@ -126,6 +129,26 @@ export default function SceneSheet(props: {
         </dl>
 
         {note && <p className="sheet-summary">{note.summary}</p>}
+
+        {match?.status === "changed" && (
+          <div className="revision-note">
+            <p>
+              <strong>Rewritten in this draft</strong>
+              {match.old !== number && ` (it was scene ${match.old})`}. The elements below come from the previous draft: check them
+              against the new text.
+            </p>
+            <button className="primary small" disabled={saving} onClick={() => void save(items)}>
+              Mark as reviewed
+            </button>
+          </div>
+        )}
+        {isNew && (
+          <div className="revision-note">
+            <p>
+              <strong>New in this draft.</strong> It has no elements from the previous draft.
+            </p>
+          </div>
+        )}
 
         <section className="dept">
           <h3>Cast</h3>

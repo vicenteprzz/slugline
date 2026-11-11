@@ -13,10 +13,12 @@ from difflib import get_close_matches
 from typing import Any
 
 from slugline.breakdown import breakdown
-from slugline.elements import LABELS, ElementSheet, load_sheet, totals
+from slugline.elements import LABELS, ElementSheet, load_or_carry, totals
 from slugline.lint import lint
 from slugline.llm import LLMError, check_stop, make_client, model_name, open_stream
 from slugline.parser import Action, Dialogue, format_eighths, parse
+from slugline.schedule import Schedule, day_stats
+from slugline.schedule import load_or_carry as load_schedule
 
 MAX_STEPS = 12
 MAX_HITS = 40
@@ -81,6 +83,11 @@ TOOLS = [
         {"scene": {"type": "string", "description": "A scene number, or \"\" for the whole script."}},
     ),
     _tool(
+        "shooting_schedule",
+        "The crew's shooting schedule: each shooting day with its date, scenes in shooting order, pages, "
+        "locations and cast, plus the scenes not scheduled yet.",
+    ),
+    _tool(
         "format_issues",
         "Formatting problems found by rule-based checks: headings missing INT/EXT or time of day, empty "
         "scenes, character or location names that look like duplicates, scene numbering gaps.",
@@ -124,10 +131,12 @@ class ScriptAgent:
         client: Any = None,
         model: str | None = None,
         elements: Callable[[], ElementSheet | None] | None = None,
+        schedule: Callable[[], Schedule | None] | None = None,
     ):
         self.play = parse(text)
         # Read on every call, so the assistant sees edits made during the conversation.
-        self.elements = elements or (lambda: load_sheet(text))
+        self.elements = elements or (lambda: load_or_carry(text))
+        self.schedule = schedule or (lambda: load_schedule(text))
         self.breakdown = breakdown(self.play)
         self.client = client
         self.model = model or model_name()
@@ -244,6 +253,21 @@ class ScriptAgent:
             {"department": LABELS[t.category], "element": t.name, "scenes": t.scenes, "eighths": t.eighths}
             for t in totals(sheet, self.breakdown)
         ]
+
+    def _tool_shooting_schedule(self, _args: dict) -> dict:
+        plan = self.schedule()
+        if plan is None or not plan.days:
+            return {"note": "There is no shooting schedule for this script yet. The crew can make one in the "
+                            "dashboard or with `slugline schedule`."}
+        days = []
+        for i, day in enumerate(plan.days, start=1):
+            stats = day_stats(day, self.breakdown, plan.pages_per_day)
+            days.append({"day": i, "date": day.date or None, "scenes": day.scenes, "eighths": stats.eighths,
+                         "locations": stats.locations, "cast": stats.cast, "notes": day.notes or None,
+                         "over_planned_pages": stats.over})
+        scheduled = plan.scheduled()
+        return {"pages_per_day": plan.pages_per_day, "days": days,
+                "unscheduled": [s.number for s in self.play.scenes if s.number not in scheduled]}
 
     def _tool_format_issues(self, _args: dict) -> list[dict]:
         return [{"severity": i.severity, "scene": i.scene, "message": i.message} for i in lint(self.play)]

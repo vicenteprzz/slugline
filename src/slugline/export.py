@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from slugline.breakdown import Breakdown
 from slugline.elements import COLORS, LABELS, ElementSheet, totals
+from slugline.schedule import Schedule, day_stats
 from slugline.lint import Issue
 from slugline.parser import format_eighths
 
@@ -321,4 +322,109 @@ def breakdown_sheets_pdf(
     doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - breakdown sheets", author="Slugline",
                             leftMargin=14 * mm, rightMargin=14 * mm, topMargin=14 * mm, bottomMargin=16 * mm)
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    return out.getvalue()
+
+
+def _date_label(iso: str) -> str:
+    from datetime import date
+
+    try:
+        return date.fromisoformat(iso).strftime("%a %d %b %Y")
+    except ValueError:
+        return iso
+
+
+def schedule_csv(b: Breakdown, schedule: Schedule) -> str:
+    rows_by_number = {s.number: s for s in b.scenes}
+    rows = []
+    for i, day in enumerate(schedule.days, start=1):
+        for order, n in enumerate(day.scenes, start=1):
+            s = rows_by_number[n]
+            rows.append([i, day.date, order, s.number, s.int_ext or "", s.location, s.day_night or "",
+                         s.eighths, format_eighths(s.eighths), "; ".join(s.characters)])
+    scheduled = schedule.scheduled()
+    for s in b.scenes:
+        if s.number not in scheduled:
+            rows.append(["", "", "", s.number, s.int_ext or "", s.location, s.day_night or "",
+                         s.eighths, format_eighths(s.eighths), "; ".join(s.characters)])
+    return _csv(["day", "date", "order", "scene", "int_ext", "location", "day_night", "eighths", "length", "cast"], rows)
+
+
+def schedule_pdf(b: Breakdown, schedule: Schedule, elements: ElementSheet | None = None) -> bytes:
+    """The shooting schedule as a stripboard, day by day. Needs `reportlab`."""
+    _reportlab()
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Table, TableStyle
+
+    styles = getSampleStyleSheet()
+    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontSize=8, leading=10)
+    small = ParagraphStyle("small", parent=cell, textColor=colors.HexColor("#52514e"))
+    slug = ParagraphStyle("slug", parent=cell, fontName="Courier-Bold", fontSize=8.5)
+    day_style = ParagraphStyle("day", parent=cell, fontName="Helvetica-Bold", fontSize=9, textColor=colors.white)
+    p = lambda text, style=cell: Paragraph(escape(str(text)), style)  # noqa: E731
+    rows_by_number = {s.number: s for s in b.scenes}
+    title = b.title or "Untitled"
+    total = sum(s.eighths for s in b.scenes)
+
+    widths = [12 * mm, 12 * mm, 88 * mm, 15 * mm, 16 * mm, 70 * mm, 54 * mm]
+    rows: list[list] = [["#", "I/E", "Set", "D/N", "Pages", "Cast", "Elements"]]
+    style = [
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.black),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.HexColor("#c3c2b7")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+    ]
+
+    def strip(s) -> list:
+        items = elements.for_scene(s.number) if elements else []
+        return [s.number, s.int_ext or "-", p(s.heading, slug), s.day_night or "-", format_eighths(s.eighths),
+                p(", ".join(s.characters) or "-"), p(", ".join(e.name for e in items) or "-", small)]
+
+    def add_strips(numbers: list[str]) -> None:
+        for n in numbers:
+            s = rows_by_number[n]
+            rows.append(strip(s))
+            style.append(("BACKGROUND", (0, len(rows) - 1), (4, len(rows) - 1),
+                          colors.HexColor(strip_color(s.int_ext, s.day_night))))
+
+    def banner(text: str, color: str) -> None:
+        rows.append([p(text, day_style)] + [""] * 6)
+        r = len(rows) - 1
+        style.extend([("SPAN", (0, r), (-1, r)), ("BACKGROUND", (0, r), (-1, r), colors.HexColor(color))])
+
+    for i, day in enumerate(schedule.days, start=1):
+        stats = day_stats(day, b, schedule.pages_per_day)
+        parts = [f"DAY {i} OF {len(schedule.days)}"]
+        if day.date:
+            parts.append(_date_label(day.date))
+        parts.append(f"{format_eighths(stats.eighths)} pages")
+        if stats.over:
+            parts.append(f"over the {schedule.pages_per_day:g}-page day")
+        if day.notes:
+            parts.append(day.notes)
+        banner(" · ".join(parts), "#0b0b0b")
+        add_strips(day.scenes)
+    unscheduled = [s.number for s in b.scenes if s.number not in schedule.scheduled()]
+    if unscheduled:
+        banner(f"NOT SCHEDULED · {len(unscheduled)} scenes", "#898781")
+        add_strips(unscheduled)
+
+    story = [
+        Paragraph(escape(title), styles["Title"]),
+        p(f"Shooting schedule · {len(schedule.days)} days · {format_eighths(total)} pages · "
+          f"planned at {schedule.pages_per_day:g} pages a day", small),
+        Table(rows, colWidths=widths, repeatRows=1, style=TableStyle(style)),
+    ]
+    out = io.BytesIO()
+    doc = SimpleDocTemplate(out, pagesize=landscape(A4), title=f"{title} - shooting schedule", author="Slugline",
+                            leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
+    doc.build(story)
     return out.getvalue()

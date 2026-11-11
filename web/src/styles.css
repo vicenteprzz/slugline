@@ -1356,3 +1356,230 @@ line.axis {
     transition: none;
   }
 }
+
+/* --- revisions ----------------------------------------------------------- */
+
+.revision,
+.revision-note {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent);
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  font-size: 13px;
+}
+
+.revision-note {
+  margin-bottom: 0;
+  align-items: flex-start;
+}
+
+.scene-links.inline {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.flag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--warning) 70%, transparent);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ink-2);
+}
+
+/* --- shooting schedule --------------------------------------------------- */
+
+.saving {
+  cursor: progress;
+}
+
+.schedule-start,
+.schedule-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-start label,
+.replan {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.schedule-start input,
+.replan input,
+.day-head input[type="date"],
+.day-notes,
+.strip-move {
+  font: inherit;
+  font-size: 13px;
+  color: inherit;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--page);
+}
+
+.schedule-start input,
+.replan input {
+  width: 64px;
+}
+
+.schedule-note {
+  margin-bottom: 12px;
+}
+
+.days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.day {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: background 0.1s;
+}
+
+.day.drop {
+  background: var(--wash);
+  border-color: var(--focus);
+}
+
+.day.unscheduled {
+  margin-top: 12px;
+  border-style: dashed;
+}
+
+.day-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.day-pages {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+
+.day-pages.over {
+  font-weight: 600;
+}
+
+.day-pages.over span {
+  color: var(--warning);
+}
+
+.day-meta {
+  color: var(--muted);
+  font-size: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.day-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 6px 4px;
+}
+
+.day-notes {
+  width: 100%;
+}
+
+.strips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.strip {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px 34px minmax(0, 2.2fr) 48px minmax(0, 2fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 18px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  cursor: grab;
+  font-size: 13px;
+}
+
+.strip.dragging {
+  opacity: 0.4;
+}
+
+.strip .strip-tab {
+  top: 4px;
+  bottom: 4px;
+}
+
+.strip-grip {
+  color: var(--muted);
+  letter-spacing: -2px;
+  font-size: 11px;
+}
+
+.strip-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.strip-heading {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.strip-pages {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-cast {
+  color: var(--ink-2);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .strip {
+    grid-template-columns: 16px 30px minmax(0, 1fr) 44px;
+  }
+
+  .strip-cast {
+    grid-column: 3 / 5;
+  }
+
+  .strip-move {
+    grid-column: 3 / 5;
+    justify-self: start;
+  }
+}

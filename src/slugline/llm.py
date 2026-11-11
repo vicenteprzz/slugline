@@ -513,11 +513,11 @@ def break_down_elements(
     progress: Callable[[str], None] | None = None,
 ):
     """Extract elements, merge them into the saved sheet (keeping hand edits) and save it."""
-    from slugline.elements import load_sheet, merge_extraction, save_sheet
+    from slugline.elements import load_or_carry, merge_extraction, save_sheet
 
     model = model or model_name()
     found = extract_elements(text, client=client, model=model, progress=progress)
-    sheet = merge_extraction(load_sheet(text), found, model)
+    sheet = merge_extraction(load_or_carry(text), found, model)
     try:
         save_sheet(text, sheet)
     except OSError as e:

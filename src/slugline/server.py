@@ -21,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from slugline import __version__, elements, export, llm
+from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
 from slugline.lint import Issue, lint
@@ -47,6 +48,7 @@ class Script:
     issues: list[Issue]
     analysis: llm.Analysis | None = None
     elements: elements.ElementSheet | None = None
+    schedule: scheduling.Schedule | None = None
     chats: dict[str, ScriptAgent] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -58,6 +60,7 @@ class Script:
             "issues": [i.to_dict() for i in self.issues],
             "analysis": self.analysis.to_dict() if self.analysis else None,
             "elements": elements.to_payload(self.elements, self.breakdown),
+            "schedule": scheduling.to_payload(self.schedule, self.breakdown),
         }
 
 
@@ -75,8 +78,10 @@ class Store:
             issues=lint(play),
             # A script analyzed before (here or from the CLI) shows its notes at once.
             analysis=llm.cached_analysis(text),
-            # So does a breakdown of elements, with its hand edits.
-            elements=elements.load_sheet(text),
+            # So does a breakdown of elements, with its hand edits; a new
+            # draft starts from the breakdown of the draft before it.
+            elements=elements.load_or_carry(text),
+            schedule=scheduling.load_or_carry(text),
         )
         self.scripts[script.id] = script
         return script
@@ -101,6 +106,22 @@ class ElementIn(BaseModel):
 
 class SceneElements(BaseModel):
     elements: list[ElementIn]
+
+
+class SuggestSchedule(BaseModel):
+    pages_per_day: float = scheduling.DEFAULT_PAGES_PER_DAY
+
+
+class DayIn(BaseModel):
+    id: str = ""
+    scenes: list[str]
+    date: str = ""
+    notes: str = ""
+
+
+class ScheduleIn(BaseModel):
+    days: list[DayIn]
+    pages_per_day: float | None = None
 
 
 def _to_fountain(filename: str, data: bytes) -> str:
@@ -183,6 +204,19 @@ def create_app() -> FastAPI:
                 raise HTTPException(502, str(e)) from None
         return elements.to_payload(script.elements, script.breakdown)
 
+    @app.delete("/api/scripts/{script_id}/elements")
+    def clear_elements(script_id: str) -> dict:
+        """Start this draft's breakdown from scratch (and stop carrying an old one over)."""
+        script = store.get(script_id)
+        with script.lock:
+            sheet = elements.ElementSheet()
+            try:
+                elements.save_sheet(script.text, sheet)
+            except OSError as e:
+                raise HTTPException(500, f"The change could not be saved: {e.strerror}") from None
+            script.elements = sheet
+        return elements.to_payload(sheet, script.breakdown)
+
     @app.put("/api/scripts/{script_id}/elements/{scene}")
     def edit_elements(script_id: str, scene: str, body: SceneElements) -> dict:
         script = store.get(script_id)
@@ -200,6 +234,43 @@ def create_app() -> FastAPI:
             script.elements = sheet
         return elements.to_payload(sheet, script.breakdown)
 
+    def _save_schedule(script: Script, plan: scheduling.Schedule) -> dict:
+        try:
+            scheduling.save_schedule(script.text, plan)
+        except OSError as e:
+            raise HTTPException(500, f"The schedule could not be saved: {e.strerror}") from None
+        script.schedule = plan
+        return scheduling.to_payload(plan, script.breakdown)
+
+    @app.post("/api/scripts/{script_id}/schedule")
+    def suggest_schedule(script_id: str, body: SuggestSchedule) -> dict:
+        script = store.get(script_id)
+        if not 0.5 <= body.pages_per_day <= 30:
+            raise HTTPException(422, "Pages per day must be between 0.5 and 30.")
+        with script.lock:
+            return _save_schedule(script, scheduling.suggest(script.breakdown, body.pages_per_day))
+
+    @app.put("/api/scripts/{script_id}/schedule")
+    def edit_schedule(script_id: str, body: ScheduleIn) -> dict:
+        script = store.get(script_id)
+        if body.pages_per_day is not None and not 0.5 <= body.pages_per_day <= 30:
+            raise HTTPException(422, "Pages per day must be between 0.5 and 30.")
+        with script.lock:
+            try:
+                plan = scheduling.set_days(script.breakdown, [d.model_dump() for d in body.days],
+                                           body.pages_per_day, script.schedule)
+            except ValueError as e:
+                raise HTTPException(422, str(e)) from None
+            return _save_schedule(script, plan)
+
+    @app.delete("/api/scripts/{script_id}/schedule")
+    def clear_schedule(script_id: str) -> dict:
+        script = store.get(script_id)
+        with script.lock:
+            _save_schedule(script, scheduling.Schedule())
+            script.schedule = None
+        return {"ok": True}
+
     @app.post("/api/scripts/{script_id}/chat")
     def chat(script_id: str, body: ChatRequest) -> StreamingResponse:
         script = store.get(script_id)
@@ -208,7 +279,9 @@ def create_app() -> FastAPI:
             raise HTTPException(422, "The message is empty.")
         agent = script.chats.get(body.session)
         if agent is None:
-            agent = script.chats[body.session] = ScriptAgent(script.text, elements=lambda: script.elements)
+            agent = script.chats[body.session] = ScriptAgent(
+                script.text, elements=lambda: script.elements, schedule=lambda: script.schedule
+            )
 
         def events() -> Iterator[str]:
             # One JSON object per line, so the browser can show the answer as it is written.
@@ -239,6 +312,17 @@ def create_app() -> FastAPI:
                 raise HTTPException(404, "This script has no elements yet.")
             body = export.elements_csv(script.breakdown, script.elements)
             return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-elements.csv")
+        if name in ("schedule.csv", "schedule.pdf"):
+            if not script.schedule or not script.schedule.days:
+                raise HTTPException(404, "This script has no shooting schedule yet.")
+            if name == "schedule.csv":
+                body = export.schedule_csv(script.breakdown, script.schedule)
+                return _download(BOM + body, "text/csv; charset=utf-8", f"{stem}-schedule.csv")
+            try:
+                body = export.schedule_pdf(script.breakdown, script.schedule, script.elements)
+            except RuntimeError as e:
+                raise HTTPException(501, str(e)) from None
+            return _download(body, "application/pdf", f"{stem}-schedule.pdf")
         if name in ("report.pdf", "breakdown-sheets.pdf"):
             try:
                 if name == "report.pdf":

@@ -5,6 +5,7 @@
     slugline export SCRIPT ...       CSV tables and a PDF production report
     slugline analyze SCRIPT          AI scene summaries, tone and formatting notes
     slugline elements SCRIPT         props, wardrobe, vehicles... for every scene
+    slugline schedule SCRIPT         a shooting schedule, day by day
     slugline ask SCRIPT "question"   ask the script assistant one question
     slugline chat SCRIPT             talk to the script assistant
     slugline serve [SCRIPT]          open the dashboard
@@ -22,7 +23,7 @@ from pathlib import Path
 from slugline.breakdown import breakdown, render_text
 from slugline.parser import parse
 
-COMMANDS = ("breakdown", "lint", "export", "analyze", "elements", "ask", "chat", "serve")
+COMMANDS = ("breakdown", "lint", "export", "analyze", "elements", "schedule", "ask", "chat", "serve")
 
 
 class CLIError(Exception):
@@ -86,7 +87,7 @@ def cmd_lint(args: argparse.Namespace) -> int:
 
 def cmd_export(args: argparse.Namespace) -> int:
     from slugline import export
-    from slugline.elements import load_sheet
+    from slugline.elements import load_or_carry
     from slugline.lint import lint
 
     if not (args.csv or args.pdf or args.sheets):
@@ -99,7 +100,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         from slugline.llm import analyze
 
         analysis = analyze(text, progress=lambda m: print(m, file=sys.stderr))
-    sheet = load_sheet(text)  # elements, if they were broken down before
+    sheet = load_or_carry(text)  # elements, if this draft or an earlier one was broken down
     if args.csv:
         try:
             for path in export.write_csv(result, args.csv, analysis, sheet):
@@ -145,12 +146,12 @@ def cmd_analyze(args: argparse.Namespace) -> int:
 
 
 def cmd_elements(args: argparse.Namespace) -> int:
-    from slugline.elements import LABELS, load_sheet, to_payload, totals
+    from slugline.elements import LABELS, load_or_carry, to_payload, totals
     from slugline.parser import format_eighths
 
     text = read_script(args.script)
-    sheet = None if args.refresh else load_sheet(text)
-    if sheet is None:
+    sheet = load_or_carry(text)
+    if sheet is None or sheet.is_empty() or args.refresh:
         from slugline.llm import break_down_elements
 
         sheet = break_down_elements(text, progress=lambda m: print(m, file=sys.stderr))
@@ -159,6 +160,17 @@ def cmd_elements(args: argparse.Namespace) -> int:
         print(json.dumps(to_payload(sheet, result), indent=2, ensure_ascii=False))
         return 0
     print(f"{(result.title or 'Untitled').upper()} — ELEMENTS\n")
+    if sheet.revision:
+        r = sheet.revision
+        when = (r["from"].get("saved_at") or "")[:10]
+        unchanged = sum(m["status"] == "unchanged" for m in r["scenes"].values())
+        print(f"Carried over from the draft saved {when}: {unchanged} scenes unchanged, "
+              f"{len(sheet.needs_review())} changed, {len(r['new'])} new, {len(r['omitted'])} omitted.")
+        if sheet.needs_review():
+            print(f"Check the elements of scenes {', '.join(sheet.needs_review())}: they were rewritten.")
+        for scene in r["omitted"]:
+            print(f"Omitted: {scene['number']}. {scene['heading']} ({scene.get('elements', 0)} elements dropped)")
+        print()
     for s in result.scenes:
         items = sheet.for_scene(s.number)
         print(f"{s.number}. {s.heading}")
@@ -178,6 +190,51 @@ def cmd_elements(args: argparse.Namespace) -> int:
                 print(f"    {t.name:<34} scenes {', '.join(t.scenes):<20} {format_eighths(t.eighths)} pages")
     if any(e.source == "ai" for items in sheet.scenes.values() for e in items):
         print("\nSuggested by Claude: check them against the script. Edit them in `slugline serve`.")
+    return 0
+
+
+def cmd_schedule(args: argparse.Namespace) -> int:
+    from slugline import export
+    from slugline import schedule as scheduling
+    from slugline.elements import load_or_carry
+    from slugline.parser import format_eighths
+
+    if not 0.5 <= args.pages <= 30:
+        raise CLIError("--pages must be between 0.5 and 30")
+    text = read_script(args.script)
+    result = breakdown(parse(text))
+    plan = None if args.replan else scheduling.load_or_carry(text)
+    if plan is None or not plan.days:
+        plan = scheduling.suggest(result, args.pages)
+        try:
+            scheduling.save_schedule(text, plan)
+        except OSError as e:
+            raise CLIError(f"cannot save the schedule: {e.strerror}") from None
+    if args.csv:
+        _write(Path(args.csv), "\ufeff" + export.schedule_csv(result, plan))
+        print(f"wrote {args.csv}", file=sys.stderr)
+    if args.pdf:
+        _write(Path(args.pdf), export.schedule_pdf(result, plan, load_or_carry(text)))
+        print(f"wrote {args.pdf}", file=sys.stderr)
+    if args.json:
+        print(json.dumps(scheduling.to_payload(plan, result), indent=2, ensure_ascii=False))
+        return 0
+    rows = {s.number: s for s in result.scenes}
+    print(f"{(result.title or 'Untitled').upper()} — SHOOTING SCHEDULE "
+          f"({len(plan.days)} days, {plan.pages_per_day:g} pages a day)\n")
+    for i, day in enumerate(plan.days, start=1):
+        stats = scheduling.day_stats(day, result, plan.pages_per_day)
+        extra = (f" · {day.date}" if day.date else "") + (" · OVER" if stats.over else "")
+        print(f"DAY {i} · {format_eighths(stats.eighths)} pages{extra}")
+        for n in day.scenes:
+            s = rows[n]
+            print(f"  {s.number:>4}  {s.heading:<44} {format_eighths(s.eighths):>6}  {', '.join(s.characters)}")
+        print()
+    unscheduled = [s for s in result.scenes if s.number not in plan.scheduled()]
+    if unscheduled:
+        print("NOT SCHEDULED")
+        for s in unscheduled:
+            print(f"  {s.number:>4}  {s.heading}")
     return 0
 
 
@@ -270,6 +327,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="print the elements as JSON")
     p.add_argument("--refresh", action="store_true",
                    help="ask Claude again; elements added or edited by hand are kept")
+
+    p = command("schedule", cmd_schedule,
+                "Plan the shoot day by day (the saved schedule, or a first suggestion if there is none).")
+    p.add_argument("--pages", type=float, default=5.0, help="pages to shoot per day when suggesting (default: 5)")
+    p.add_argument("--replan", action="store_true", help="replace the saved schedule with a new suggestion")
+    p.add_argument("--pdf", metavar="FILE", help="also write the schedule as a PDF stripboard")
+    p.add_argument("--csv", metavar="FILE", help="also write the schedule as CSV")
+    p.add_argument("--json", action="store_true", help="print the schedule as JSON")
 
     p = command("ask", cmd_ask, "Ask the script assistant one question.")
     p.add_argument("question", help="what you want to know about the script")

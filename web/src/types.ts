@@ -57,13 +57,30 @@ export type Element = { category: string; name: string; notes: string; source: "
 
 export type ElementTotal = { category: string; name: string; scenes: string[]; eighths: number };
 
+export type Revision = {
+  from: { title: string | null; saved_at: string | null };
+  scenes: Record<string, { old: string; status: "unchanged" | "changed" | "reviewed" }>;
+  new: string[];
+  omitted: { number: string; heading: string; elements?: number }[];
+};
+
 export type Elements = {
   model: string | null;
   scenes: Record<string, Element[]>;
   totals: ElementTotal[];
+  revision: Revision | null;
 };
 
 export type Category = { key: string; label: string; color: string };
+
+export type ShootDay = { id: string; scenes: string[]; date: string; notes: string };
+
+export type Schedule = {
+  pages_per_day: number;
+  days: (ShootDay & { stats: { eighths: number; locations: string[]; cast: string[]; light: string[]; over: boolean } })[];
+  unscheduled: string[];
+  revision: Revision | null;
+};
 
 export type Script = {
   id: string;
@@ -72,6 +89,7 @@ export type Script = {
   issues: Issue[];
   analysis: Analysis | null;
   elements: Elements | null;
+  schedule: Schedule | null;
 };
 
 export type Status = {

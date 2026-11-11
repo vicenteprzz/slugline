@@ -1,4 +1,4 @@
-import type { Analysis, ChatEvent, Elements, Script, Status } from "./types";
+import type { Analysis, ChatEvent, Elements, Schedule, Script, ShootDay, Status } from "./types";
 
 async function check(response: Response): Promise<Response> {
   if (response.ok) return response;
@@ -34,6 +34,8 @@ export const analyzeScript = (id: string, refresh = false) =>
 
 export const extractElements = (id: string) => json<Elements>(fetch(`/api/scripts/${id}/elements`, { method: "POST" }));
 
+export const clearElements = (id: string) => json<Elements>(fetch(`/api/scripts/${id}/elements`, { method: "DELETE" }));
+
 export const saveSceneElements = (id: string, scene: string, elements: { category: string; name: string; notes: string }[]) =>
   json<Elements>(
     fetch(`/api/scripts/${id}/elements/${encodeURIComponent(scene)}`, {
@@ -42,6 +44,26 @@ export const saveSceneElements = (id: string, scene: string, elements: { categor
       body: JSON.stringify({ elements }),
     }),
   );
+
+export const suggestSchedule = (id: string, pagesPerDay: number) =>
+  json<Schedule>(
+    fetch(`/api/scripts/${id}/schedule`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pages_per_day: pagesPerDay }),
+    }),
+  );
+
+export const saveSchedule = (id: string, days: ShootDay[], pagesPerDay?: number) =>
+  json<Schedule>(
+    fetch(`/api/scripts/${id}/schedule`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days, pages_per_day: pagesPerDay ?? null }),
+    }),
+  );
+
+export const clearSchedule = (id: string) => json<{ ok: boolean }>(fetch(`/api/scripts/${id}/schedule`, { method: "DELETE" }));
 
 export const exportUrl = (id: string, name: string) => `/api/scripts/${id}/export/${name}`;
 

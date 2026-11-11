@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { analyzeScript, exportUrl, extractElements, getScript, getStatus, listScripts, saveSceneElements, uploadScript } from "./api";
+import {
+  analyzeScript,
+  clearElements,
+  exportUrl,
+  extractElements,
+  getScript,
+  getStatus,
+  listScripts,
+  saveSceneElements,
+  uploadScript,
+} from "./api";
 import Chat from "./Chat";
 import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart, useDismiss } from "./charts";
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
 import SceneSheet from "./SceneSheet";
-import type { Analysis, Breakdown, Category, Element, Elements, Issue, Script, Status } from "./types";
+import ScheduleBoard from "./ScheduleBoard";
+import type { Analysis, Breakdown, Category, Element, Elements, Issue, Schedule, Script, Status } from "./types";
 
 type Panel = { kind: "chat" } | { kind: "scene"; number: string } | null;
 
@@ -104,6 +115,17 @@ export default function App() {
     [script],
   );
 
+  const clear = useCallback(async () => {
+    if (!script) return;
+    setError(null);
+    try {
+      const elements = await clearElements(script.id);
+      setScript((current) => (current && current.id === script.id ? { ...current, elements } : current));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The breakdown could not be cleared.");
+    }
+  }, [script]);
+
   const categories = status?.categories ?? [];
 
   return (
@@ -172,6 +194,11 @@ export default function App() {
             onAnalyze={analyze}
             extracting={extracting}
             onExtract={extract}
+            onClearElements={clear}
+            onScheduleChange={(schedule) =>
+              setScript((current) => (current && current.id === script.id ? { ...current, schedule } : current))
+            }
+            onError={setError}
             onOpenScene={(number) => setPanel({ kind: "scene", number })}
           />
         ) : (
@@ -216,7 +243,9 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
     useCallback(() => setOpen(false), []),
   );
   const hasElements = (script.elements?.totals.length ?? 0) > 0;
+  const hasSchedule = (script.schedule?.days.length ?? 0) > 0;
   const items = [
+    ...(hasSchedule ? [["schedule.csv", "Shooting schedule (CSV)"]] : []),
     ["scenes.csv", "Scenes (CSV)"],
     ...(hasElements ? [["elements.csv", "Elements by scene (CSV)"]] : []),
     ["characters.csv", "Characters (CSV)"],
@@ -238,6 +267,11 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
               <a role="menuitem" href={exportUrl(script.id, "breakdown-sheets.pdf")} download onClick={() => setOpen(false)}>
                 Breakdown sheets, one per scene (PDF)
               </a>
+              {hasSchedule && (
+                <a role="menuitem" href={exportUrl(script.id, "schedule.pdf")} download onClick={() => setOpen(false)}>
+                  Shooting schedule (PDF)
+                </a>
+              )}
             </>
           ) : (
             <span className="menu-off" title="Install it with: pip install 'slugline[export]'">
@@ -262,6 +296,9 @@ function Dashboard(props: {
   onAnalyze: (refresh?: boolean) => void;
   extracting: boolean;
   onExtract: () => void;
+  onClearElements: () => void;
+  onScheduleChange: (schedule: Schedule | null) => void;
+  onError: (message: string) => void;
   onOpenScene: (number: string) => void;
 }) {
   const { script, status, analyzing } = props;
@@ -306,8 +343,11 @@ function Dashboard(props: {
         reason={status?.llm.reason ?? ""}
         extracting={props.extracting}
         onExtract={props.onExtract}
+        onClear={props.onClearElements}
         onOpenScene={props.onOpenScene}
       />
+
+      <ScheduleBoard script={script} onChange={props.onScheduleChange} onError={props.onError} onOpenScene={props.onOpenScene} />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />
@@ -510,7 +550,11 @@ function Stripboard(props: {
                     {s.characters.map(titleCase).join(", ") || "–"}
                     {s.silent.length > 0 && <span className="silent"> · no lines: {s.silent.map(titleCase).join(", ")}</span>}
                   </td>
-                  <td className="num">{elements?.scenes[s.number]?.length || "–"}</td>
+                  <td className="num">
+                    {elements?.revision?.scenes[s.number]?.status === "changed" && <span className="flag">changed</span>}
+                    {elements?.revision?.new.includes(s.number) && <span className="flag">new</span>}
+                    {elements?.scenes[s.number]?.length || "–"}
+                  </td>
                   {notes.size > 0 && <td className="tone">{note?.tone ?? "–"}</td>}
                 </tr>
               );
@@ -645,6 +689,7 @@ function ElementsCard(props: {
   reason: string;
   extracting: boolean;
   onExtract: () => void;
+  onClear: () => void;
   onOpenScene: (number: string) => void;
 }) {
   const { elements, categories } = props;
@@ -675,6 +720,8 @@ function ElementsCard(props: {
         </div>
         {action}
       </header>
+
+      {elements?.revision && <RevisionBanner revision={elements.revision} onOpenScene={props.onOpenScene} onClear={props.onClear} />}
 
       {totals.length === 0 ? (
         <div className="elements-empty">
@@ -749,5 +796,53 @@ function ElementsCard(props: {
         </>
       )}
     </section>
+  );
+}
+
+function RevisionBanner(props: { revision: NonNullable<Elements["revision"]>; onOpenScene: (n: string) => void; onClear: () => void }) {
+  const { revision } = props;
+  const statuses = Object.entries(revision.scenes);
+  const changed = statuses.filter(([, m]) => m.status === "changed").map(([n]) => n);
+  const unchanged = statuses.filter(([, m]) => m.status === "unchanged").length;
+  const reviewed = statuses.filter(([, m]) => m.status === "reviewed").length;
+  const when = revision.from.saved_at ? new Date(revision.from.saved_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "";
+  const links = (numbers: string[]) => (
+    <span className="scene-links inline">
+      {numbers.map((n) => (
+        <button key={n} className="scene-link" onClick={() => props.onOpenScene(n)} aria-label={`Open scene ${n}`}>
+          {n}
+        </button>
+      ))}
+    </span>
+  );
+  return (
+    <div className="revision">
+      <p>
+        <strong>New draft.</strong> This breakdown was carried over from the previous draft{when && ` (saved ${when})`}: {plural(unchanged, "scene")}{" "}
+        unchanged
+        {reviewed > 0 && `, ${reviewed} reviewed`}, {plural(changed.length, "rewritten scene")} to check, {plural(revision.new.length, "new scene")}
+        {revision.omitted.length > 0 && `, ${plural(revision.omitted.length, "scene")} cut`}.
+      </p>
+      {changed.length > 0 && <p>Check the rewritten scenes: {links(changed)}</p>}
+      {revision.new.length > 0 && <p>Break down the new scenes: {links(revision.new)}</p>}
+      {revision.omitted.length > 0 && (
+        <p className="muted">
+          Cut from this draft:{" "}
+          {revision.omitted
+            .map((o) => `${o.number}. ${o.heading}` + (o.elements ? ` (${plural(o.elements, "element")} dropped)` : ""))
+            .join("; ")}
+        </p>
+      )}
+      <p>
+        <button
+          className="link"
+          onClick={() => {
+            if (window.confirm("Start this draft's breakdown empty? The carried-over elements will be removed from this draft.")) props.onClear();
+          }}
+        >
+          Start this draft empty instead
+        </button>
+      </p>
+    </div>
   );
 }

@@ -45,6 +45,23 @@ can answer questions about the script.
 - Works without AI too: add elements by hand in the dashboard
 - Each element is tracked across the shoot: which scenes need it and for how many pages
 
+**Revised drafts**
+
+- Open a new draft and your breakdown and schedule come with it. Scenes are
+  matched between drafts even when they were renumbered, moved or rewritten
+- Rewritten scenes are flagged to check, new scenes to break down, and cut
+  scenes are listed with the elements that went with them
+
+**Shooting schedule**
+
+- Slugline suggests a first plan the way an assistant director starts one:
+  day work first and the nights in one block, each location kept together, no
+  company move halfway through a day, and each day filled up to the pages you
+  expect to shoot
+- Drag the strips between days (or use the menu on each strip), add dates and
+  notes, and see each day's pages, locations and lighting at a glance
+- Export it as a PDF stripboard or CSV
+
 **Exports**
 
 - CSV tables (scenes, characters, locations, elements) that open cleanly in Excel or Sheets
@@ -58,6 +75,7 @@ can answer questions about the script.
   presence map, day/night and interior/exterior balance, locations
 - An editable breakdown sheet for every scene and an element list you can
   filter by department
+- A shooting schedule board with drag and drop
 - Every chart has a table view, and the page follows the system light or dark theme
 
 **AI features** (optional, need an Anthropic API key)
@@ -83,6 +101,7 @@ slugline examples/johns_boys.fountain                 # breakdown tables
 slugline my_script.pdf --fountain my_script.fountain  # PDF in, Fountain out
 slugline lint examples/johns_boys.fountain            # formatting checks
 slugline export examples/johns_boys.fountain --csv out/ --pdf out/report.pdf --sheets out/sheets.pdf
+slugline schedule examples/johns_boys.fountain --pages 5 --pdf out/schedule.pdf
 pytest
 ```
 
@@ -112,8 +131,9 @@ With the key set, the dashboard shows **Analyze the script**, **Suggest
 elements with AI** and an **Ask the script** panel. The model is `claude-opus-5-5`; set `SLUGLINE_MODEL`
 to use another one. An analysis is cached in `~/.cache/slugline` by script
 content and model, so asking twice for the same script makes no new request.
-Element breakdowns, with your edits, are saved in `~/.local/share/slugline`
-(or `SLUGLINE_DATA`), so the CLI and the dashboard share them.
+Element breakdowns and schedules, with your edits, are saved in
+`~/.local/share/slugline` (or `SLUGLINE_DATA`), so the CLI and the dashboard
+share them.
 Using these features sends the script to the Anthropic API.
 
 ## Example: *John's Boys*
@@ -157,6 +177,8 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
                          ├──► parser.py ──► Screenplay ──┬──► breakdown.py ──► tables / JSON
 .fountain ───────────────┘                               ├──► lint.py ──────► formatting checks
                                                          ├──► elements.py ──► element breakdown (AI + hand edits)
+                                                         ├──► schedule.py ──► shooting schedule
+                                                         ├──► revisions.py ─► carry work over to new drafts
                                                          ├──► export.py ────► CSV / PDF
                                                          ├──► llm.py ───────► summaries, tone, proofread
                                                          ├──► agent.py ─────► script assistant
@@ -172,7 +194,11 @@ The page estimate (31.9) is within 10% of the real length (34 pages).
   script sent as a cached block so that the later requests about it cost less.
 - `elements.py` holds the element breakdown: suggestions from Claude and hand
   edits live in one sheet, and a new extraction merges into it instead of replacing it.
-- `agent.py` is a tool-use loop: Claude decides which of eight read-only tools
+- `schedule.py` suggests and stores the shooting schedule.
+- `revisions.py` fingerprints every scene (heading and words) when work is
+  saved, and matches the scenes of a new draft against the latest saved draft
+  of the same script.
+- `agent.py` is a tool-use loop: Claude decides which of nine read-only tools
   to call (list scenes, read scenes, a character's dialogue, search...) and the
   answers come back from the parsed script.
 - `server.py` is a small FastAPI app; the chat endpoint streams the answer as
@@ -208,10 +234,13 @@ To work on the dashboard, run `slugline serve` in one terminal and
 - `INTERCUT` blocks stay inside the scene where they start.
 - PDF import expects standard screenplay layout; dual dialogue in PDFs isn't supported yet.
 - The dashboard keeps scripts in memory: restarting the server forgets them
-  (cached AI analyses and saved element breakdowns survive).
-- An element breakdown belongs to the exact text of a script: after a rewrite,
-  the new draft starts with an empty breakdown. Carrying elements over to a
-  revised draft is the next thing to build.
+  (cached AI analyses, breakdowns and schedules survive).
+- Drafts are recognised as the same script by their title page (or, without
+  one, by their scene headings). Matching scenes is a judgement from the text:
+  check the scenes it flags, and a scene moved to a new location with new
+  action is treated as a new scene.
+- The schedule suggestion knows pages, locations and day/night, but not cast
+  availability, travel time or turnaround rules yet.
 - Tone, tension and mood are a model's reading of the script. They are useful
   for seeing the shape of the story, not a measurement.
 
@@ -222,8 +251,9 @@ To work on the dashboard, run `slugline serve` in one terminal and
 3. **LLM features** — scene summaries, tone tagging, formatting proofread, script assistant ✅
 4. **PDF support and exports** — PDF import, CSV and PDF production reports ✅
 5. **Element breakdown** — elements per department and scene, editable, breakdown sheets ✅
-6. **Next** — carry a breakdown over to a revised draft; a drag-and-drop
-   shooting schedule built from the stripboard; call sheets; Final Draft (`.fdx`) import
+6. **Revised drafts and shooting schedule** — carry work across drafts, schedule board ✅
+7. **Next** — call sheets; cast day-out-of-days; Final Draft (`.fdx`) import;
+   accounts and shared projects for a whole crew
 
 ## Built with an AI coding assistant
 

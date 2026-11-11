@@ -5,21 +5,20 @@ effects and so on that the shoot needs. Elements can be suggested by Claude
 (see `llm.extract_elements`) and are always editable by hand; hand edits are
 never overwritten by a later extraction.
 
-Sheets are saved per script in the data directory (SLUGLINE_DATA, by default
-~/.local/share/slugline), keyed by the script's content, so the CLI and the
-dashboard see the same breakdown.
+Sheets are saved per script in the data directory (see `revisions`), so the
+CLI and the dashboard see the same breakdown, and a revised draft starts from
+the breakdown of the draft before it.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
-import os
+import copy
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from slugline.parser import normalize
+from slugline import revisions
+from slugline.parser import parse
 
 if TYPE_CHECKING:
     from slugline.breakdown import Breakdown
@@ -73,6 +72,9 @@ class ElementSheet:
     # extraction doesn't bring them back.
     dismissed: dict[str, list[str]] = field(default_factory=dict)
     model: str | None = None  # the model of the last extraction, if any
+    # Set when the sheet was carried over from an earlier draft: which scene
+    # came from where, and which ones changed and still need a look.
+    revision: dict | None = None
 
     def for_scene(self, number: str) -> list[Element]:
         return self.scenes.get(number, [])
@@ -85,6 +87,7 @@ class ElementSheet:
             "model": self.model,
             "scenes": {n: [asdict(e) for e in items] for n, items in self.scenes.items()},
             "dismissed": self.dismissed,
+            "revision": self.revision,
         }
 
     @classmethod
@@ -93,7 +96,13 @@ class ElementSheet:
             scenes={str(n): [Element(**e) for e in items] for n, items in data.get("scenes", {}).items()},
             dismissed={str(n): list(keys) for n, keys in data.get("dismissed", {}).items()},
             model=data.get("model"),
+            revision=data.get("revision"),
         )
+
+    def needs_review(self) -> list[str]:
+        """Scenes carried over from an earlier draft that changed since and nobody has checked."""
+        scenes = (self.revision or {}).get("scenes", {})
+        return [n for n, m in scenes.items() if m.get("status") == "changed"]
 
 
 def clean(category: Any, name: Any, notes: Any = "") -> tuple[str, str, str]:
@@ -145,7 +154,7 @@ def merge_extraction(sheet: ElementSheet | None, found: dict[str, list[Element]]
             if e.key not in blocked
         ]
         scenes[number] = _ordered(_dedupe(manual + suggested))
-    return ElementSheet(scenes=scenes, dismissed=sheet.dismissed, model=model)
+    return ElementSheet(scenes=scenes, dismissed=sheet.dismissed, model=model, revision=sheet.revision)
 
 
 def update_scene(sheet: ElementSheet | None, number: str, items: list[dict]) -> ElementSheet:
@@ -172,6 +181,10 @@ def update_scene(sheet: ElementSheet | None, number: str, items: list[dict]) -> 
     dismissed += [k for k, e in previous.items() if e.source == "ai" and k not in kept and k not in dismissed]
 
     sheet.scenes[number] = _ordered(updated)
+    # Saving a scene is checking it: it no longer needs a review after a rewrite.
+    match = (sheet.revision or {}).get("scenes", {}).get(number)
+    if match and match.get("status") == "changed":
+        match["status"] = "reviewed"
     if dismissed:
         sheet.dismissed[number] = dismissed
     else:
@@ -209,33 +222,58 @@ def to_payload(sheet: ElementSheet | None, b: Breakdown) -> dict | None:
         "model": sheet.model,
         "scenes": {n: [asdict(e) for e in items] for n, items in sheet.scenes.items() if items},
         "totals": [asdict(t) for t in totals(sheet, b)],
+        "revision": sheet.revision,
     }
 
 
 # --- storage ----------------------------------------------------------------
 
-def data_dir() -> Path:
-    return Path(os.environ.get("SLUGLINE_DATA") or Path.home() / ".local" / "share" / "slugline")
+KIND = "elements"
 
 
 def sheet_path(text: str) -> Path:
-    key = hashlib.sha256(normalize(text).encode()).hexdigest()[:32]
-    return data_dir() / "elements" / f"{key}.json"
+    return revisions.doc_path(KIND, text)
 
 
 def load_sheet(text: str) -> ElementSheet | None:
+    data = revisions.load_doc(KIND, text)
     try:
-        return ElementSheet.from_dict(json.loads(sheet_path(text).read_text(encoding="utf-8")))
-    except FileNotFoundError:
-        return None
-    except (OSError, ValueError, KeyError, TypeError):
+        return ElementSheet.from_dict(data) if data else None
+    except (KeyError, TypeError, ValueError):
         return None  # an unreadable file is treated as no breakdown yet
 
 
 def save_sheet(text: str, sheet: ElementSheet) -> Path:
-    path = sheet_path(text)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(sheet.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(path)  # never leave a half-written breakdown behind
-    return path
+    return revisions.save_doc(KIND, text, sheet.to_dict())
+
+
+def carry_over(text: str) -> ElementSheet | None:
+    """A breakdown for this draft made from the latest breakdown of an earlier
+    draft of the same script, with every scene matched to its new number."""
+    play = parse(text)
+    previous = revisions.find_previous(KIND, text, play, usable=lambda doc: any(doc.get("scenes", {}).values()))
+    if previous is None:
+        return None
+    old = ElementSheet.from_dict(previous)
+    matching = revisions.match_scenes(previous["meta"]["scenes"], [revisions.fingerprint(s) for s in play.scenes])
+    sheet = ElementSheet(model=old.model)
+    for number, match in matching.scenes.items():
+        sheet.scenes[number] = copy.deepcopy(old.for_scene(match.old))
+        if old.dismissed.get(match.old):
+            sheet.dismissed[number] = list(old.dismissed[match.old])
+    sheet.revision = revisions.matching_payload(matching, previous["meta"])
+    for scene in sheet.revision["omitted"]:
+        scene["elements"] = len(old.for_scene(scene["number"]))
+    return sheet
+
+
+def load_or_carry(text: str) -> ElementSheet | None:
+    """This draft's breakdown; for a new draft, the one carried over from the
+    draft before it (saved at once, so it's only worked out once)."""
+    sheet = load_sheet(text)
+    if sheet is None and (sheet := carry_over(text)) is not None:
+        try:
+            save_sheet(text, sheet)
+        except OSError:
+            pass  # still usable in memory; it will be saved on the next edit
+    return sheet
