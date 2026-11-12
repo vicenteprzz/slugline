@@ -150,3 +150,34 @@ def test_centred_text_in_action_stays_on_its_lines():
     text = pdf_text_to_fountain(page)
     assert '"Modern Times". A story\nof industry.' in text
     assert not parse(text).scenes[0].dialogues
+
+
+def test_numbers_inside_the_margin_and_a_page_shifted_left():
+    a, d, c = " " * 24, " " * 46, " " * 72
+
+    def page(first: int, margin: str, speech: str, cue: str) -> str:
+        return "\n".join([
+            f"{margin}{first}   EXT.   SPACE",
+            "",
+            f"{margin}A  vast  sea  of  stars  serves  as  the  backdrop  for  the  battle  ahead.",
+            f"{margin}Two  starfighters  dive  between  the  cruisers  as  the  fleet  opens  fire.",
+            "",
+            f"{cue}ANAKIN",
+            f"{speech}There  isn't  a  droid  made  that  can",
+            f"{speech}outfly  you,  Master.",
+            "",
+            f"{margin}{first + 1}   INT.   COCKPIT  -  SPACE",
+            "",
+            f"{margin}Obi-Wan  bounces  through  the  flak  with  a  frown  as  his  ship  shakes.",
+            f"{margin}Alarms  ring  out  across  the  cockpit  while  the  droid  whistles.",
+            "",
+            f"{cue}OBI-WAN",
+            f"{speech}Not  again.",
+        ])
+
+    title = " " * 60 + "STAR WARS\n" + " " * 50 + "EPISODE III: REVENGE OF THE SITH\n\n" + " " * 62 + "by\n\n" + " " * 58 + "George Lucas\n"
+    pages = [title, page(1, a, d, c), page(3, a, d, c), page(5, "", " " * 22, " " * 48)]  # the last one sits at the page edge
+    play = parse(pdf_text_to_fountain("\f".join(pages)))
+    assert play.title == "STAR WARS - EPISODE III: REVENGE OF THE SITH"
+    assert [s.number for s in play.scenes] == ["1", "2", "3", "4", "5", "6"]
+    assert [d.character for s in play.scenes for d in s.dialogues] == ["ANAKIN", "OBI-WAN"] * 3

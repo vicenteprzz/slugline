@@ -46,7 +46,8 @@ DATED_HEADER = re.compile(
     r"^(\d+[A-Z]?\s+)?\d{1,2}/\d{1,2}/\d{2,4}\s*(\(|C\s?O\s?N|$)"  # 02/09/20 (White ...) 3.
     r"|^(\w+\s+)?Rev\.\s*\("  # Green Rev. (mm/dd/yy) 157.
 )
-MARGIN_MARK = re.compile(r"^\s*[Il|!.,'`]\s{5,}(?=\S)")
+MARGIN_MARK = re.compile(r"^\s*(?:[Il|!.,'`]|[^\w\s]{2,3})\s{5,}(?=\S)")
+SPEECH_MARKS = set(".-!?—–…")  # a line of just "..." can be dialogue
 NOISE = set("·•~_|\\^¬")
 
 
@@ -65,6 +66,10 @@ class _Columns:
     action: int  # left margin
     dialogue: int
     cue: int
+
+    def kind_limit(self) -> int:
+        """Lines starting before this column are action or headings."""
+        return int((self.action + self.dialogue) / 2)
 
     def shifted(self, by: int) -> _Columns:
         return _Columns(self.action + by, self.dialogue + by, self.cue + by)
@@ -98,10 +103,13 @@ def _columns(lines: list[str]) -> _Columns:
             rows.append((indent, s))
     if not rows:
         return _Columns(0, 12, 25)
-    # The left margin is the leftmost column most lines use (scene numbers
-    # sit further left, but there are few of them).
+    # The left margin is where the long lines start: action runs the full
+    # width of the page, dialogue never does. (Without long lines, it is the
+    # leftmost column most lines use; scene numbers sit further left, but
+    # there are few of them.)
+    wide = Counter(i for i, s in rows if len(_squeeze(s)) >= 45)
     floor = max(1, len(rows) // 50)
-    action = min((i for i, n in indents.items() if n >= floor), default=min(indents))
+    action = wide.most_common(1)[0][0] if wide else min((i for i, n in indents.items() if n >= floor), default=min(indents))
     speech = Counter(i for i, s in rows if i > action + 3 and not _caps(s) and s[0] not in "({")
     dialogue = speech.most_common(1)[0][0] if speech else action + 12
     names = Counter(i for i, s in rows if i > dialogue + 3 and _caps(s) and len(s) < 40 and not s.endswith(":"))
@@ -111,8 +119,10 @@ def _columns(lines: list[str]) -> _Columns:
 
 def _page_shift(page: list[str], columns: _Columns) -> int:
     """How far this page's text sits from the script's columns. Scanned pages
-    can each be a little to the left or right; the shift that lines up most
-    lines with the script's columns is the page's."""
+    can each be a little to the left or right, some by a whole margin.
+
+    The shift that lines up most of the page's lines with the script's
+    columns wins; ties go to the smallest shift."""
     indents = [len(raw) - len(raw.lstrip()) for raw in page if raw.strip()]
     if len(indents) < 5:
         return 0
@@ -121,7 +131,23 @@ def _page_shift(page: list[str], columns: _Columns) -> int:
     def fit(by: int) -> int:
         return sum(1 for i in indents if any(abs(i - by - stop) <= 1 for stop in stops))
 
-    return max(range(-30, 31), key=lambda by: (fit(by), -abs(by)))
+    best = max(range(-25, 26), key=lambda by: (fit(by), -abs(by)))
+    # Long lines are action, so the leftmost column where they start is the
+    # margin, if the page agrees (on a page of dialogue the long lines can be
+    # speeches). The best fit alone can be fooled: a page of dialogue lines
+    # up well with the wrong columns too.
+    wide = Counter(
+        len(raw) - len(raw.lstrip()) for raw in page
+        if len(_squeeze(raw)) >= 45 and not re.match(r"\s*\d+[A-Z]{0,2}\s{2,}", raw)
+    )
+    margins = [i for i, n in wide.items() if n >= 2]
+    if margins:
+        hint = min(margins) - columns.action
+        # Near the script's margin, or confirmed by cues where that margin puts them.
+        cues = sum(1 for i in indents if abs(i - hint - columns.cue) <= 1)
+        if abs(hint) <= 3 or cues >= 2:
+            return hint
+    return best
 
 
 def _unmark(raw: str) -> str:
@@ -155,7 +181,14 @@ def _title_page(page: str) -> list[str]:
     # The title is the first line in capitals before the byline (JOKER, not
     # its tagline "an origin"), skipping revision dates.
     candidates = [line for line in lines[:byline] if not REVISION.search(line)] or lines[:1]
-    title = next((line for line in candidates if _caps(line)), candidates[0])
+    first = next((i for i, line in enumerate(candidates) if _caps(line)), 0)
+    # A title in capitals can run onto the next line: STAR WARS / EPISODE III: ...
+    parts = [candidates[first]]
+    for line in candidates[first + 1:]:
+        if not _caps(line) or len(parts) == 3:
+            break
+        parts.append(line)
+    title = " - ".join(parts)
     fields = [f"Title: {title}"]
     if byline + 1 < len(lines):
         fields.append(f"Credit: {lines[byline]}")
@@ -207,7 +240,13 @@ def pdf_text_to_fountain(text: str) -> str:
 
         if DATED_HEADER.match(_squeeze(s)):
             continue
-        numbered = NUMBERED.match(s) if indent < columns.action else None
+        numbered = NUMBERED.match(s) if indent < columns.kind_limit() else None
+        if numbered and indent >= columns.action - 1:
+            # At the action margin, "1   EXT. SPACE" is a numbered heading; any other
+            # line that starts with a number ("2   men walk in") is just action.
+            rest = _squeeze(numbered.group(2))
+            if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(numbered.group(1)):])):
+                numbered = None
         if numbered:
             number, rest = numbered.group(1), _squeeze(numbered.group(2))
             if rest.startswith(number) and SCENE_PREFIX.match(rest[len(number):]):
@@ -216,7 +255,9 @@ def pdf_text_to_fountain(text: str) -> str:
                 continue
             # Numbered on both sides, it is a heading even without INT./EXT.
             forced = "" if SCENE_PREFIX.match(rest) else "."
-            if forced and not numbered.group(0).rstrip().endswith(number) or not _caps(rest):
+            marks = rest.replace(" ", "")
+            garbled = sum(c.isalpha() for c in marks) < len(marks) * 0.6  # a smudge, not words
+            if forced and not numbered.group(0).rstrip().endswith(number) or not _caps(rest) or garbled:
                 s, indent = rest, columns.action  # just a line that starts with a number
             else:
                 out += ["", f"{forced}{rest} #{number}#", ""]
@@ -226,7 +267,8 @@ def pdf_text_to_fountain(text: str) -> str:
         if CONTINUED.match(_squeeze(s)) or (_caps(s) and CONTINUED_HEADER.search(s)):
             continue
         marks = s.replace(" ", "")
-        if sum(c.isalnum() for c in marks) < len(marks) * 0.4 and (len(marks) > 12 or NOISE & set(marks)):
+        if not any(c.isalnum() for c in marks) and set(marks) - SPEECH_MARKS:
+            continue  # a stray bracket or smudge from the scan        if sum(c.isalnum() for c in marks) < len(marks) * 0.4 and (len(marks) > 12 or NOISE & set(marks)):
             continue  # scanning noise, not words ("1...2...3." is kept)
         if MORE.match(_squeeze(s)):
             more = True
@@ -295,7 +337,7 @@ def pdf_text_to_fountain(text: str) -> str:
         else:
             # Force all-caps action (KNOCK KNOCK, BLACKOUT...) so it isn't read as a
             # cue, and action that starts with a dot so it isn't read as a heading.
-            out.append(f"!{s}" if s.isupper() or (s.startswith(".") and not s.startswith("..")) else s)
+            out.append(f"!{s}" if s.isupper() or (s.startswith(".") and not s.startswith("...")) else s)
             last = "action"
 
     _join_split_cues(out, cues)
