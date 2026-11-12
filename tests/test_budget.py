@@ -168,7 +168,8 @@ def test_api_exports_and_new_drafts():
     first = client.get(f"/api/scripts/{sid}/budget").json()
     assert first["total"] > 0 and first["previous"] is None
 
-    changed = client.put(f"/api/scripts/{sid}/budget", json={"level": "short", "rates": {"camera": 100}}).json()
+    changed = client.put(f"/api/scripts/{sid}/budget", json={"level": "short", "rates": {"camera": 100},
+                                                              "percentages": {"contingency": 0.1}}).json()
     assert changed["level"] == "short" and changed["total"] < first["total"]
     assert client.put(f"/api/scripts/{sid}/budget", json={"level": "galactic"}).status_code == 422
 
@@ -183,5 +184,6 @@ def test_api_exports_and_new_drafts():
     sid2 = client.post("/api/scripts", params={"filename": "heist2.fountain"}, content=draft.encode()).json()["id"]
     second = client.get(f"/api/scripts/{sid2}/budget").json()
     assert second["level"] == "short" and second["settings"]["rates"] == {"camera": 100}
+    assert second["contingency"]["pct"] == 0.1
     assert second["previous"]["total"] == changed["total"]
     assert second["total"] > changed["total"]

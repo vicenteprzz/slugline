@@ -603,7 +603,7 @@ def carry_over(text: str) -> BudgetSettings | None:
     # Quantities, quotes and lines by hand that belong to scenes may not fit the
     # new draft; levels and rates still do.
     return BudgetSettings(level=old.level, rates=old.rates, quotes=old.quotes, extra=old.extra,
-                          previous={**(old.snapshot or {}), "saved_at": previous["meta"].get("saved_at")})
+                          percentages=old.percentages, previous={**(old.snapshot or {}), "saved_at": previous["meta"].get("saved_at")})
 
 
 def load_or_carry(text: str) -> BudgetSettings:
