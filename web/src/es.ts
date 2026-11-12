@@ -131,6 +131,7 @@ export const ES: Record<string, string> = {
   "Formatting notes": "Notas de formato",
   // Folding sections
   "Show this section": "Mostrar esta sección",
+  "hidden · click to show": "oculta · pulsa para mostrar",
   "Hide this section": "Ocultar esta sección",
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",

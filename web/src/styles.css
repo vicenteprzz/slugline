@@ -2076,7 +2076,7 @@ h3.fold-title {
 
 .fold-chevron {
   display: inline-block;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   transition: transform 0.15s ease;
 }
@@ -2090,7 +2090,9 @@ h3.fold-title {
   transform: rotate(-90deg);
 }
 
-.card.folded > :not(:has(.fold-title)),
+/* Everything but the title. The title itself is kept even when it sits
+   right inside the card, with no header around it. */
+.card.folded > :not(:has(.fold-title)):not(.fold-title),
 .card.folded :has(> .fold-title) > :not(.fold-title),
 .card.folded .card-head > :not(:has(.fold-title)) {
   display: none;
@@ -2098,6 +2100,15 @@ h3.fold-title {
 
 .card.folded {
   padding-bottom: 14px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.card.folded .fold-button::after {
+  content: attr(data-folded-hint);
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .fold-all {

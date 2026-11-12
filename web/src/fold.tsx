@@ -88,6 +88,7 @@ export function FoldTitle(props: { id: string; children: ReactNode }) {
         className="fold-button"
         aria-expanded={!isFolded}
         title={isFolded ? t("Show this section") : t("Hide this section")}
+        data-folded-hint={t("hidden · click to show")}
         onClick={() => toggleFold(props.id)}
       >
         <span className="fold-chevron" aria-hidden="true">
