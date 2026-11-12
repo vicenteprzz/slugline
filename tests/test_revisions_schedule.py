@@ -311,3 +311,11 @@ def test_api_schedule_and_new_drafts():
 
     assert client.delete(f"/api/scripts/{sid}/schedule").json() == {"ok": True}
     assert client.get(f"/api/scripts/{sid}").json()["schedule"] is None
+
+
+
+def test_a_scene_saved_twice_is_kept_once():
+    from slugline.schedule import Schedule
+
+    plan = Schedule.from_dict({"days": [{"scenes": ["1", "50"]}, {"scenes": ["50", "2"]}]})
+    assert [d.scenes for d in plan.days] == [["1", "50"], ["2"]]

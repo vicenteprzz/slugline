@@ -71,6 +71,17 @@ export default function App() {
   const [extracting, setExtracting] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [dragging, setDragging] = useState(false);
+  // Whatever happens to a drag (dropped on a strip, outside the window,
+  // cancelled with Escape), the "drop the script" veil goes away.
+  useEffect(() => {
+    const clear = () => setDragging(false);
+    window.addEventListener("dragend", clear);
+    window.addEventListener("drop", clear, true);
+    return () => {
+      window.removeEventListener("dragend", clear);
+      window.removeEventListener("drop", clear, true);
+    };
+  }, []);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const changeLanguage = useCallback((next: Language, save = true) => {
@@ -237,13 +248,17 @@ export default function App() {
       className={`app${panel ? " with-panel" : ""}`}
       data-lang={lang}
       onDragOver={(e) => {
+        // Only a file from outside opens a script: dragging a strip in the
+        // schedule is not a script being dropped.
+        if (!isFileDrag(e)) return;
         e.preventDefault();
         setDragging(true);
       }}
       onDragLeave={(e) => e.currentTarget === e.target && setDragging(false)}
       onDrop={(e) => {
-        e.preventDefault();
         setDragging(false);
+        if (!isFileDrag(e)) return;
+        e.preventDefault();
         const file = e.dataTransfer.files[0];
         if (file) void open(file);
       }}
@@ -1217,4 +1232,9 @@ function RevisionBanner(props: { revision: NonNullable<Elements["revision"]>; on
       </p>
     </div>
   );
+}
+
+/** True when what is being dragged includes files from outside the page. */
+function isFileDrag(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes("Files");
 }

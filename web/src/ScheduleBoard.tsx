@@ -202,11 +202,13 @@ export default function ScheduleBoard(props: {
   const dropZone = (index: number) => ({
     onDragOver: (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       setOver(index);
     },
     onDragLeave: (e: React.DragEvent) => e.currentTarget === e.target && setOver(null),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       const moved = e.dataTransfer.getData("text/plain");
       setOver(null);
       if (moved) move(moved, index);

@@ -107,10 +107,14 @@ class Scene:
     # 1-based line of the heading in the source text.
     line: int = 0
 
+    # Set by `parse` when the number above would clash with another scene's.
+    unique_number: str | None = None
+
     @property
     def number(self) -> str:
-        """The script's own scene number if it has one, else the position."""
-        return self.scene_number or str(self.index)
+        """The scene's number, unique in the script: its own if it has one,
+        else its position; see `_unique_numbers` for clashes."""
+        return self.unique_number or self.scene_number or str(self.index)
 
     @property
     def dialogues(self) -> list[Dialogue]:
@@ -400,7 +404,51 @@ def parse(text: str) -> Screenplay:
         current.append(Action("\n".join(paragraph)))
         prev_blank = False
 
+    _unique_numbers(play)
     return play
+
+
+def _unique_numbers(play: Screenplay) -> None:
+    """Every scene needs its own number: the breakdown, the schedule and the
+    budget refer to scenes by it. The script's numbers win; a scene without
+    one keeps its position, as always. Only when that clashes does a scene
+    get a letter: after the number of the scene before it if it had none of
+    its own (45, 45A), or after its own if the script used it twice (61, 61A).
+    The script's numbers stay in `scene_number`, so the formatting checks
+    still report a number used twice."""
+    reserved: set[str] = set()
+    first: set[int] = set()
+    for s in play.scenes:
+        if s.scene_number and s.scene_number not in reserved:
+            reserved.add(s.scene_number)
+            first.add(s.index)
+    used = set(reserved)
+    last = ""
+    for s in play.scenes:
+        if s.index in first:
+            last = s.scene_number or last
+            continue
+        candidate = s.scene_number or str(s.index)
+        if candidate in used:
+            base = s.scene_number or last or str(s.index)
+            suffix = 0
+            while True:
+                suffix += 1
+                candidate = base + _letters(suffix)
+                if candidate not in used:
+                    break
+            s.unique_number = candidate
+        used.add(candidate)
+        last = s.scene_number or last
+
+
+def _letters(n: int) -> str:
+    """1 -> A, 26 -> Z, 27 -> AA."""
+    out = ""
+    while n:
+        n, rest = divmod(n - 1, 26)
+        out = chr(65 + rest) + out
+    return out
 
 
 def parse_file(path: str | Path) -> Screenplay:

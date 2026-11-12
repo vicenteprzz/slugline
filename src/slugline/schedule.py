@@ -67,8 +67,14 @@ class Schedule:
 
     @classmethod
     def from_dict(cls, data: dict) -> Schedule:
+        days = [ShootDay(**d) for d in data.get("days", [])]
+        # A scene listed twice (saved before scene numbers were made unique)
+        # stays where it first appears, so the schedule can be edited again.
+        seen: set[str] = set()
+        for day in days:
+            day.scenes = [n for n in day.scenes if not (n in seen or seen.add(n))]
         return cls(
-            days=[ShootDay(**d) for d in data.get("days", [])],
+            days=days,
             pages_per_day=float(data.get("pages_per_day", DEFAULT_PAGES_PER_DAY)),
             revision=data.get("revision"),
             actors={str(k): str(v) for k, v in data.get("actors", {}).items()},

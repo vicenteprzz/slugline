@@ -168,3 +168,16 @@ def test_relative_times_and_typos_inherit_day_or_night():
     assert [s.location for s in play.scenes] == [
         "CLUB", "HALLWAY", "ROOM 503", "KAISER", "FARM", "LAWRENCE'S PARLOR", "CONTINENTAL HOTEL"]
     assert [s.day_night for s in play.scenes] == ["NIGHT", "NIGHT", "NIGHT", "NIGHT", "DAY", "DAY", "DAY"]
+
+
+def test_every_scene_gets_its_own_number():
+    play = parse(
+        "INT. A - DAY #1#\n\nA.\n\nINT. B - DAY\n\nB.\n\nINT. C - DAY #2#\n\nC.\n\n"
+        "INT. D - DAY #2#\n\nD.\n\nINT. E - DAY\n\nE.\n\nINT. F - DAY\n\nF.\n"
+    )
+    # B would be scene 2, but the script gives 2 to C: B comes after 1.
+    assert [s.number for s in play.scenes] == ["1", "1A", "2", "2A", "5", "6"]
+    # The script's own numbers are kept, so the duplicate is still reported.
+    assert [s.scene_number for s in play.scenes] == ["1", None, "2", "2", None, None]
+    unnumbered = parse("INT. A - DAY\n\nA.\n\nINT. B - DAY\n\nB.\n")
+    assert [s.number for s in unnumbered.scenes] == ["1", "2"]
