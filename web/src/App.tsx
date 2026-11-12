@@ -919,9 +919,9 @@ function ElementsCard(props: {
   const counts = new Map<string, number>();
   for (const total of totals) counts.set(total.category, (counts.get(total.category) ?? 0) + 1);
   const shown = filter ? totals.filter((total) => total.category === filter) : totals;
-  const suggested = Object.values(elements?.scenes ?? {})
-    .flat()
-    .filter((e) => e.source === "ai").length;
+  const all = Object.values(elements?.scenes ?? {}).flat();
+  const suggested = all.filter((e) => e.source !== "manual").length;
+  const byClaude = all.some((e) => e.source === "ai");
   const first = props.breakdown.scenes[0]?.number;
 
   return (
@@ -934,10 +934,10 @@ function ElementsCard(props: {
             {totals.length > 0 && ` ${t("Suggesting again keeps everything you added or edited by hand.")}`}
           </p>
         </div>
-        <button className={totals.length ? "ghost" : "primary"} disabled={!props.available || props.extracting} onClick={props.onExtract}>
+        <button className={byClaude ? "ghost" : "primary"} disabled={!props.available || props.extracting} onClick={props.onExtract}>
           {props.extracting
             ? t("Breaking down the script… about a minute")
-            : totals.length
+            : byClaude
               ? t("Suggest again with AI")
               : t("Suggest elements with AI")}
         </button>
@@ -1008,11 +1008,16 @@ function ElementsCard(props: {
           </div>
           {suggested > 0 && (
             <p className="fine">
-              {t("{elements} still as Claude suggested them. Open a scene to check, edit or remove them before you print the breakdown sheets.", {
-                elements: plural(suggested, "element"),
-              })}
+              {byClaude
+                ? t("{elements} still as Claude suggested them. Open a scene to check, edit or remove them before you print the breakdown sheets.", {
+                    elements: plural(suggested, "element"),
+                  })
+                : t("{elements} suggested from words in the action, without AI: a first pass to check scene by scene. With an API key, Claude reads the whole script and suggests a fuller breakdown.", {
+                    elements: plural(suggested, "element"),
+                  })}
             </p>
           )}
+          {!props.available && suggested > 0 && !byClaude && <AiOff onOpenSettings={props.onOpenSettings} />}
         </>
       )}
     </section>

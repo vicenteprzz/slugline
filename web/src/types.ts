@@ -53,7 +53,7 @@ export type Analysis = {
   issues: Issue[];
 };
 
-export type Element = { category: string; name: string; notes: string; source: "ai" | "manual" };
+export type Element = { category: string; name: string; notes: string; source: "ai" | "auto" | "manual" };
 
 export type ElementTotal = { category: string; name: string; scenes: string[]; eighths: number };
 

@@ -58,7 +58,9 @@ class Element:
     category: str
     name: str
     notes: str = ""
-    source: str = "manual"  # "ai" (suggested by Claude, untouched) or "manual"
+    # "ai" (suggested by Claude), "auto" (suggested from keywords, without AI) or
+    # "manual" (added or edited by hand). Only manual elements survive a new suggestion.
+    source: str = "manual"
 
     @property
     def key(self) -> str:
@@ -172,13 +174,13 @@ def update_scene(sheet: ElementSheet | None, number: str, items: list[dict]) -> 
     for item in items:
         category, name, notes = clean(item.get("category"), item.get("name"), item.get("notes", ""))
         before = previous.get(element_key(category, name))
-        unchanged = before is not None and before.source == "ai" and before.name == name and before.notes == notes
-        updated.append(Element(category, name, notes, "ai" if unchanged else "manual"))
+        unchanged = before is not None and before.source != "manual" and before.name == name and before.notes == notes
+        updated.append(Element(category, name, notes, before.source if unchanged else "manual"))
     updated = _dedupe(updated)
 
     kept = {e.key for e in updated}
     dismissed = [k for k in sheet.dismissed.get(number, []) if k not in kept]
-    dismissed += [k for k, e in previous.items() if e.source == "ai" and k not in kept and k not in dismissed]
+    dismissed += [k for k, e in previous.items() if e.source != "manual" and k not in kept and k not in dismissed]
 
     sheet.scenes[number] = _ordered(updated)
     # Saving a scene is checking it: it no longer needs a review after a rewrite.
@@ -267,13 +269,27 @@ def carry_over(text: str) -> ElementSheet | None:
     return sheet
 
 
-def load_or_carry(text: str) -> ElementSheet | None:
+def suggest_without_ai(text: str) -> ElementSheet:
+    """A first breakdown from the production dictionary (see `keywords`)."""
+    from slugline.keywords import suggest
+
+    return ElementSheet(scenes=suggest(parse(text)))
+
+
+def load_or_carry(text: str, suggest: bool = False) -> ElementSheet | None:
     """This draft's breakdown; for a new draft, the one carried over from the
-    draft before it (saved at once, so it's only worked out once)."""
+    draft before it; for a script never broken down, with `suggest`, a first
+    pass from keywords. Whatever is worked out is saved at once."""
     sheet = load_sheet(text)
-    if sheet is None and (sheet := carry_over(text)) is not None:
-        try:
-            save_sheet(text, sheet)
-        except OSError:
-            pass  # still usable in memory; it will be saved on the next edit
+    if sheet is None:
+        sheet = carry_over(text)
+        if sheet is None and suggest:
+            sheet = suggest_without_ai(text)
+            if sheet.is_empty():
+                return None
+        if sheet is not None:
+            try:
+                save_sheet(text, sheet)
+            except OSError:
+                pass  # still usable in memory; it will be saved on the next edit
     return sheet

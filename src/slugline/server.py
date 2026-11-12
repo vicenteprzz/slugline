@@ -92,7 +92,9 @@ class Store:
             analysis=llm.cached_analysis(text),
             # So does a breakdown of elements, with its hand edits; a new
             # draft starts from the breakdown of the draft before it.
-            elements=elements.load_or_carry(text),
+            # A script never broken down gets a first pass from keywords, so
+            # the elements are never empty even without an API key.
+            elements=elements.load_or_carry(text, suggest=True),
             schedule=scheduling.load_or_carry(text),
         )
         self.scripts[script.id] = script

@@ -242,6 +242,7 @@ def test_cli_elements(tmp_path, monkeypatch, capsys):
     path.write_text(SCRIPT, encoding="utf-8")
     api = FakeAPI(elements_reply({"2": [("vehicles", "Taxi", "yellow")]}))
     monkeypatch.setattr(llm, "make_client", lambda: api.client)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")  # with a key, Claude does the breakdown
 
     assert main(["elements", str(path)]) == 0
     out = capsys.readouterr().out
@@ -270,9 +271,9 @@ def test_api_extract_edit_and_export(monkeypatch):
     status = client.get("/api/status").json()
     assert [c["key"] for c in status["categories"]] == CATEGORY_KEYS
     script = client.post("/api/scripts", params={"filename": "two.fountain"}, content=SCRIPT.encode()).json()
-    assert script["elements"] is None
+    # Opened for the first time, it already has a first pass from keywords.
+    assert {(e["name"], e["source"]) for e in script["elements"]["scenes"]["2"]} == {("Taxi", "auto"), ("Rain", "auto")}
     sid = script["id"]
-    assert client.get(f"/api/scripts/{sid}/export/elements.csv").status_code == 404
 
     extracted = client.post(f"/api/scripts/{sid}/elements").json()
     assert [t["name"] for t in extracted["totals"]] == ["Mug", "Taxi"]

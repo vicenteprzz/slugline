@@ -156,9 +156,24 @@ def cmd_elements(args: argparse.Namespace) -> int:
     from slugline.elements import LABELS, load_or_carry, to_payload, totals
     from slugline.parser import format_eighths
 
+    from slugline.llm import status
+
     text = read_script(args.script)
     sheet = load_or_carry(text)
-    if sheet is None or sheet.is_empty() or args.refresh:
+    use_ai = not args.no_ai and status()["available"]
+    if args.no_ai or not use_ai:
+        if sheet is None or sheet.is_empty() or args.refresh:
+            from slugline.elements import save_sheet, suggest_without_ai
+
+            sheet = suggest_without_ai(text)
+            if not args.no_ai:
+                print("No Anthropic API key: suggesting from keywords instead (add a key for a fuller breakdown).",
+                      file=sys.stderr)
+            try:
+                save_sheet(text, sheet)
+            except OSError as e:
+                raise CLIError(f"cannot save the breakdown: {e.strerror}") from None
+    elif sheet is None or sheet.is_empty() or args.refresh:
         from slugline.llm import break_down_elements
 
         sheet = break_down_elements(text, progress=lambda m: print(m, file=sys.stderr))
@@ -195,8 +210,11 @@ def cmd_elements(args: argparse.Namespace) -> int:
             print(f"  {label}")
             for t in rows:
                 print(f"    {t.name:<34} scenes {', '.join(t.scenes):<20} {format_eighths(t.eighths)} pages")
-    if any(e.source == "ai" for items in sheet.scenes.values() for e in items):
+    sources = {e.source for items in sheet.scenes.values() for e in items}
+    if "ai" in sources:
         print("\nSuggested by Claude: check them against the script. Edit them in `slugline serve`.")
+    elif "auto" in sources:
+        print("\nSuggested from keywords in the action, without AI: check them. Edit them in `slugline serve`.")
     return 0
 
 
@@ -375,10 +393,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-cache", action="store_true", help="ignore and don't write the cached analysis")
 
     p = command("elements", cmd_elements,
-                "Break down props, wardrobe, vehicles, effects... for every scene (uses the Anthropic API once).")
+                "Break down props, wardrobe, vehicles, effects... for every scene (with Claude if there is an API key).")
     p.add_argument("--json", action="store_true", help="print the elements as JSON")
     p.add_argument("--refresh", action="store_true",
-                   help="ask Claude again; elements added or edited by hand are kept")
+                   help="suggest again; elements added or edited by hand are kept")
+    p.add_argument("--no-ai", action="store_true", help="suggest from keywords only, without the Anthropic API")
 
     p = command("schedule", cmd_schedule,
                 "Plan the shoot day by day (the saved schedule, or a first suggestion if there is none).")

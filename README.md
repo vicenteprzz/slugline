@@ -76,7 +76,9 @@ build the app to show a "Buy a licence" link in Settings.
 - Claude suggests the elements for the whole script in one pass; you check,
   edit, add or remove them on each scene's breakdown sheet. Suggesting again
   never overwrites what you edited, and doesn't bring back what you removed
-- Works without AI too: add elements by hand in the dashboard
+- Works without AI too: when a script is opened, a production dictionary in
+  English and Spanish (and the capitalised sound cues screenplays use) gives a
+  first pass for every scene, marked as suggested; add or fix the rest by hand
 - Each element is tracked across the shoot: which scenes need it and for how many pages
 
 **Revised drafts**

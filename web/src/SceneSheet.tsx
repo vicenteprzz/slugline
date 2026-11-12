@@ -79,7 +79,8 @@ export default function SceneSheet(props: {
     void save(next);
   }
 
-  const suggested = items.filter((e) => e.source === "ai").length;
+  const suggested = items.filter((e) => e.source !== "manual").length;
+  const byClaude = items.some((e) => e.source === "ai");
 
   return (
     <aside className="drawer sheet" aria-label={t("Breakdown sheet, scene {n}", { n: number })}>
@@ -163,7 +164,9 @@ export default function SceneSheet(props: {
 
         {suggested > 0 && (
           <p className="sheet-hint">
-            {t("{n} suggested by Claude. Check them against the scene: edit or remove what's wrong.", { n: suggested })}
+            {byClaude
+              ? t("{n} suggested by Claude. Check them against the scene: edit or remove what's wrong.", { n: suggested })
+              : t("{n} suggested from words in the action, without AI. Check them against the scene: edit or remove what's wrong.", { n: suggested })}
           </p>
         )}
         {error && <p className="notice error">{error}</p>}
@@ -196,8 +199,8 @@ export default function SceneSheet(props: {
                         <button className="item-main" onClick={() => startEdit(category.key, i)} disabled={saving} title={t("Edit")}>
                           <span className="item-name">{e.name}</span>
                           {e.notes && <span className="item-notes">{e.notes}</span>}
-                          {e.source === "ai" && (
-                            <span className="tag" title={t("Suggested by Claude")}>
+                          {e.source !== "manual" && (
+                            <span className="tag" title={e.source === "ai" ? t("Suggested by Claude") : t("Suggested from words in the script")}>
                               {t("suggested")}
                             </span>
                           )}

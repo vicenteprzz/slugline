@@ -169,6 +169,12 @@ export const ES: Record<string, string> = {
   "Set dressing": "Decoración",
   "Special equipment": "Equipo especial",
 
+  "{n} suggested from words in the action, without AI. Check them against the scene: edit or remove what's wrong.":
+    "{n} sugeridos a partir de palabras de la acción, sin IA. Compruébalos con la secuencia: edita o quita lo que esté mal.",
+  "Suggested from words in the script": "Sugerido a partir de palabras del guion",
+  "{elements} suggested from words in the action, without AI: a first pass to check scene by scene. With an API key, Claude reads the whole script and suggests a fuller breakdown.":
+    "{elements} sugeridos a partir de palabras de la acción, sin IA: una primera pasada para revisar secuencia a secuencia. Con una clave de API, Claude lee el guion entero y sugiere un desglose más completo.",
+
   // Revised drafts
   "{scenes} unchanged": "{scenes} sin cambios",
   "{n} reviewed": "{n} revisadas",

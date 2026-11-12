@@ -135,7 +135,7 @@ def elements_csv(b: Breakdown, sheet: ElementSheet) -> str:
     for s in b.scenes:
         for e in sheet.for_scene(s.number):
             rows.append([s.number, s.heading, LABELS[e.category], e.name, e.notes,
-                         "suggested" if e.source == "ai" else "manual"])
+                         "manual" if e.source == "manual" else "suggested"])
     return _csv(["scene", "heading", "department", "element", "notes", "source"], rows)
 
 
