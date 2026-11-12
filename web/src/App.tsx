@@ -24,6 +24,7 @@ import { ChartCard, Heatmap, RankedBars, SegmentedBar, StackedColumns, ToneChart
 import { count, eighths, percent, plural, stripColor, titleCase } from "./format";
 import { type Language, initialLanguage, language, setLanguage, t } from "./i18n";
 import SceneSheet from "./SceneSheet";
+import BudgetCard from "./Budget";
 import ScheduleBoard, { CastCard, CrewCard } from "./ScheduleBoard";
 import SettingsPanel from "./SettingsPanel";
 import type { Analysis, Breakdown, Category, Corrections, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
@@ -467,6 +468,7 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
   const pdfs = [
     ["report.pdf", "Production report (PDF)"],
     ["breakdown-sheets.pdf", "Breakdown sheets, one per scene (PDF)"],
+    ["budget.pdf", "Budget (PDF)"],
     ...(hasSchedule
       ? [
           ["schedule.pdf", "Shooting schedule (PDF)"],
@@ -481,6 +483,7 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
           ["day-out-of-days.csv", "Day out of days (CSV)"],
         ]
       : []),
+    ["budget.csv", "Budget (CSV)"],
     ["scenes.csv", "Scenes (CSV)"],
     ...(hasElements ? [["elements.csv", "Elements by scene (CSV)"]] : []),
     ["characters.csv", "Characters (CSV)"],
@@ -579,6 +582,7 @@ function Dashboard(props: {
       />
       <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
       <CrewCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
+      <BudgetCard script={script} pdfExport={status?.pdf_export ?? false} onError={props.onError} onOpenScene={props.onOpenScene} />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />

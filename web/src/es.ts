@@ -129,6 +129,164 @@ export const ES: Record<string, string> = {
   "Tension (1–5)": "Tensión (1–5)",
   "Mood (−2 to +2)": "Ánimo (−2 a +2)",
   "Formatting notes": "Notas de formato",
+  // Budget card
+  "Budget":
+    "Presupuesto",
+  "Worked out from the breakdown and the schedule: shooting days, the days each actor works, extras, locations, vehicles. Quantities follow the schedule; the rates are a starting point to replace with your own.":
+    "Calculado a partir del desglose y el plan de rodaje: jornadas, días de cada actor, figuración, localizaciones, vehículos. Las cantidades siguen al plan; las tarifas son un punto de partida para cambiar por las tuyas.",
+  "Level":
+    "Nivel",
+  "PDF":
+    "PDF",
+  "Excel (CSV)":
+    "Excel (CSV)",
+  "Total":
+    "Total",
+  "Shooting days":
+    "Jornadas de rodaje",
+  "Per shooting day":
+    "Por jornada",
+  "To be quoted":
+    "A cotizar",
+  "{n} of the days are estimated for scenes not in the schedule yet.":
+    "{n} de las jornadas son estimadas, para secuencias que aún no están en el plan.",
+  "There is no schedule yet: the days are estimated from a suggested plan. Make the schedule above and the budget follows it.":
+    "Aún no hay plan de rodaje: las jornadas se estiman con un plan sugerido. Haz el plan arriba y el presupuesto lo sigue.",
+  "{n} lines need a quote (effects that can't be priced from the script). They carry {amount} as a placeholder until you enter the quote.":
+    "{n} partidas necesitan presupuesto de proveedor (efectos que no se pueden calcular desde el guion). Llevan {amount} provisionales hasta que pongas la cotización.",
+  "The previous draft came to {total} in {days} days. This one: {now} in {now_days} days ({diff}).":
+    "La versión anterior del guion salía por {total} en {days} jornadas. Esta: {now} en {now_days} jornadas ({diff}).",
+  "By chapter":
+    "Por capítulos",
+  "What each scene costs to shoot":
+    "Lo que cuesta rodar cada secuencia",
+  "Its share of the days it is shot on (crew, equipment, location, cast) plus what only it needs. Cutting a scene saves about this much.":
+    "Su parte de las jornadas en que se rueda (equipo, material, localización, reparto) más lo que solo necesita ella. Quitar una secuencia ahorra más o menos esto.",
+  "Concept":
+    "Concepto",
+  "Quantity":
+    "Cantidad",
+  "Unit":
+    "Unidad",
+  "Rate":
+    "Precio",
+  "to be quoted":
+    "a cotizar",
+  "quote":
+    "cotización",
+  "Quote for {name}":
+    "Cotización de {name}",
+  "Quantity for {name}":
+    "Cantidad de {name}",
+  "Rate for {name}":
+    "Precio de {name}",
+  "Back to the worked-out value":
+    "Volver al valor calculado",
+  "Reset":
+    "Restablecer",
+  "Chapters follow the ICAA budget model. This is a first draft from the script: check it with a production manager, and replace the rates with your agreements and quotes before using it for funding.":
+    "Los capítulos siguen el modelo de presupuesto del ICAA. Es un primer borrador a partir del guion: revísalo con el jefe de producción y cambia las tarifas por tus acuerdos y cotizaciones antes de usarlo para pedir ayudas.",
+  "Add a line: concept":
+    "Añadir partida: concepto",
+  "lead":
+    "protagonista",
+  "supporting":
+    "secundario",
+  "small part":
+    "pequeño papel",
+  "{role} · works {work} days, {hold} on hold":
+    "{role} · trabaja {work} días, {hold} en espera",
+  "{role} · works {work} days":
+    "{role} · trabaja {work} días",
+  "{shooting} shooting days + {prep} preparation":
+    "{shooting} jornadas de rodaje + {prep} de preparación",
+  "{shooting} shooting days":
+    "{shooting} jornadas de rodaje",
+  "{people} people on {days} days with extras":
+    "{people} personas en {days} jornadas con figuración",
+  "{vans} vans for {days} days":
+    "{vans} furgonetas durante {days} jornadas",
+  "{crew} crew for {days} days, plus {cast} cast days":
+    "{crew} personas de equipo durante {days} jornadas, más {cast} días de reparto",
+  "{pct} of the rest of the budget":
+    "{pct} del resto del presupuesto",
+  "scenes {list}":
+    "secuencias {list}",
+  "The budget could not be worked out.":
+    "No se ha podido calcular el presupuesto.",
+  "The budget could not be saved.":
+    "No se ha podido guardar el presupuesto.",
+  "Budget (PDF)":
+    "Presupuesto (PDF)",
+  "Budget (CSV)":
+    "Presupuesto (CSV)",
+  "Unknown budget level.":
+    "Nivel de presupuesto desconocido.",
+  "Too many changes in one budget.":
+    "Demasiados cambios en un presupuesto.",
+  // Budget (the same text as BUDGET_ES in budget.py)
+  "Artistic staff": "Personal artístico",
+  "Script and music": "Guion y música",
+  "Sets and locations": "Escenografía",
+  "Studios and sound": "Estudios de rodaje y sonorización",
+  "Equipment, shooting and transport": "Maquinaria, rodaje y transportes",
+  "Travel, hotels and meals": "Viajes, hoteles y comidas",
+  "Digital media": "Soporte digital",
+  "Post-production": "Postproducción",
+  "Insurance": "Seguros",
+  "Overheads": "Gastos generales",
+  "Publicity and finance": "Gastos de explotación, comercial y financieros",
+  "Script and rights": "Guion y derechos",
+  "Original music": "Música original",
+  "Stunt team": "Especialistas",
+  "Director": "Director/a",
+  "First assistant director": "Ayudante de dirección",
+  "Script supervisor": "Script",
+  "Line producer": "Director/a de producción",
+  "Production manager": "Jefe/a de producción",
+  "Production assistant": "Auxiliar de producción",
+  "Director of photography": "Director/a de fotografía",
+  "Focus puller": "Foquista",
+  "Camera assistant": "Auxiliar de cámara",
+  "Sound mixer": "Jefe/a de sonido",
+  "Boom operator": "Microfonista",
+  "Production designer": "Director/a de arte",
+  "Set dresser": "Ambientador/a",
+  "Costume designer": "Figurinista",
+  "Makeup artist": "Maquillador/a",
+  "Hairdresser": "Peluquero/a",
+  "Gaffer": "Jefe/a de eléctricos",
+  "Electrician": "Eléctrico/a",
+  "Key grip": "Jefe/a de maquinistas",
+  "Wardrobe for the main cast": "Vestuario del reparto principal",
+  "Makeup and hair materials": "Material de maquillaje y peluquería",
+  "Sound studio: dubbing, foley and mix": "Estudio de sonido: doblaje, efectos sala y mezcla",
+  "Camera package": "Equipo de cámara",
+  "Lighting": "Iluminación",
+  "Grip": "Maquinaria",
+  "Production vans": "Furgonetas de producción",
+  "Fuel and parking": "Combustible y aparcamientos",
+  "Catering on set": "Catering en rodaje",
+  "Travel, hotels and per diems (shooting away from home)": "Viajes, hoteles y dietas (rodaje fuera)",
+  "Drives, backup and data management": "Discos, copias de seguridad y gestión de datos",
+  "Editing": "Montaje",
+  "Grading and conform": "Etalonaje y conformado",
+  "Titles, subtitles and deliveries": "Créditos, subtítulos y entregas",
+  "Publicity and festivals": "Publicidad y festivales",
+  "Production insurance": "Seguro de producción",
+  "Overheads: office, accounting, legal": "Gastos generales: oficina, gestoría, asesoría jurídica",
+  "days": "días",
+  "people x days": "personas x días",
+  "items": "unidades",
+  "lump": "global",
+  "characters": "personajes",
+  "scenes": "secuencias",
+  "vans x days": "furgonetas x días",
+  "meals": "comidas",
+  "units": "unidades",
+  "Short film": "Cortometraje",
+  "Low-budget feature": "Largometraje de bajo presupuesto",
+  "Mid-budget feature": "Largometraje de presupuesto medio",
   // Formatting notes from the checks (the same text as MESSAGES_ES in lint.py)
   "Heading \"{heading}\" has no INT./EXT.":
     "El encabezado \"{heading}\" no dice si es INT. o EXT.",

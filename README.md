@@ -116,6 +116,25 @@ build the app to show a "Buy a licence" link in Settings.
   holds shows up at once
 - Add the actors' names once; they appear on every call sheet
 
+**Budget**
+
+- A first budget worked out from the breakdown and the schedule, in the twelve
+  chapters of the ICAA budget model used for Spanish film funding
+- The quantities come from the script and the schedule, so they are exact and
+  move with it: shooting days and preparation for each crew member, the days
+  each actor works (a short gap between work days is paid as hold, a long one
+  is a drop and pick-up), days with extras or stunts, days at each location,
+  each picture vehicle and animal, meals for the crew and cast
+- The rates are yours: three levels (short film, low-budget and mid-budget
+  feature) to start from, and every rate and quantity can be changed or a line
+  added by hand
+- What can't be priced from a script (an explosion, a visual effect) is
+  marked *to be quoted*, with the scenes that need it, until you enter the quote
+- What each scene costs to shoot, so you know what cutting it would save, and
+  what a rewrite costs: a new draft compares its total and days with the last one
+- Export it as PDF or CSV for a spreadsheet. It is a first draft for a
+  production manager to check, not a budget to submit as it is
+
 **Exports**
 
 - CSV tables (scenes, characters, locations, elements) that open cleanly in Excel or Sheets

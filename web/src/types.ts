@@ -150,3 +150,44 @@ export type ChatEvent =
   | { type: "tool"; name: string; input: Record<string, unknown> }
   | { type: "error"; message: string }
   | { type: "done" };
+
+export type BudgetLine = {
+  key: string;
+  chapter: string;
+  concept: string;
+  units: number;
+  unit: string;
+  rate: number;
+  total: number;
+  to_quote: boolean;
+  quoted: boolean;
+  edited: boolean;
+  detail: string;
+  scenes: string[];
+};
+
+export type BudgetExtra = { chapter: string; concept: string; units: number; rate: number };
+
+export type BudgetSettings = {
+  level: string;
+  rates: Record<string, number>;
+  units: Record<string, number>;
+  quotes: Record<string, number>;
+  extra: BudgetExtra[];
+};
+
+export type Budget = {
+  currency: string;
+  level: string;
+  levels: { key: string; label: string }[];
+  total: number;
+  days: number;
+  scheduled_days: number;
+  estimated_days: number;
+  chapters: { code: string; label: string; total: number; lines: BudgetLine[] }[];
+  to_quote: { count: number; amount: number };
+  scenes: { number: string; heading: string; eighths: number; cost: number }[];
+  per_day: number | null;
+  previous: { total: number; days: number; saved_at?: string } | null;
+  settings: BudgetSettings;
+};

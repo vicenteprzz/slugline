@@ -1,5 +1,5 @@
 import { language, t } from "./i18n";
-import type { Analysis, ChatEvent, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
+import type { Analysis, Budget, BudgetSettings, ChatEvent, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
 
 /** Every request carries the app's header; the server refuses changes without it. */
 const call = (url: string, init: RequestInit = {}) =>
@@ -142,3 +142,14 @@ export async function chat(
   }
   if (buffer.trim()) onEvent(JSON.parse(buffer) as ChatEvent);
 }
+
+export const getBudget = (id: string) => json<Budget>(call(`/api/scripts/${id}/budget`));
+
+export const saveBudget = (id: string, settings: BudgetSettings) =>
+  json<Budget>(
+    call(`/api/scripts/${id}/budget`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings),
+    }),
+  );

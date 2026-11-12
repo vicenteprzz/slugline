@@ -710,3 +710,113 @@ def day_out_of_days_csv(b: Breakdown, schedule: Schedule) -> str:
     header = ["character", "actor"] + [f"day {i}" + (f" ({d.date})" if d.date else "") for i, d in enumerate(schedule.days, 1)]
     rows = [[c.character, c.actor, *c.codes] for c in day_out_of_days(schedule, b)]
     return _csv(header + ["work days", "hold days"], [r + [c.work, c.hold] for r, c in zip(rows, day_out_of_days(schedule, b))])
+
+
+# --- budget -----------------------------------------------------------------------
+
+def _money(amount: float, lang: str) -> str:
+    text = f"{amount:,.0f}"
+    return (text.replace(",", ".") + " €") if lang == "es" else f"€{text}"
+
+
+def budget_csv(result: dict, lang: str = "en") -> str:
+    """Every budget line, by chapter, for a spreadsheet."""
+    from slugline.budget import words
+
+    w = words(lang)
+    es = lang == "es"
+    header = (["Capítulo", "Concepto", "Cantidad", "Unidad", "Precio", "Total", "A cotizar", "Secuencias"] if es
+              else ["Chapter", "Concept", "Quantity", "Unit", "Rate", "Total", "To be quoted", "Scenes"])
+    rows = []
+    for chapter in result["chapters"]:
+        for line in chapter["lines"]:
+            pending = line["to_quote"] and not line["quoted"]
+            rows.append([f"{chapter['code']} {w(chapter['label'])}", w(line["concept"]), f"{line['units']:g}",
+                         w(line["unit"]), f"{line['rate']:.2f}", f"{line['total']:.2f}",
+                         ("sí" if es else "yes") if pending else "", " ".join(line["scenes"])])
+    rows.append(["", "TOTAL", "", "", "", f"{result['total']:.2f}", "", ""])
+    return _csv(header, rows)
+
+
+def budget_pdf(result: dict, title: str | None, lang: str = "en", trial: bool = False) -> bytes:
+    """The budget: a summary by chapter, then every line. Needs `reportlab`."""
+    _reportlab()
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    from slugline.budget import words
+
+    w = words(lang)
+    es = lang == "es"
+    styles = getSampleStyleSheet()
+    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontSize=8, leading=10)
+    small = ParagraphStyle("small", parent=cell, textColor=colors.HexColor("#52514e"))
+    warn = ParagraphStyle("warn", parent=cell, textColor=colors.HexColor("#b4532a"))
+    p = lambda text, style=cell: Paragraph(escape(str(text)), style)  # noqa: E731
+    money = lambda amount: _money(amount, lang)  # noqa: E731
+    name = title or ("Sin título" if es else "Untitled")
+    level = next((lv["label"] for lv in result["levels"] if lv["key"] == result["level"]), "")
+    base = [
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.black),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.HexColor("#c3c2b7")),
+        ("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]
+    days = result["days"]
+    intro = (f"Presupuesto · {w(level)} · {days} jornadas de rodaje" if es
+             else f"Budget · {level} · {days} shooting days")
+    if result["estimated_days"] and not result["scheduled_days"]:
+        intro += " (estimadas con un plan sugerido: aún no hay plan de rodaje)" if es else \
+            " (estimated from a suggested plan: there is no schedule yet)"
+    elif result["estimated_days"]:
+        intro += (f" ({result['estimated_days']} estimadas para secuencias sin programar)" if es
+                  else f" ({result['estimated_days']} estimated for scenes not scheduled yet)")
+    story = [Paragraph(escape(name), styles["Title"]), p(intro, small)]
+    pending = result["to_quote"]
+    if pending["count"]:
+        story.append(p((f"{pending['count']} partidas a cotizar, con {money(pending['amount'])} provisionales."
+                        if es else f"{pending['count']} lines to be quoted, with {money(pending['amount'])} as placeholders."),
+                       warn))
+    story.append(p("Primer borrador a partir del desglose y el plan de rodaje, con tarifas orientativas. "
+                   "Revísalo con el jefe de producción antes de usarlo." if es else
+                   "A first draft from the breakdown and the schedule, with indicative rates. "
+                   "Check it with a production manager before using it.", small))
+    story.append(Spacer(1, 4 * mm))
+
+    summary = [["Cap." if es else "Ch.", "Capítulo" if es else "Chapter", "Total"]]
+    summary += [[c["code"], w(c["label"]), money(c["total"])] for c in result["chapters"]]
+    summary.append(["", "TOTAL", money(result["total"])])
+    story.append(Table(summary, colWidths=[14 * mm, 120 * mm, 40 * mm],
+                       style=TableStyle(base + [("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                                                ("LINEABOVE", (0, -1), (-1, -1), 0.8, colors.black)])))
+    story.append(PageBreak())
+
+    header = (["Concepto", "Cantidad", "Unidad", "Precio", "Total"] if es
+              else ["Concept", "Quantity", "Unit", "Rate", "Total"])
+    for chapter in result["chapters"]:
+        if not chapter["lines"]:
+            continue
+        story.append(Paragraph(escape(f"{chapter['code']} · {w(chapter['label'])} · {money(chapter['total'])}"),
+                               styles["Heading3"]))
+        rows = [header]
+        for line in chapter["lines"]:
+            concept = w(line["concept"])
+            if line["to_quote"] and not line["quoted"]:
+                concept += " (a cotizar)" if es else " (to be quoted)"
+            rows.append([p(concept), f"{line['units']:g}", w(line["unit"]), money(line["rate"]), money(line["total"])])
+        story.append(Table(rows, colWidths=[88 * mm, 18 * mm, 28 * mm, 22 * mm, 26 * mm], repeatRows=1,
+                           style=TableStyle(base)))
+
+    out = io.BytesIO()
+    doc = SimpleDocTemplate(out, pagesize=A4, title=f"{name} - budget", author="Slugline",
+                            leftMargin=14 * mm, rightMargin=14 * mm, topMargin=12 * mm, bottomMargin=12 * mm)
+    decor = _page_decor(lang, trial)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
+    return out.getvalue()

@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, corrections, elements, export, library, licensing, llm, revisions, settings
+from slugline import __version__, budget, corrections, elements, export, library, licensing, llm, revisions, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -143,6 +143,14 @@ class LicenseIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session: str = "default"
+
+
+class BudgetIn(BaseModel):
+    level: str = budget.DEFAULT_LEVEL
+    rates: dict[str, float] = {}
+    units: dict[str, float] = {}
+    quotes: dict[str, float] = {}
+    extra: list[dict] = []
 
 
 class MergeIn(BaseModel):
@@ -417,6 +425,37 @@ def create_app(check_host: bool = True) -> FastAPI:
             script.chats.clear()  # the assistant should see the corrected names
         return script.payload()
 
+    def _budget(script: Script, settings: budget.BudgetSettings | None = None) -> dict:
+        settings = settings or budget.load_or_carry(script.text)
+        result = budget.compute(script.breakdown, script.schedule, script.elements, settings)
+        budget.remember(script.text, settings, result)
+        return result
+
+    @app.get("/api/scripts/{script_id}/budget")
+    def get_budget(script_id: str) -> dict:
+        script = store.get(script_id)
+        with script.lock:
+            return _budget(script)
+
+    @app.put("/api/scripts/{script_id}/budget")
+    def edit_budget(script_id: str, body: BudgetIn) -> dict:
+        """Save the level, the rates and quantities changed by hand, the quotes
+        and the lines added by hand; the rest is worked out again."""
+        script = store.get(script_id)
+        if body.level not in budget.LEVELS:
+            raise HTTPException(422, "Unknown budget level.")
+        if len(body.rates) + len(body.units) + len(body.quotes) > 5000 or len(body.extra) > 200:
+            raise HTTPException(422, "Too many changes in one budget.")
+        with script.lock:
+            old = budget.load_or_carry(script.text)
+            settings = budget.BudgetSettings.from_dict({**body.model_dump(), "snapshot": old.snapshot,
+                                                        "previous": old.previous})
+            try:
+                budget.save_settings(script.text, settings)
+            except OSError as e:
+                raise HTTPException(500, f"The change could not be saved: {e.strerror}") from None
+            return _budget(script, settings)
+
     @app.post("/api/scripts/{script_id}/corrections/merge")
     def merge_names(script_id: str, body: MergeIn) -> dict:
         return _save_fixes(store.get(script_id), lambda f: f.merge(body.kind, body.names, body.into))
@@ -580,6 +619,16 @@ def create_app(check_host: bool = True) -> FastAPI:
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
             return _download(body, "application/pdf", filename)
+        if name in ("budget.csv", "budget.pdf"):
+            with script.lock:
+                result = _budget(script)
+            if name == "budget.csv":
+                return _download(BOM + export.budget_csv(result, lang), "text/csv; charset=utf-8", f"{stem}-budget.csv")
+            try:
+                body = export.budget_pdf(result, script.breakdown.title, lang, trial)
+            except RuntimeError as e:
+                raise HTTPException(501, str(e)) from None
+            return _download(body, "application/pdf", f"{stem}-budget.pdf")
         if name == "script.fountain":
             return _download(script.text, "text/plain; charset=utf-8", f"{stem}.fountain")
         raise HTTPException(404, "Unknown export.")
