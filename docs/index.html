@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title>Slugline · Del guion al plan de rodaje</title>
-<meta name="description" content="Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y los días de cada actor. En español, para Mac, sin subir tu guion a ningún servidor.">
-<meta property="og:title" content="Slugline · Del guion al plan de rodaje">
-<meta property="og:description" content="Desglose, plan de rodaje y órdenes de rodaje a partir del guion. En español, para Mac.">
+<title>Slugline · Del guion al plan de rodaje y el presupuesto</title>
+<meta name="description" content="Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y el presupuesto con los capítulos del ICAA. En español, para Mac, sin subir tu guion a ningún servidor.">
+<meta property="og:title" content="Slugline · Del guion al plan de rodaje y el presupuesto">
+<meta property="og:description" content="Desglose, plan de rodaje, órdenes de rodaje y presupuesto a partir del guion. En español, para Mac, sin suscripción.">
 <meta property="og:image" content="img/overview-light.jpg">
 <link rel="icon" href="img/icon.png">
 <script>
@@ -59,6 +59,9 @@
   .hero p.lead { margin: 22px auto 0; max-width: 60ch; color: var(--ink-2); font-size: clamp(17px, 2.2vw, 20px); }
   .hero .actions { margin-top: 30px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
   .hero .fine { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .video { position: relative; margin-top: 56px; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden;
+    border: 1px solid var(--border); box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.35); background: #000; }
+  .video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
   .shot { display: block; margin-top: 56px; border-radius: 14px; overflow: hidden; border: 1px solid var(--border);
     box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.35); background: var(--surface); }
 
@@ -138,16 +141,17 @@
 <main>
   <section class="hero wrap">
     <h1>Del guion al plan de rodaje, en una tarde</h1>
-    <p class="lead">Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y los días de cada actor. En español, para Mac, y sin subir tu guion a ningún servidor.</p>
+    <p class="lead">Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y el presupuesto, que te dice cuánto cuesta cada secuencia. En español, para Mac, y sin subir tu guion a ningún servidor.</p>
     <div class="actions">
       <a class="button primary" data-link="download" href="#descargar">Descargar la prueba gratuita</a>
       <a class="button ghost" data-link="demo" href="#contacto">Pedir una demo</a>
     </div>
     <p class="fine">macOS 12 o posterior · Fountain, Final Draft y PDF · Interfaz y documentos en español</p>
-    <picture class="shot">
-      <source srcset="img/overview-dark.jpg" media="(prefers-color-scheme: dark)">
-      <img src="img/overview-light.jpg" width="1600" height="1328" alt="Slugline con el guion John's Boys abierto: secuencias, páginas, reparto de día y noche, interior y exterior, y el stripboard">
-    </picture>
+    <div class="video">
+      <iframe src="https://www.youtube-nocookie.com/embed/EFLGIW2vIVc?rel=0" title="Slugline en dos minutos: del guion al plan de rodaje y el presupuesto"
+        loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+    </div>
   </section>
 
   <section class="block wrap" id="funciones">
@@ -197,6 +201,22 @@
 
     <div class="feature flip">
       <div class="text">
+        <p class="eyebrow">Presupuesto</p>
+        <h3>Cuánto cuesta tu película, y cada secuencia</h3>
+        <p>Slugline calcula las cantidades a partir del guion y del plan: jornadas del equipo, días de cada actor, figuración, localizaciones, vehículos. Tú pones las tarifas, o partes de las de un corto, un largo de bajo presupuesto, medio o alto.</p>
+        <ul>
+          <li>Con los 12 capítulos del modelo del ICAA, listo en PDF y Excel.</li>
+          <li>Seguridad Social según el país, horas extra, seguros e imprevistos.</li>
+          <li>Lo que cuesta rodar cada secuencia y cuánto cambia una reescritura.</li>
+          <li>Te dice cuánto ahorras reordenando las jornadas para quitar días de espera, y lo hace con un clic.</li>
+          <li>Lo que no se puede calcular desde el guion, como una explosión, queda marcado para cotizar.</li>
+        </ul>
+      </div>
+      <img class="shot" src="img/budget-dark.jpg" width="1600" height="844" alt="El presupuesto de John's Boys: total, jornadas, coste por jornada, capítulos del ICAA y lo que cuesta rodar cada secuencia" loading="lazy">
+    </div>
+
+    <div class="feature">
+      <div class="text">
         <p class="eyebrow">Análisis</p>
         <h3>El guion de un vistazo</h3>
         <p>Quién habla en cada secuencia, cuánto diálogo tiene cada personaje y en qué secuencias aparece, aunque no hable. Cada gráfico tiene su tabla con los datos exactos.</p>
@@ -212,8 +232,11 @@
       <div class="card"><h3>Tus guiones no salen de tu ordenador</h3><p>Todo se guarda en tu Mac. Solo si usas la IA se envía el guion a Anthropic, con tu propia clave.</p></div>
       <div class="card"><h3>Final Draft, Fountain y PDF</h3><p>Abre el guion tal como lo tienes, con números de secuencia y diálogo doble incluidos.</p></div>
       <div class="card"><h3>En español de verdad</h3><p>Secuencias, figuración, atrezo, citación, orden de rodaje: la terminología de los rodajes de aquí, en pantalla y en los PDF.</p></div>
-      <div class="card"><h3>Exporta lo que necesites</h3><p>Hojas de desglose, plan de rodaje, órdenes de rodaje e informe en PDF; tablas en CSV para Excel.</p></div>
-      <div class="card"><h3>IA opcional</h3><p>Sin IA la app funciona entera. Con ella, sugiere elementos, resume cada secuencia y responde preguntas sobre el guion.</p></div>
+      <div class="card"><h3>Exporta lo que necesites</h3><p>Hojas de desglose, plan de rodaje, órdenes de rodaje, presupuesto e informe en PDF; tablas en CSV para Excel.</p></div>
+      <div class="card"><h3>IA opcional</h3><p>Sin IA la app funciona entera: sugiere los elementos a partir de las palabras del guion. Con IA, el desglose es más completo, resume cada secuencia y responde preguntas.</p></div>
+      <div class="card"><h3>Dossier de producción</h3><p>El proyecto en un PDF para presentarlo a una productora o a una ayuda: cifras, reparto, localizaciones, plan y presupuesto.</p></div>
+      <div class="card"><h3>Corrige el guion sin tocarlo</h3><p>Junta un personaje escrito de dos formas o pon día o noche a una secuencia que no lo dice, con un clic, y todo se recalcula.</p></div>
+      <div class="card"><h3>Sin cuentas ni monedas</h3><p>Una licencia por proyecto o anual, sin crear cuenta ni comprar créditos. Tus proyectos están en tu Mac y salen a PDF, CSV y Fountain cuando quieras.</p></div>
     </div>
   </section>
 
@@ -259,13 +282,14 @@
       <details><summary>¿Cuánto cuesta la IA?</summary><p>Lo cobra Anthropic directamente en tu cuenta, según lo que uses. La app funciona entera sin ella, y cada análisis se guarda para no pagarlo dos veces.</p></details>
       <details><summary>¿Funciona en Windows?</summary><p>De momento solo en Mac. Si lo necesitas en Windows, escríbenos: cuantas más peticiones, antes llega.</p></details>
       <details><summary>¿Cómo funciona la licencia?</summary><p>Tras la compra recibes una clave por correo. La pegas en Ajustes → Licencia y desaparecen el límite de guiones y la marca de los PDF. No hace falta crear ninguna cuenta.</p></details>
+      <details><summary>¿El presupuesto es exacto?</summary><p>Las cantidades sí: salen del guion y del plan de rodaje. Las tarifas son un punto de partida que cambias por las tuyas, y lo que no se puede saber desde el guion (efectos, caché de estrellas) queda marcado para cotizar. Es un primer borrador muy completo para revisar con el jefe de producción.</p></details>
       <details><summary>¿Puedo exportar mis datos?</summary><p>Sí: todo sale a PDF, CSV y Fountain, así que tu trabajo no queda atrapado en la app.</p></details>
     </div>
   </section>
 
   <section class="final wrap" id="descargar">
     <h2>¿Lo probamos con tu guion?</h2>
-    <p>Descarga la prueba gratuita, abre tu guion y en diez minutos tienes el stripboard, el desglose y un primer plan de rodaje.</p>
+    <p>Descarga la prueba gratuita, abre tu guion y en diez minutos tienes el stripboard, el desglose, un primer plan de rodaje y su presupuesto.</p>
     <div class="actions">
       <a class="button primary" data-link="download" href="#descargar">Descargar para Mac</a>
       <a class="button ghost" data-link="demo" href="#contacto" id="contacto">Pedir una demo</a>
