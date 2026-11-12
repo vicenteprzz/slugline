@@ -734,6 +734,10 @@ def budget_csv(result: dict, lang: str = "en") -> str:
             rows.append([f"{chapter['code']} {w(chapter['label'])}", w(line["concept"]), f"{line['units']:g}",
                          w(line["unit"]), f"{line['rate']:.2f}", f"{line['total']:.2f}",
                          ("sí" if es else "yes") if pending else "", " ".join(line["scenes"])])
+    contingency = result["contingency"]
+    rows.append(["", "Subtotal", "", "", "", f"{result['subtotal']:.2f}", "", ""])
+    rows.append(["", (f"Imprevistos ({contingency['pct'] * 100:g} %)" if es else f"Contingency ({contingency['pct'] * 100:g}%)"),
+                 "", "", "", f"{contingency['amount']:.2f}", "", ""])
     rows.append(["", "TOTAL", "", "", "", f"{result['total']:.2f}", "", ""])
     return _csv(header, rows)
 
@@ -792,9 +796,15 @@ def budget_pdf(result: dict, title: str | None, lang: str = "en", trial: bool = 
 
     summary = [["Cap." if es else "Ch.", "Capítulo" if es else "Chapter", "Total"]]
     summary += [[c["code"], w(c["label"]), money(c["total"])] for c in result["chapters"]]
+    contingency = result["contingency"]
+    summary.append(["", "Subtotal", money(result["subtotal"])])
+    summary.append(["", (f"Imprevistos ({contingency['pct'] * 100:g} %), fuera de los capítulos ICAA" if es
+                         else f"Contingency ({contingency['pct'] * 100:g}%), outside the ICAA chapters"),
+                    money(contingency["amount"])])
     summary.append(["", "TOTAL", money(result["total"])])
     story.append(Table(summary, colWidths=[14 * mm, 120 * mm, 40 * mm],
                        style=TableStyle(base + [("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                                                ("LINEABOVE", (0, -3), (-1, -3), 0.8, colors.black),
                                                 ("LINEABOVE", (0, -1), (-1, -1), 0.8, colors.black)])))
     story.append(PageBreak())
 

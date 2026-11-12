@@ -151,6 +151,7 @@ class BudgetIn(BaseModel):
     units: dict[str, float] = {}
     quotes: dict[str, float] = {}
     extra: list[dict] = []
+    percentages: dict[str, float] = {}  # social, overtime, insurance, overheads, contingency, as fractions
 
 
 class MergeIn(BaseModel):

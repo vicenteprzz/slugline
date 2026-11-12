@@ -130,6 +130,9 @@ build the app to show a "Buy a licence" link in Settings.
   added by hand
 - What can't be priced from a script (an explosion, a visual effect) is
   marked *to be quoted*, with the scenes that need it, until you enter the quote
+- Social security on cast and crew wages (about a third in Spain), overtime,
+  insurance, overheads and a contingency reserve, each a percentage you can
+  change; the contingency is kept apart from the ICAA chapters
 - What each scene costs to shoot, so you know what cutting it would save, and
   what a rewrite costs: a new draft compares its total and days with the last one
 - Export it as PDF or CSV for a spreadsheet. It is a first draft for a

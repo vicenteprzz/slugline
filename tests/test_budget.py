@@ -53,7 +53,24 @@ def test_quantities_follow_the_schedule():
     assert lines["camera"]["units"] == 3
     director = lines["crew:director"]
     assert director["units"] == 3 + 3  # shooting days plus a day of preparation each
-    assert result["total"] == pytest.approx(sum(c["total"] for c in result["chapters"]))
+    assert result["subtotal"] == pytest.approx(sum(c["total"] for c in result["chapters"]))
+    assert result["total"] == pytest.approx(result["subtotal"] + result["contingency"]["amount"])
+
+
+def test_social_security_overtime_and_contingency():
+    result, lines = setup(days=[["1", "3"], ["2"], ["4"]])
+    crew = sum(line["total"] for key, line in lines.items() if key.startswith("crew:"))
+    cast = sum(line["total"] for key, line in lines.items() if key.startswith("cast:"))
+    social = budget.PERCENTAGES["social"]
+    assert lines["overtime"]["total"] == round(crew * budget.PERCENTAGES["overtime"])
+    assert lines["social:cast"]["total"] == round(cast * social)
+    assert lines["social:crew"]["total"] == round((crew + lines["overtime"]["total"]) * social)
+    assert result["contingency"]["amount"] == round(result["subtotal"] * budget.PERCENTAGES["contingency"])
+    # All of them can be changed: no social security, no reserve.
+    changed, lines = setup(days=[["1", "3"], ["2"], ["4"]], percentages={"social": 0, "contingency": 0})
+    assert lines["social:crew"]["total"] == 0 and changed["contingency"]["amount"] == 0
+    assert changed["total"] == changed["subtotal"] < result["subtotal"]
+    assert budget.BudgetSettings.from_dict({"percentages": {"social": 5, "nope": 0.1}}).percentages == {}
 
 
 def test_long_gaps_are_not_paid_as_hold():

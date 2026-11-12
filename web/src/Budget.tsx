@@ -38,10 +38,23 @@ function explain(line: BudgetLine): string | null {
   if (line.key === "extras" && parts.length === 2) return t("{people} people on {days} days with extras", { people: parts[0], days: parts[1] });
   if (line.key === "vans" && parts.length === 2) return t("{vans} vans for {days} days", { vans: parts[0], days: parts[1] });
   if (line.key === "catering" && parts.length === 3) return t("{crew} crew for {days} days, plus {cast} cast days", { crew: parts[0], days: parts[1], cast: parts[2] });
-  if (line.key === "insurance" || line.key === "overheads") return t("{pct} of the rest of the budget", { pct: `${Math.round(Number(parts[0]) * 1000) / 10}%` });
+  const pct = `${Math.round(Number(parts[0]) * 1000) / 10}%`;
+  if (line.key === "insurance" || line.key === "overheads") return t("{pct} of the rest of the budget", { pct });
+  if (line.key === "overtime") return t("{pct} of crew wages", { pct });
+  if (line.key === "social:cast") return t("{pct} of cast wages", { pct });
+  if (line.key === "social:crew") return t("{pct} of crew wages and overtime", { pct });
   if (line.scenes.length) return t("scenes {list}", { list: line.scenes.slice(0, 12).join(", ") + (line.scenes.length > 12 ? "…" : "") });
   return null;
 }
+
+// The percentages a production sets for the whole budget.
+const PERCENT_FIELDS: [string, string][] = [
+  ["social", "Social security"],
+  ["overtime", "Overtime"],
+  ["insurance", "Insurance"],
+  ["overheads", "Overheads"],
+  ["contingency", "Contingency"],
+];
 
 function NumberInput(props: { value: number; label: string; onCommit: (value: number) => void; step?: number }) {
   const [text, setText] = useState(String(props.value));
@@ -126,6 +139,7 @@ export default function BudgetCard(props: {
   const removeExtra = (index: number) => change((s) => ({ ...s, extra: s.extra.filter((_, i) => i !== index) }));
 
   const top = budget.scenes.slice(0, 8);
+  const setPercent = (key: string, value: number) => change((s) => ({ ...s, percentages: { ...s.percentages, [key]: value / 100 } }));
 
   return (
     <section className={`card budget${saving ? " busy" : ""}`}>
@@ -178,6 +192,23 @@ export default function BudgetCard(props: {
           <span className="tile-value">{budget.to_quote.count}</span>
         </div>
       </div>
+
+      <div className="budget-percentages" role="group" aria-label={t("Percentages")}>
+        {PERCENT_FIELDS.map(([key, label]) => (
+          <label key={key} className="field-inline">
+            <span>{t(label)}</span>
+            <NumberInput value={Math.round(budget.percentages[key] * 1000) / 10} label={t(label)} onCommit={(v) => void setPercent(key, Math.min(v, 100))} />
+            <span className="muted">%</span>
+          </label>
+        ))}
+      </div>
+      <p className="fine">
+        {t("Chapters add up to {subtotal}; with {pct}% for contingency, {total}.", {
+          subtotal: money(budget.subtotal),
+          pct: Math.round(budget.contingency.pct * 1000) / 10,
+          total: money(budget.total),
+        })}
+      </p>
 
       {budget.estimated_days > 0 && (
         <p className="fine">

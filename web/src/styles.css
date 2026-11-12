@@ -2111,3 +2111,15 @@ h3.fold-title {
     transition: none;
   }
 }
+
+.budget-percentages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 4px 0 2px;
+}
+
+.budget-percentages input.num-input {
+  width: 56px;
+  border-color: var(--border);
+}

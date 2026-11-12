@@ -132,8 +132,19 @@ LEVELS = {
 }
 DEFAULT_LEVEL = "low"
 HOLD_LIMIT = 5  # longest gap between working days that is paid as hold
-INSURANCE = 0.025  # of the budget before insurance and overheads
-OVERHEADS = 0.07
+# Percentages, all editable in the budget:
+PERCENTAGES = {
+    # Social security the production pays on top of cast and crew wages: in Spain,
+    # common contingencies, unemployment, FOGASA, training and accident cover
+    # come to about a third of the wage.
+    "social": 0.32,
+    "overtime": 0.05,  # of crew wages
+    "insurance": 0.025,  # of the budget before insurance and overheads
+    "overheads": 0.07,
+    # A reserve on top of the chapters for what nobody saw coming. The ICAA
+    # model keeps it out of the chapters, so it is shown apart.
+    "contingency": 0.07,
+}
 
 
 # --- settings -----------------------------------------------------------------
@@ -145,6 +156,7 @@ class BudgetSettings:
     units: dict[str, float] = field(default_factory=dict)  # line key -> quantity, replacing the computed one
     quotes: dict[str, float] = field(default_factory=dict)  # line key -> quoted total, for lines to be quoted
     extra: list[dict] = field(default_factory=list)  # lines added by hand: chapter, concept, units, rate
+    percentages: dict[str, float] = field(default_factory=dict)  # key of PERCENTAGES -> fraction, if changed
     # The total and days of this draft and of the draft before it, for the comparison.
     snapshot: dict | None = None
     previous: dict | None = None
@@ -172,6 +184,7 @@ class BudgetSettings:
             units=numbers(data.get("units")),
             quotes=numbers(data.get("quotes")),
             extra=[_clean_extra(x) for x in data.get("extra") or [] if isinstance(x, dict)][:200],
+            percentages={k: v for k, v in numbers(data.get("percentages")).items() if k in PERCENTAGES and v <= 1},
             snapshot=data.get("snapshot") if isinstance(data.get("snapshot"), dict) else None,
             previous=data.get("previous") if isinstance(data.get("previous"), dict) else None,
         )
@@ -393,12 +406,25 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
     for i, item in enumerate(settings.extra):
         add(f"extra:{i}", item["chapter"], item["concept"], item["units"], "units", item["rate"], edited=True)
 
-    # 10 insurance and 11 overheads, on everything else
+    # Lines worked out as a percentage of others: overtime and social security on
+    # the wages, then insurance and overheads on everything else.
+    pct = {**PERCENTAGES, **settings.percentages}
+    computed: list[Line] = []
+
+    def percent(key: str, chapter: str, concept: str, share: str, of: float) -> None:
+        add(key, chapter, concept, 1, "lump", round(of * pct[share]), detail=f"{pct[share]}|{share}")
+        computed.append(lines[-1])
+
+    crew_wages = sum(line.total for line in lines if line.chapter == "03")
+    cast_wages = sum(line.total for line in lines if line.chapter == "02")
+    percent("overtime", "03", "Overtime", "overtime", crew_wages)
+    overtime = lines[-1].total
+    percent("social:cast", "02", "Social security for the cast", "social", cast_wages)
+    percent("social:crew", "03", "Social security for the crew", "social", crew_wages + overtime)
     base = sum(line.total for line in lines)
-    add("insurance", "10", "Production insurance", 1, "lump", round(base * INSURANCE), detail=f"{INSURANCE}")
-    add("overheads", "11", "Overheads: office, accounting, legal", 1, "lump", round(base * OVERHEADS),
-        detail=f"{OVERHEADS}")
-    for line in lines[-2:]:
+    percent("insurance", "10", "Production insurance", "insurance", base)
+    percent("overheads", "11", "Overheads: office, accounting, legal", "overheads", base)
+    for line in computed:
         if line.key in settings.rates:
             line.rate, line.edited = settings.rates[line.key], True
     return lines
@@ -440,9 +466,10 @@ def scene_costs(lines: list[Line], plan: _Plan) -> dict[str, float]:
     for line in lines:
         if line.total == 0:
             continue
-        if line.chapter == "03":
+        if line.key.startswith("crew:"):
             per_day(line.rate)  # each shooting day of each crew member; not their preparation
-        elif line.key in ("camera", "lighting", "grip", "vans", "fuel", "storage", "makeup:kit", "catering"):
+        elif line.key in ("camera", "lighting", "grip", "vans", "fuel", "storage", "makeup:kit", "catering",
+                          "overtime", "social:cast", "social:crew"):
             per_day(line.total / days)
         elif line.scenes and (line.unit in ("days", "people x days") or line.key.startswith("cast:")):
             # Paid on the days these scenes are shot (a cast member's holds too),
@@ -462,7 +489,10 @@ def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet 
     """The budget as the dashboard and the exports use it."""
     shoot = _plan(b, plan)
     lines = build_lines(b, shoot, sheet, settings)
-    total = round(sum(line.total for line in lines), 2)
+    subtotal = round(sum(line.total for line in lines), 2)
+    pct = {**PERCENTAGES, **settings.percentages}
+    contingency = round(subtotal * pct["contingency"])
+    total = subtotal + contingency
     chapters = []
     for code, label in CHAPTERS:
         items = [line for line in lines if line.chapter == code]
@@ -478,7 +508,10 @@ def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet 
         "currency": CURRENCY,
         "level": settings.level,
         "levels": [{"key": k, "label": v["label"]} for k, v in LEVELS.items()],
+        "subtotal": subtotal,
+        "contingency": {"pct": pct["contingency"], "amount": contingency},
         "total": total,
+        "percentages": pct,
         "days": len(shoot.days),
         "scheduled_days": shoot.scheduled,
         "estimated_days": len(shoot.days) - shoot.scheduled,
@@ -525,7 +558,9 @@ BUDGET_ES = {
     "Titles, subtitles and deliveries": "Créditos, subtítulos y entregas",
     "Publicity and festivals": "Publicidad y festivales", "Production insurance": "Seguro de producción",
     "Overheads: office, accounting, legal": "Gastos generales: oficina, gestoría, asesoría jurídica",
-    "Other": "Otros",
+    "Other": "Otros", "Overtime": "Horas extra",
+    "Social security for the cast": "Seguridad Social del personal artístico",
+    "Social security for the crew": "Seguridad Social del equipo técnico",
     "days": "días", "people x days": "personas x días", "items": "unidades", "lump": "global",
     "characters": "personajes", "scenes": "secuencias", "vans x days": "furgonetas x días", "meals": "comidas",
     "units": "unidades",

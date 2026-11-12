@@ -174,13 +174,17 @@ export type BudgetSettings = {
   units: Record<string, number>;
   quotes: Record<string, number>;
   extra: BudgetExtra[];
+  percentages: Record<string, number>;
 };
 
 export type Budget = {
   currency: string;
   level: string;
   levels: { key: string; label: string }[];
+  subtotal: number;
+  contingency: { pct: number; amount: number };
   total: number;
+  percentages: Record<string, number>;
   days: number;
   scheduled_days: number;
   estimated_days: number;

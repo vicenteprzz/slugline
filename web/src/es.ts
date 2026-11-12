@@ -135,6 +135,16 @@ export const ES: Record<string, string> = {
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
   // Budget card
+  "{pct} of crew wages": "{pct} de los sueldos del equipo técnico",
+  "{pct} of cast wages": "{pct} de los sueldos del personal artístico",
+  "{pct} of crew wages and overtime": "{pct} de los sueldos y horas extra del equipo técnico",
+  "Percentages": "Porcentajes",
+  "Social security": "Seguridad Social",
+  "Contingency": "Imprevistos",
+  "Chapters add up to {subtotal}; with {pct}% for contingency, {total}.": "Los capítulos suman {subtotal}; con un {pct} % de imprevistos, {total}.",
+  "Overtime": "Horas extra",
+  "Social security for the cast": "Seguridad Social del personal artístico",
+  "Social security for the crew": "Seguridad Social del equipo técnico",
   "Budget":
     "Presupuesto",
   "Worked out from the breakdown and the schedule: shooting days, the days each actor works, extras, locations, vehicles. Quantities follow the schedule; the rates are a starting point to replace with your own.":
