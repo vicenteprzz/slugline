@@ -81,6 +81,7 @@ WORDS: list[tuple[str, str, str]] = [
     ("wardrobe", "Coat", "coat|overcoat|trench coat|jacket"),
     ("wardrobe", "Hat", "hat|cap|cowboy hat"),
     ("wardrobe", "Mask", "mask"),
+    ("wardrobe", "Catsuit", "cat suit|catsuit|bodysuit"),
     ("wardrobe", "Wig", "wig"),
     ("wardrobe", "Traje", "traje|esmoquin"),
     ("wardrobe", "Uniforme", "uniforme"),
@@ -105,7 +106,9 @@ WORDS: list[tuple[str, str, str]] = [
     ("vehicles", "Truck", "truck|pickup|van"),
     ("vehicles", "Bus", "bus"),
     ("vehicles", "Motorcycle", "motorcycle|motorbike"),
-    ("vehicles", "Bicycle", "bicycle|bike"),
+    ("vehicles", "Bicycle", "bicycle"),
+    # "Bike" is a bicycle in one script and a motorcycle in the next: the user decides.
+    ("vehicles", "Bike", "bike"),
     ("vehicles", "Train", "train|subway|tram"),
     ("vehicles", "Ambulance", "ambulance"),
     ("vehicles", "Wagon", "wagon|carriage|stagecoach"),

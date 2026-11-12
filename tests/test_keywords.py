@@ -87,3 +87,12 @@ def test_suggestions_are_marked_and_give_way_to_hand_edits_and_ai():
 def test_without_suggest_nothing_is_made_up():
     assert load_or_carry(EN) is None
     assert load_or_carry("INT. EMPTY ROOM - DAY\n\nSilence.\n", suggest=True) is None
+
+
+def test_ambiguous_words_are_not_guessed():
+    from slugline import parse
+    from slugline.keywords import suggest
+
+    found = suggest(parse("EXT. STREET - NIGHT\n\nSelina, in her cat suit, starts her bike. Her cats watch.\n"))
+    names = {e.name for e in found["1"]}
+    assert names == {"Catsuit", "Bike", "Cat"}
