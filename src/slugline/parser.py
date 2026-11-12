@@ -20,7 +20,7 @@ SCENE_PREFIX = re.compile(r"^(?:INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)[.\s]", re.IG
 HEADING_PARTS = re.compile(r"^(INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)\.?\s*", re.IGNORECASE)
 SCENE_NUMBER = re.compile(r"\s*#([\w.\-]+)#\s*$")
 # Location and time are separated by a dash surrounded by spaces: "HOUSE - NIGHT".
-TIME_SEPARATOR = re.compile(r"\s+[-–—]\s+")
+TIME_SEPARATOR = re.compile(r"\s+(?:--|[-–—])\s+")  # "HOUSE - NIGHT", also "HOUSE -- NIGHT"
 EXTENSION = re.compile(r"\(([^)]*)\)")
 TITLE_KEY = re.compile(r"^([A-Za-z][A-Za-z ]*):\s*(.*)$")
 NOTE = re.compile(r"\[\[.*?\]\]", re.DOTALL)

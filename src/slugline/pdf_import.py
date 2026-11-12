@@ -38,7 +38,13 @@ REVISION = re.compile(r"^rev\b|\d{1,2}/\d{1,2}/\d{2,4}|draft", re.IGNORECASE)
 # A page header with CONTINUED in it, such as "02/09/20 CONTINUED: 58.", spaced out or not.
 CONTINUED_HEADER = re.compile(r"C\s?O\s?N\s?T\s?I\s?N\s?U\s?E\s?D\s?:")
 # Revision stars at the end of a line and stray marks a scan leaves before a name.
-REVISION_MARKS = re.compile(r"(\s+\*)+\s*$")
+REVISION_MARKS = re.compile(r"(\s+\*+)+\s*$")  # "SEBASTIAN *" or "SEBASTIAN ******"
+# Capitals at the end of a line of dialogue: a name the PDF moved there, even
+# glued to the last word ("Let's do this.GRUMPY").
+TRAILING_NAME = re.compile(
+    r"(?:(?<=[\s.?!,;:)\-\"'…’])|^)([A-Z][A-Z0-9.'’#&/-]*(?: [A-Z][A-Z0-9.'’#&/-]*){0,3})(\s*\([^)]*\)?)?\s*$"
+)
+NOT_NAMES = {"OK", "NO", "YES", "TV", "FBI", "CIA", "USA", "LA", "NYC", "DNA", "ATM", "SWAT", "GCPD", "NOW", "HEY", "WHAT"}
 LEADING_JUNK = re.compile(r"^[^A-Za-z0-9(\"']+")
 # Revision page headers: "02/09/20 (White February Shooting Script) 3." or
 # "3 02/09/20 CONTINUED: (2)".
@@ -163,7 +169,7 @@ def _trailing_cue(s: str, names: re.Pattern | None) -> tuple[str, str] | None:
     if names is None:
         return None
     tail = s.split()[-1]
-    if not (_caps(tail) or tail.endswith(")") or tail.endswith("(")):
+    if not (re.search(r"[A-Z]{2,}[^a-z]*$", tail) or tail.endswith(")") or tail.endswith("(")):
         return None  # quick no: the line doesn't end in capitals
     m = names.search(s)
     if not m or not s[: m.start()].strip(" -") or _caps(s[: m.start()]):
@@ -221,8 +227,26 @@ def pdf_text_to_fountain(text: str) -> str:
         for raw, cols in lines
         if raw.strip() and cols.kind(len(raw) - len(raw.lstrip()), raw.strip()) == "cue"
     }
+    # Names that end the first line of a speech more than once are cues the
+    # PDF moved there, even in a script where no cue stands on its own line.
+    trailing: Counter[str] = Counter()
+    previous = ""
+    for raw, cols in lines:
+        s = raw.strip()
+        if not s:
+            previous = ""  # a blank line ends a speech
+            continue
+        kind = cols.kind(len(raw) - len(raw.lstrip()), s)
+        if kind == "dialogue" and previous != "dialogue":
+            m = TRAILING_NAME.search(_squeeze(s))
+            if m and s[: m.start()].strip(" -") and not _caps(_squeeze(s)[: m.start()]):
+                name = REVISION_MARKS.sub("", m.group(1)).strip()
+                name = re.sub(r"^(?:[A-Z] )+", "", name)  # "...and I HENRY": the pronoun isn't part of the name
+                trailing[name] += 1
+        previous = kind
+    known |= {n for n, count in trailing.items() if count >= 2 and n not in NOT_NAMES}
     known = sorted((n for n in known if len(n) >= 3 and not CONTINUED_HEADER.search(n)), key=len, reverse=True)
-    names = re.compile(r"(?:(?<=\s)|(?<=--))(" + "|".join(map(re.escape, known)) + r")(\s*\([^)]*\)?)?\s*$") if known else None
+    names = re.compile(r"(?:(?<=[\s.?!,;:)\-\"'…’]))(" + "|".join(map(re.escape, known)) + r")(\s*\([^)]*\)?)?\s*$") if known else None
     out: list[str] = []
     last = ""  # kind of the last line written
     last_cue = ""
@@ -276,7 +300,7 @@ def pdf_text_to_fountain(text: str) -> str:
         kind = columns.kind(indent, s)
         if last == "parenthetical" and out[-1].startswith("(") and not out[-1].endswith(")") and kind != "cue":
             kind = "parenthetical"  # the rest of a parenthetical that runs onto a second line
-        s = _squeeze(s)
+        s = REVISION_MARKS.sub("", _squeeze(s)) or s  # revision stars in the margin: "See ya. ******"
         if s[0] == "{":  # a scanned parenthesis
             s = "(" + s[1:]
 
@@ -329,7 +353,9 @@ def pdf_text_to_fountain(text: str) -> str:
             out.append(s)
             last = "dialogue"
         elif SCENE_PREFIX.match(s):
-            out.append(s)
+            # On its own paragraph: some PDFs put no blank line between a
+            # heading and the action around it, and Fountain needs one.
+            out += ["", s, ""]
             last = "heading"
         elif last == "action" and out[-1]:
             # Same paragraph, wrapped by the PDF layout.

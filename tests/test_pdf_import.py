@@ -181,3 +181,32 @@ def test_numbers_inside_the_margin_and_a_page_shifted_left():
     assert play.title == "STAR WARS - EPISODE III: REVENGE OF THE SITH"
     assert [s.number for s in play.scenes] == ["1", "2", "3", "4", "5", "6"]
     assert [d.character for s in play.scenes for d in s.dialogues] == ["ANAKIN", "OBI-WAN"] * 3
+
+
+
+def test_cues_glued_to_dialogue_and_headings_glued_to_action():
+    d = " " * 12
+    page = "\n".join([
+        "INT. BANK -- DAY",
+        "A man in a mask walks in.",
+        f"{d}Three of a kind. Let's do this.GRUMPY",
+        f"{d}Now.",
+        "",
+        f"{d}That's it? Three guys?CHUCKLES",
+        "",
+        "He loads the gun.",
+        "EXT. STREET -- NIGHT",
+        "The car speeds off.",
+        f"{d}Faster!GRUMPY",
+        f"{d}See you tomorrow. ******",
+        "",
+        f"{d}Then where's the money?CHUCKLES",
+    ])
+    play = parse(pdf_text_to_fountain(page))
+    assert [(s.heading, s.day_night) for s in play.scenes] == [("INT. BANK -- DAY", "DAY"), ("EXT. STREET -- NIGHT", "NIGHT")]
+    assert [s.location for s in play.scenes] == ["BANK", "STREET"]
+    assert [(d.character, d.lines[0]) for d in play.scenes[0].dialogues] == [
+        ("GRUMPY", "Three of a kind. Let's do this."), ("CHUCKLES", "That's it? Three guys?"),
+    ]
+    assert [d.character for d in play.scenes[1].dialogues] == ["GRUMPY", "CHUCKLES"]
+    assert "*" not in pdf_text_to_fountain(page)
