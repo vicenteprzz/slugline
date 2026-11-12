@@ -35,6 +35,8 @@ function explain(line: BudgetLine): string | null {
     const [, shooting, prep] = parts;
     return Number(prep) ? t("{shooting} shooting days + {prep} preparation", { shooting, prep }) : t("{shooting} shooting days", { shooting });
   }
+  if (line.key === "crew:extra" && parts.length === 2) return t("{people} more people for {days} shooting days", { people: parts[0], days: parts[1] });
+  if (line.key === "second_unit" && parts.length === 2) return t("shoots on {pct} of the {days} days", { pct: `${Math.round(Number(parts[0]) * 100)}%`, days: parts[1] });
   if (line.key === "extras" && parts.length === 2) return t("{people} people on {days} days with extras", { people: parts[0], days: parts[1] });
   if (line.key === "vans" && parts.length === 2) return t("{vans} vans for {days} days", { vans: parts[0], days: parts[1] });
   if (line.key === "catering" && parts.length === 3) return t("{crew} crew for {days} days, plus {cast} cast days", { crew: parts[0], days: parts[1], cast: parts[2] });

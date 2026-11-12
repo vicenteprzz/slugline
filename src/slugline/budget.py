@@ -129,6 +129,24 @@ LEVELS = {
         "rates": _scaled(_LOW, 2.0, 1.6, 2.5),
         "crew_factor": 1.6, "extras": 30, "vans": 6, "post_split": (0.40, 0.25, 0.35),
     },
+    # A studio picture: stars, union crews, a second unit, hundreds of extras,
+    # big visual effects, and a slower pace (fewer pages a day, so more days).
+    "high": {
+        "label": "High-budget feature",
+        "rates": {
+            **_scaled(_LOW, 10, 8, 30),
+            "cast.lead": 60000, "cast.supporting": 12000, "cast.small": 2500, "extras.person": 220,
+            "stunts.day": 25000, "location.day": 15000, "camera.day": 12000, "lighting.day": 15000,
+            "grip.day": 8000, "sfx.scene": 60000, "vfx.scene": 150000, "vfx.total": 25000000,
+            "script.total": 3000000, "music.total": 1500000, "post.total": 6000000, "publicity.total": 1000000,
+            "sound_studio.total": 1200000, "second_unit.day": 60000, "catering.person": 45,
+            "crew.extra_person": 450, "construction.total": 15000000,
+        },
+        "crew_factor": 3.2, "extras": 150, "vans": 25, "post_split": (0.40, 0.25, 0.35),
+        "pages_per_day": 2.0, "second_unit": 0.4,
+        # Departments at studio size: the people beyond the heads listed in CREW.
+        "extra_crew": 120,
+    },
 }
 DEFAULT_LEVEL = "low"
 HOLD_LIMIT = 5  # longest gap between working days that is paid as hold
@@ -232,9 +250,11 @@ class _Plan:
     pages_per_day: float
 
 
-def _plan(b: Breakdown, plan: scheduling.Schedule | None) -> _Plan:
+def _plan(b: Breakdown, plan: scheduling.Schedule | None,
+          pace: float = scheduling.DEFAULT_PAGES_PER_DAY) -> _Plan:
     rows = {s.number: s for s in b.scenes}
-    pages_per_day = plan.pages_per_day if plan else scheduling.DEFAULT_PAGES_PER_DAY
+    # The user's schedule sets the pace; without one, the level's usual pace.
+    pages_per_day = plan.pages_per_day if plan else pace
     days = [[rows[n] for n in d.scenes if n in rows] for d in plan.days] if plan else []
     days = [d for d in days if d]
     scheduled = len(days)
@@ -333,6 +353,14 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
         add("crew:electrician_2", "03", "Electrician", days, "days", round(200 * factor / 10) * 10,
             detail=f"Electric|{days}|0")
 
+    if level.get("extra_crew"):
+        add("crew:extra", "03", "Rest of the crew at studio size", days * level["extra_crew"], "people x days",
+            r["crew.extra_person"], detail=f"{level['extra_crew']}|{days}")
+    if level.get("second_unit"):
+        second = math.ceil(days * level["second_unit"])
+        add("second_unit", "03", "Second unit: crew and equipment", second, "days", r["second_unit.day"],
+            detail=f"{level['second_unit']}|{days}")
+
     # 04 sets and locations
     by_location: dict[str, set[int]] = {}
     for i, day in enumerate(plan.days):
@@ -342,6 +370,8 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
         scenes = [s.number for d in plan.days for s in d if (s.location or s.heading) == location]
         add(f"location:{location}", "04", location, len(by_location[location]), "days", r["location.day"],
             scenes=scenes)
+    if "construction.total" in r:
+        add("construction", "04", "Set construction on stage", 1, "lump", r["construction.total"], to_quote=True)
     cast_with_wardrobe = [n for n in worked if roles[n] != "small"]
     add("wardrobe:cast", "04", "Wardrobe for the main cast", len(cast_with_wardrobe), "characters",
         r["wardrobe.character"])
@@ -376,7 +406,8 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
     add("fuel", "06", "Fuel and parking", days * level["vans"], "vans x days", r["fuel.day"])
 
     # 07 travel, hotels and meals
-    crew_count = sum(1 for line in lines if line.chapter == "03")
+    crew_count = sum(1 for line in lines if line.key.startswith("crew:") and line.key != "crew:extra")
+    crew_count += level.get("extra_crew", 0)
     cast_days = sum(len(d) for d in worked.values())
     meals = days * crew_count + cast_days
     add("catering", "07", "Catering on set", meals, "meals", r["catering.person"],
@@ -391,6 +422,10 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
     add("post:edit", "09", "Editing", 1, "lump", round(r["post.total"] * edit))
     add("post:grade", "09", "Grading and conform", 1, "lump", round(r["post.total"] * grade))
     add("post:deliveries", "09", "Titles, subtitles and deliveries", 1, "lump", round(r["post.total"] * other))
+
+    if "vfx.total" in r:
+        # Big pictures carry visual effects the script never names: a reserve to be quoted.
+        add("vfx:general", "09", "Visual effects across the film", 1, "lump", r["vfx.total"], to_quote=True)
 
     # 12 publicity and finance
     add("publicity", "12", "Publicity and festivals", 1, "lump", r["publicity.total"])
@@ -466,8 +501,10 @@ def scene_costs(lines: list[Line], plan: _Plan) -> dict[str, float]:
     for line in lines:
         if line.total == 0:
             continue
-        if line.key.startswith("crew:"):
+        if line.key.startswith("crew:") and line.unit == "days":
             per_day(line.rate)  # each shooting day of each crew member; not their preparation
+        elif line.key == "crew:extra":
+            per_day(line.total / days)
         elif line.key in ("camera", "lighting", "grip", "vans", "fuel", "storage", "makeup:kit", "catering",
                           "overtime", "social:cast", "social:crew"):
             per_day(line.total / days)
@@ -487,7 +524,7 @@ def scene_costs(lines: list[Line], plan: _Plan) -> dict[str, float]:
 def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet | None,
             settings: BudgetSettings) -> dict:
     """The budget as the dashboard and the exports use it."""
-    shoot = _plan(b, plan)
+    shoot = _plan(b, plan, LEVELS[settings.level].get("pages_per_day", scheduling.DEFAULT_PAGES_PER_DAY))
     lines = build_lines(b, shoot, sheet, settings)
     subtotal = round(sum(line.total for line in lines), 2)
     pct = {**PERCENTAGES, **settings.percentages}
@@ -564,7 +601,11 @@ BUDGET_ES = {
     "days": "días", "people x days": "personas x días", "items": "unidades", "lump": "global",
     "characters": "personajes", "scenes": "secuencias", "vans x days": "furgonetas x días", "meals": "comidas",
     "units": "unidades",
-    "Short film": "Cortometraje", "Low-budget feature": "Largometraje de bajo presupuesto",
+    "Short film": "Cortometraje", "High-budget feature": "Largometraje de alto presupuesto",
+    "Second unit: crew and equipment": "Segunda unidad: equipo y material",
+    "Visual effects across the film": "Efectos visuales del conjunto de la película",
+    "Rest of the crew at studio size": "Resto del equipo a escala de gran producción",
+    "Set construction on stage": "Construcción de decorados en plató", "Low-budget feature": "Largometraje de bajo presupuesto",
     "Mid-budget feature": "Largometraje de presupuesto medio",
 }
 

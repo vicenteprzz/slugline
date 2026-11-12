@@ -120,7 +120,19 @@ def test_levels_scale():
     short, _ = setup("short", days=[["1", "3"], ["2"], ["4"]])
     low, _ = setup("low", days=[["1", "3"], ["2"], ["4"]])
     medium, _ = setup("medium", days=[["1", "3"], ["2"], ["4"]])
-    assert short["total"] < low["total"] < medium["total"]
+    high, lines = setup("high", days=[["1", "3"], ["2"], ["4"]])
+    assert short["total"] < low["total"] < medium["total"] < high["total"]
+    # A studio picture brings a second unit, a full crew, stage builds and effects to quote.
+    assert lines["second_unit"]["units"] == 2  # 40% of 3 days, rounded up
+    assert lines["crew:extra"]["units"] == 3 * budget.LEVELS["high"]["extra_crew"]
+    assert lines["construction"]["to_quote"] and lines["vfx:general"]["to_quote"]
+    assert high["to_quote"]["count"] == 2
+
+
+def test_without_a_schedule_each_level_shoots_at_its_own_pace():
+    low, _ = setup("low")
+    high, _ = setup("high")
+    assert high["days"] >= low["days"]
 
 
 def test_scene_costs_add_up_to_what_shooting_them_costs():

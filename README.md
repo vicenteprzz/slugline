@@ -125,9 +125,11 @@ build the app to show a "Buy a licence" link in Settings.
   each actor works (a short gap between work days is paid as hold, a long one
   is a drop and pick-up), days with extras or stunts, days at each location,
   each picture vehicle and animal, meals for the crew and cast
-- The rates are yours: three levels (short film, low-budget and mid-budget
-  feature) to start from, and every rate and quantity can be changed or a line
-  added by hand
+- The rates are yours: four levels (short film, low-budget, mid-budget and
+  high-budget feature) to start from, and every rate and quantity can be
+  changed or a line added by hand. The high-budget level budgets a studio
+  picture: a slower pace (2 pages a day), the crew at full size, a second
+  unit, stage builds and visual effects across the film to be quoted
 - What can't be priced from a script (an explosion, a visual effect) is
   marked *to be quoted*, with the scenes that need it, until you enter the quote
 - Social security on cast and crew wages (about a third in Spain), overtime,

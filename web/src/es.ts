@@ -135,6 +135,8 @@ export const ES: Record<string, string> = {
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
   // Budget card
+  "{people} more people for {days} shooting days": "{people} personas más durante {days} jornadas de rodaje",
+  "shoots on {pct} of the {days} days": "rueda en el {pct} de las {days} jornadas",
   "{pct} of crew wages": "{pct} de los sueldos del equipo técnico",
   "{pct} of cast wages": "{pct} de los sueldos del personal artístico",
   "{pct} of crew wages and overtime": "{pct} de los sueldos y horas extra del equipo técnico",
@@ -240,6 +242,11 @@ export const ES: Record<string, string> = {
   "Too many changes in one budget.":
     "Demasiados cambios en un presupuesto.",
   // Budget (the same text as BUDGET_ES in budget.py)
+  "High-budget feature": "Largometraje de alto presupuesto",
+  "Second unit: crew and equipment": "Segunda unidad: equipo y material",
+  "Visual effects across the film": "Efectos visuales del conjunto de la película",
+  "Rest of the crew at studio size": "Resto del equipo a escala de gran producción",
+  "Set construction on stage": "Construcción de decorados en plató",
   "Artistic staff": "Personal artístico",
   "Script and music": "Guion y música",
   "Sets and locations": "Escenografía",
