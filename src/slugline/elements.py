@@ -276,6 +276,24 @@ def suggest_without_ai(text: str) -> ElementSheet:
     return ElementSheet(scenes=suggest(parse(text)))
 
 
+def resuggest(text: str, sheet: ElementSheet | None) -> ElementSheet:
+    """Run the keyword suggestions again (after a better dictionary, say).
+    Earlier keyword suggestions are replaced; Claude's and the user's
+    elements stay, and anything removed before stays removed."""
+    from slugline.keywords import suggest
+
+    sheet = sheet or ElementSheet()
+    found = suggest(parse(text))
+    scenes: dict[str, list[Element]] = {}
+    for number in dict.fromkeys([*sheet.scenes, *found]):
+        kept = [e for e in sheet.for_scene(number) if e.source != "auto"]
+        blocked = {e.key for e in kept} | set(sheet.dismissed.get(number, []))
+        fresh = [e for e in found.get(number, []) if e.key not in blocked]
+        if kept or fresh:
+            scenes[number] = _ordered(_dedupe(kept + fresh))
+    return ElementSheet(scenes=scenes, dismissed=sheet.dismissed, model=sheet.model, revision=sheet.revision)
+
+
 def load_or_carry(text: str, suggest: bool = False) -> ElementSheet | None:
     """This draft's breakdown; for a new draft, the one carried over from the
     draft before it; for a script never broken down, with `suggest`, a first

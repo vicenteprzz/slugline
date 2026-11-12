@@ -66,7 +66,9 @@ build the app to show a "Buy a licence" link in Settings.
 - Location stats: how many scenes and pages each location needs
 - Formatting checks: headings without INT/EXT or time of day, empty scenes,
   character or location names written two ways (`SHERIF` / `SHERIFF`), scene
-  numbering gaps
+  numbering gaps. In the app, one click merges the two spellings or sets day or
+  night for a heading that doesn't say; the cast, locations and schedule count
+  it that way without touching the script file
 
 **Element breakdown**
 

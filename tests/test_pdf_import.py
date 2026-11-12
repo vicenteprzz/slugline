@@ -66,3 +66,12 @@ def test_right_aligned_transition():
 def test_first_page_without_title_page():
     out = pdf_text_to_fountain(PAGE_2.replace("CUT TO:", "") + "\fINT. A - DAY\n")
     assert not out.startswith("Title:")
+
+
+def test_letters_spaced_out_by_the_pdf_are_joined():
+    cue = " " * 25
+    lines = ["INT. GYM - DAY", ""]
+    for name in ["MARTY", "MARTY", "M ARTY (CONT'D)", "MARY ANN"]:
+        lines += [cue + name, " " * 12 + "Hi.", ""]
+    play = parse(pdf_text_to_fountain("\n".join(lines)))
+    assert [d.character for d in play.scenes[0].dialogues] == ["MARTY", "MARTY", "MARTY", "MARY ANN"]

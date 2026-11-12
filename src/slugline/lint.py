@@ -20,6 +20,8 @@ class Issue:
     message: str
     scene: str | None = None  # scene number, when the issue belongs to one
     source: str = "rule"  # "rule" (this module) or "ai" (slugline.llm)
+    # For two spellings of one name: both, most used first, so the app can merge them.
+    names: list[str] | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -86,10 +88,12 @@ def lint(play: Screenplay) -> list[Issue]:
         issues.append(Issue(
             "warning", "similar-characters",
             f"Characters {a} ({blocks[a]} cues) and {b} ({blocks[b]} cues) {why}.",
+            names=sorted([a, b], key=lambda n: -blocks[n]),
         ))
     locations = Counter(s.location for s in play.scenes if s.location)
     for a, b, why in _similar_pairs(sorted(locations)):
-        issues.append(Issue("warning", "similar-locations", f"Locations \"{a}\" and \"{b}\" {why}."))
+        issues.append(Issue("warning", "similar-locations", f"Locations \"{a}\" and \"{b}\" {why}.",
+                            names=sorted([a, b], key=lambda n: -locations[n])))
 
     numbered = [s for s in play.scenes if s.scene_number]
     if numbered and len(numbered) < len(play.scenes):

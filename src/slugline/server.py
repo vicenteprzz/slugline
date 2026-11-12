@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, elements, export, library, licensing, llm, revisions, settings
+from slugline import __version__, corrections, elements, export, library, licensing, llm, revisions, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -55,6 +55,7 @@ class Script:
     analysis: llm.Analysis | None = None
     elements: elements.ElementSheet | None = None
     schedule: scheduling.Schedule | None = None
+    fixes: corrections.Corrections = field(default_factory=corrections.Corrections)
     chats: dict[str, ScriptAgent] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -67,7 +68,19 @@ class Script:
             "analysis": self.analysis.to_dict() if self.analysis else None,
             "elements": elements.to_payload(self.elements, self.breakdown),
             "schedule": scheduling.to_payload(self.schedule, self.breakdown),
+            "corrections": self.fixes.to_dict(),
         }
+
+    def reread(self) -> None:
+        """Parse the script again with the user's corrections applied."""
+        self.breakdown, self.issues = read(self.text, self.fixes)
+
+
+def read(text: str, fixes: corrections.Corrections) -> tuple[Breakdown, list[Issue]]:
+    play = corrections.apply(parse(text), fixes)
+    # A scene whose day or night was set by hand no longer needs the warning.
+    issues = [i for i in lint(play) if not (i.code == "no-time" and i.scene in fixes.day_night)]
+    return breakdown(play), issues
 
 
 class Store:
@@ -81,13 +94,15 @@ class Store:
         if script_id in self.scripts:
             self.scripts[script_id].filename = filename or self.scripts[script_id].filename
             return self.scripts[script_id]
-        play = parse(text)
+        fixes = corrections.load(text)
+        b, issues = read(text, fixes)
         script = Script(
             id=script_id,
             filename=filename,
             text=text,
-            breakdown=breakdown(play),
-            issues=lint(play),
+            breakdown=b,
+            issues=issues,
+            fixes=fixes,
             # A script analyzed before (here or from the CLI) shows its notes at once.
             analysis=llm.cached_analysis(text),
             # So does a breakdown of elements, with its hand edits; a new
@@ -128,6 +143,22 @@ class LicenseIn(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     session: str = "default"
+
+
+class MergeIn(BaseModel):
+    kind: str  # characters or locations
+    names: list[str]
+    into: str
+
+
+class UnmergeIn(BaseModel):
+    kind: str
+    name: str  # the spelling to count on its own again
+
+
+class DayNightIn(BaseModel):
+    scene: str
+    day_night: str | None = None  # DAY, NIGHT, DAWN, DUSK; empty to go back to the heading
 
 
 class ElementIn(BaseModel):
@@ -356,6 +387,50 @@ def create_app(check_host: bool = True) -> FastAPI:
             except llm.LLMError as e:
                 raise HTTPException(502, str(e)) from None
         return elements.to_payload(script.elements, script.breakdown)
+
+    @app.post("/api/scripts/{script_id}/elements/suggest")
+    def resuggest_elements(script_id: str) -> dict:
+        """Suggest elements again from keywords, keeping Claude's and the user's."""
+        script = store.get(script_id)
+        with script.lock:
+            sheet = elements.resuggest(script.text, script.elements)
+            try:
+                elements.save_sheet(script.text, sheet)
+            except OSError as e:
+                raise HTTPException(500, f"The change could not be saved: {e.strerror}") from None
+            script.elements = sheet
+        return elements.to_payload(sheet, script.breakdown)
+
+    def _save_fixes(script: Script, change) -> dict:
+        with script.lock:
+            fixes = corrections.Corrections.from_dict(script.fixes.to_dict())
+            try:
+                change(fixes)
+            except ValueError as e:
+                raise HTTPException(422, str(e)) from None
+            try:
+                corrections.save(script.text, fixes)
+            except OSError as e:
+                raise HTTPException(500, f"The change could not be saved: {e.strerror}") from None
+            script.fixes = fixes
+            script.reread()
+            script.chats.clear()  # the assistant should see the corrected names
+        return script.payload()
+
+    @app.post("/api/scripts/{script_id}/corrections/merge")
+    def merge_names(script_id: str, body: MergeIn) -> dict:
+        return _save_fixes(store.get(script_id), lambda f: f.merge(body.kind, body.names, body.into))
+
+    @app.post("/api/scripts/{script_id}/corrections/unmerge")
+    def unmerge_name(script_id: str, body: UnmergeIn) -> dict:
+        return _save_fixes(store.get(script_id), lambda f: f.unmerge(body.kind, body.name))
+
+    @app.put("/api/scripts/{script_id}/corrections/day-night")
+    def set_day_night(script_id: str, body: DayNightIn) -> dict:
+        script = store.get(script_id)
+        if body.scene not in {s.number for s in script.breakdown.scenes}:
+            raise HTTPException(404, "That scene is not in the script.")
+        return _save_fixes(script, lambda f: f.set_day_night(body.scene, body.day_night))
 
     @app.delete("/api/scripts/{script_id}/elements")
     def clear_elements(script_id: str) -> dict:

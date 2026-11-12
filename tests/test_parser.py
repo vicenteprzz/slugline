@@ -145,3 +145,14 @@ def test_emphasis_markers_are_not_printed():
 def test_scene_line_numbers_survive_notes_and_boneyard():
     play = parse("Title: X\n\n/* cut\nthis */\n\nINT. A - DAY\n\nX. [[a\nnote]]\n\nEXT. B - DAY\n\nY.\n")
     assert [s.line for s in play.scenes] == [6, 11]
+
+
+def test_relative_times_and_typos_inherit_day_or_night():
+    play = parse(
+        "INT. CLUB - NIGHT\n\nA.\n\nINT. HALLWAY - SOON\n\nB.\n\nINT. ROOM 503 - AFTER\n\nC.\n\n"
+        "INT. KAISER - CONTINIOUS\n\nD.\n\nEXT. FARM - LATE AFTEROON\n\nE.\n\n"
+        "INT. LAWRENCE’S PARLOR - LATERN\n\nF.\n\nEXT. CONTINENTAL HOTEL\n\nG.\n"
+    )
+    assert [s.location for s in play.scenes] == [
+        "CLUB", "HALLWAY", "ROOM 503", "KAISER", "FARM", "LAWRENCE'S PARLOR", "CONTINENTAL HOTEL"]
+    assert [s.day_night for s in play.scenes] == ["NIGHT", "NIGHT", "NIGHT", "NIGHT", "DAY", "DAY", "DAY"]

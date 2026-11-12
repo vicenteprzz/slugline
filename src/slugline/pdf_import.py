@@ -70,6 +70,7 @@ def pdf_text_to_fountain(text: str) -> str:
     last = ""  # kind of the last line written
     last_cue = ""
     more = False  # dialogue continues on the next page
+    cues: list[int] = []  # where character cues are in `out`
 
     for raw in "\n".join(pages).splitlines():
         s = raw.strip()
@@ -101,6 +102,7 @@ def pdf_text_to_fountain(text: str) -> str:
                 more = False
                 continue
             more = False
+            cues.append(len(out))
             out.append(s)
             last_cue, last = base, "cue"
         elif kind == "parenthetical":
@@ -123,10 +125,28 @@ def pdf_text_to_fountain(text: str) -> str:
             out.append(f"!{s}" if s.isupper() else s)
             last = "action"
 
+    _join_split_cues(out, cues)
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
     if header:
         return "\n".join(header) + "\n\n" + body + "\n"
     return body + "\n"
+
+
+def _join_split_cues(out: list[str], cues: list[int]) -> None:
+    """Some PDFs space out the letters of a name ("M ARTY" for "MARTY") when
+    the text is extracted. A cue that, without spaces, is a name used more
+    often elsewhere is written that way."""
+    counts: dict[str, dict[str, int]] = {}
+    for i in cues:
+        base = CUE_BASE.sub("", out[i]).strip()
+        spellings = counts.setdefault(base.replace(" ", ""), {})
+        spellings[base] = spellings.get(base, 0) + 1
+    for i in cues:
+        base = CUE_BASE.sub("", out[i]).strip()
+        spellings = counts[base.replace(" ", "")]
+        best = max(spellings, key=lambda name: (spellings[name], -name.count(" ")))
+        if best != base and spellings[best] > spellings[base]:
+            out[i] = best + out[i].strip()[len(base):]
 
 
 def pdf_to_fountain(path: str | Path | BinaryIO) -> str:

@@ -129,6 +129,18 @@ export const ES: Record<string, string> = {
   "Tension (1–5)": "Tensión (1–5)",
   "Mood (−2 to +2)": "Ánimo (−2 a +2)",
   "Formatting notes": "Notas de formato",
+  "Merge as {name}": "Juntar como {name}",
+  "Set day or night for scene {n}": "Elegir día o noche para la secuencia {n}",
+  "Corrected in Slugline": "Corregido en Slugline",
+  "Counted this way in the cast, the locations and the schedule. The script file is not changed.":
+    "Así se cuenta en el reparto, los decorados y el plan de rodaje. El archivo del guion no se toca.",
+  "{name} counts as {into}": "{name} cuenta como {into}",
+  "Undo": "Deshacer",
+  "The elements could not be suggested.": "No se han podido sugerir los elementos.",
+  "Suggest from words in the script": "Sugerir a partir del guion",
+  "Suggest again from words in the script": "Volver a sugerir sin IA",
+  "Updates the suggestions made without AI; Claude's and yours stay as they are.":
+    "Actualiza las sugerencias hechas sin IA; las de Claude y las tuyas se quedan como están.",
   "From the rule-based checks and Claude's proofread.": "De las comprobaciones automáticas y la revisión de Claude.",
   "From the rule-based checks. Analyzing the script adds a proofread.":
     "De las comprobaciones automáticas. Al analizar el guion se añade una revisión.",

@@ -40,6 +40,13 @@ export type Issue = {
   message: string;
   scene: string | null;
   source: "rule" | "ai";
+  names?: string[] | null; // two spellings of one name, most used first
+};
+
+export type Corrections = {
+  characters: Record<string, string>;
+  locations: Record<string, string>;
+  day_night: Record<string, string>;
 };
 
 export type SceneNote = { number: string; summary: string; tone: string; valence: number; tension: number };
@@ -106,6 +113,7 @@ export type Script = {
   analysis: Analysis | null;
   elements: Elements | null;
   schedule: Schedule | null;
+  corrections: Corrections;
 };
 
 export type LibraryEntry = { id: string; filename: string; title: string | null; scenes: number; added_at: string; opened_at: string };

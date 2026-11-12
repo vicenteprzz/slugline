@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeScript,
   clearElements,
+  mergeNames,
+  resuggestElements,
+  setDayNight,
+  unmergeName,
   exportUrl,
   extractElements,
   getScript,
@@ -22,7 +26,7 @@ import { type Language, initialLanguage, language, setLanguage, t } from "./i18n
 import SceneSheet from "./SceneSheet";
 import ScheduleBoard, { CastCard, CrewCard } from "./ScheduleBoard";
 import SettingsPanel from "./SettingsPanel";
-import type { Analysis, Breakdown, Category, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
+import type { Analysis, Breakdown, Category, Corrections, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
 
 type Panel = { kind: "chat" } | { kind: "scene"; number: string } | { kind: "settings" } | null;
 
@@ -199,6 +203,31 @@ export default function App() {
     }
   }, [script, update]);
 
+  const resuggest = useCallback(async () => {
+    if (!script) return;
+    setError(null);
+    try {
+      update(script.id, { elements: await resuggestElements(script.id) });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("The elements could not be suggested."));
+    }
+  }, [script, update]);
+
+  /** Corrections come back as the whole script, read again with them applied. */
+  const correct = useCallback(
+    async (change: (id: string) => Promise<Script>) => {
+      if (!script) return;
+      setError(null);
+      try {
+        const fixed = await change(script.id);
+        update(script.id, { breakdown: fixed.breakdown, issues: fixed.issues, corrections: fixed.corrections });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : t("The change could not be saved."));
+      }
+    },
+    [script, update],
+  );
+
   const categories = status?.categories ?? [];
 
   return (
@@ -286,6 +315,8 @@ export default function App() {
             extracting={extracting}
             onExtract={extract}
             onClearElements={clear}
+            onResuggest={resuggest}
+            onCorrect={correct}
             onScheduleChange={(schedule) => update(script.id, { schedule })}
             onError={setError}
             onOpenScene={(number) => setPanel({ kind: "scene", number })}
@@ -484,6 +515,8 @@ function Dashboard(props: {
   extracting: boolean;
   onExtract: () => void;
   onClearElements: () => void;
+  onResuggest: () => void;
+  onCorrect: (change: (id: string) => Promise<Script>) => void;
   onScheduleChange: (schedule: Schedule | null) => void;
   onError: (message: string) => void;
   onOpenScene: (number: string) => void;
@@ -532,6 +565,7 @@ function Dashboard(props: {
         extracting={props.extracting}
         onExtract={props.onExtract}
         onClear={props.onClearElements}
+        onResuggest={props.onResuggest}
         onOpenScene={props.onOpenScene}
         onOpenSettings={props.onOpenSettings}
       />
@@ -591,7 +625,7 @@ function Dashboard(props: {
           />
           {b.locations.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.locations.length - 14 })}</p>}
         </ChartCard>
-        <Issues issues={issues} analyzed={analysis !== null} />
+        <Issues issues={issues} analyzed={analysis !== null} corrections={script.corrections} onCorrect={props.onCorrect} />
       </div>
     </>
   );
@@ -869,7 +903,78 @@ function Tone({ breakdown: b, analysis }: { breakdown: Breakdown; analysis: Anal
   );
 }
 
-function Issues({ issues, analyzed }: { issues: Issue[]; analyzed: boolean }) {
+const MERGE_KINDS: Record<string, string> = { "similar-characters": "characters", "similar-locations": "locations" };
+
+function IssueFix({ issue, onCorrect }: { issue: Issue; onCorrect: (change: (id: string) => Promise<Script>) => void }) {
+  const kind = MERGE_KINDS[issue.code];
+  if (kind && issue.names?.length === 2) {
+    return (
+      <span className="issue-fix">
+        {issue.names.map((into) => (
+          <button key={into} className="chip" onClick={() => onCorrect((id) => mergeNames(id, kind, issue.names!, into))}>
+            {t("Merge as {name}", { name: into })}
+          </button>
+        ))}
+      </span>
+    );
+  }
+  if (issue.code === "no-time" && issue.scene) {
+    const scene = issue.scene;
+    return (
+      <span className="issue-fix" role="group" aria-label={t("Set day or night for scene {n}", { n: scene })}>
+        {DAY_NIGHT.map((d) => (
+          <button key={d.key} className="chip" onClick={() => onCorrect((id) => setDayNight(id, scene, d.key))}>
+            <span className="swatch" style={{ background: d.color }} />
+            {t(d.name)}
+          </button>
+        ))}
+      </span>
+    );
+  }
+  return null;
+}
+
+function CorrectionsList({ corrections, onCorrect }: { corrections: Corrections; onCorrect: (change: (id: string) => Promise<Script>) => void }) {
+  const merges = (["characters", "locations"] as const).flatMap((kind) =>
+    Object.entries(corrections[kind]).map(([name, into]) => ({ kind, name, into })),
+  );
+  const days = Object.entries(corrections.day_night).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }));
+  if (merges.length === 0 && days.length === 0) return null;
+  return (
+    <div className="corrections">
+      <h4>{t("Corrected in Slugline")}</h4>
+      <p className="fine">{t("Counted this way in the cast, the locations and the schedule. The script file is not changed.")}</p>
+      <ul>
+        {merges.map((m) => (
+          <li key={`${m.kind}|${m.name}`}>
+            <span>{t("{name} counts as {into}", { name: m.name, into: m.into })}</span>
+            <button className="link" onClick={() => onCorrect((id) => unmergeName(id, m.kind, m.name))}>
+              {t("Undo")}
+            </button>
+          </li>
+        ))}
+        {days.map(([scene, value]) => (
+          <li key={`dn|${scene}`}>
+            <span>
+              {t("Scene {n}.", { n: scene })} {t(DAY_NIGHT.find((d) => d.key === value)?.name ?? value)}
+            </span>
+            <button className="link" onClick={() => onCorrect((id) => setDayNight(id, scene, null))}>
+              {t("Undo")}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function Issues(props: {
+  issues: Issue[];
+  analyzed: boolean;
+  corrections: Corrections;
+  onCorrect: (change: (id: string) => Promise<Script>) => void;
+}) {
+  const { issues, analyzed } = props;
   return (
     <section className="card">
       <header className="card-head">
@@ -892,11 +997,13 @@ function Issues({ issues, analyzed }: { issues: Issue[]; analyzed: boolean }) {
                 {issue.scene && <strong>{t("Scene {n}.", { n: issue.scene })} </strong>}
                 {issue.message}
                 {issue.source === "ai" && <span className="source"> {t("Found by Claude.")}</span>}
+                <IssueFix issue={issue} onCorrect={props.onCorrect} />
               </span>
             </li>
           ))}
         </ul>
       )}
+      <CorrectionsList corrections={props.corrections} onCorrect={props.onCorrect} />
     </section>
   );
 }
@@ -909,6 +1016,7 @@ function ElementsCard(props: {
   extracting: boolean;
   onExtract: () => void;
   onClear: () => void;
+  onResuggest: () => void;
   onOpenScene: (number: string) => void;
   onOpenSettings: () => void;
 }) {
@@ -949,11 +1057,16 @@ function ElementsCard(props: {
         <div className="elements-empty">
           <p>{t("No elements yet. Claude can read the script and suggest them for every scene, or you can open a scene and add them by hand.")}</p>
           {!props.available && <AiOff onOpenSettings={props.onOpenSettings} />}
-          {first && (
-            <button className="ghost" onClick={() => props.onOpenScene(first)}>
-              {t("Open scene {n}", { n: first })}
+          <div className="actions-row">
+            <button className="ghost" onClick={props.onResuggest}>
+              {t("Suggest from words in the script")}
             </button>
-          )}
+            {first && (
+              <button className="ghost" onClick={() => props.onOpenScene(first)}>
+                {t("Open scene {n}", { n: first })}
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <>
@@ -1018,6 +1131,12 @@ function ElementsCard(props: {
             </p>
           )}
           {!props.available && suggested > 0 && !byClaude && <AiOff onOpenSettings={props.onOpenSettings} />}
+          <p className="fine">
+            <button className="link" onClick={props.onResuggest}>
+              {t("Suggest again from words in the script")}
+            </button>{" "}
+            {t("Updates the suggestions made without AI; Claude's and yours stay as they are.")}
+          </p>
         </>
       )}
     </section>

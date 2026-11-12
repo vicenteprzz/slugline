@@ -33,7 +33,7 @@ ESCAPED = re.compile(r"\\([*_])")
 # otherwise "EXT. RANCH - CORRAL" would get CORRAL as its time.
 TIME_HINT = re.compile(
     r"\b(DAY|NIGHT|MORNING|AFTERNOON|EVENING|DAWN|DUSK|SUNSET|SUNRISE|NOON|MIDDAY|MIDNIGHT"
-    r"|TWILIGHT|MAGIC HOUR|LATER|CONTINUOUS|SAME|MOMENTS?)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
+    r"|TWILIGHT|MAGIC HOUR|LATERN?|CONTIN[UI]+OUS|SAME|MOMENTS?|SOON|AFTER|SHOWTIME|AFTERN?OON)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
     re.IGNORECASE,
 )
 # Production boards only care about four lighting conditions. Order matters:
@@ -42,7 +42,7 @@ DAY_NIGHT = [
     ("DAWN", re.compile(r"\b(DAWN|SUNRISE)\b")),
     ("DUSK", re.compile(r"\b(DUSK|SUNSET|TWILIGHT|MAGIC HOUR)\b")),
     ("NIGHT", re.compile(r"\b(NIGHT|MIDNIGHT|EVENING)\b")),
-    ("DAY", re.compile(r"\b(DAY|MORNING|AFTERNOON|NOON|MIDDAY)\b")),
+    ("DAY", re.compile(r"\b(DAY|MORNING|AFTERN?OON|NOON|MIDDAY)\b")),
 ]
 
 # Rough layout of a printed page in standard screenplay format.
@@ -334,7 +334,8 @@ def parse(text: str) -> Screenplay:
                 index=len(play.scenes) + 1,
                 heading=heading.strip().upper(),
                 int_ext=int_ext,
-                location=location.upper(),
+                # Curly and straight apostrophes are the same place.
+                location=location.upper().replace("\u2019", "'"),
                 time_of_day=time,
                 scene_number=scene_number,
                 line=i + 1,

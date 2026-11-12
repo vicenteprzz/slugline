@@ -56,6 +56,21 @@ export const analyzeScript = (id: string, refresh = false) =>
 
 export const extractElements = (id: string) => json<Elements>(call(`/api/scripts/${id}/elements`, { method: "POST" }));
 
+export const resuggestElements = (id: string) =>
+  json<Elements>(call(`/api/scripts/${id}/elements/suggest`, { method: "POST" }));
+
+const post = (url: string, method: string, body: unknown) =>
+  json<Script>(call(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }));
+
+export const mergeNames = (id: string, kind: string, names: string[], into: string) =>
+  post(`/api/scripts/${id}/corrections/merge`, "POST", { kind, names, into });
+
+export const unmergeName = (id: string, kind: string, name: string) =>
+  post(`/api/scripts/${id}/corrections/unmerge`, "POST", { kind, name });
+
+export const setDayNight = (id: string, scene: string, dayNight: string | null) =>
+  post(`/api/scripts/${id}/corrections/day-night`, "PUT", { scene, day_night: dayNight });
+
 export const clearElements = (id: string) => json<Elements>(call(`/api/scripts/${id}/elements`, { method: "DELETE" }));
 
 export const saveSceneElements = (id: string, scene: string, elements: { category: string; name: string; notes: string }[]) =>

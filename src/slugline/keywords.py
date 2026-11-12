@@ -44,7 +44,15 @@ WORDS: list[tuple[str, str, str]] = [
     ("props", "Badge", "badge"),
     ("props", "Handcuffs", "handcuffs"),
     ("props", "Flowers", "flowers|bouquet"),
+    ("props", "Ping-pong table", "ping-pong table|ping pong table|table tennis table"),
+    ("props", "Ping-pong paddle", "paddle|ping-pong paddle|ping pong paddle|table tennis paddle"),
+    ("props", "Ping-pong ball", "ping-pong ball|ping pong ball|table tennis ball"),
+    ("props", "Trophy", "trophy|trophies|medal"),
     ("props", "Pistola", "pistola"),
+    ("props", "Mesa de ping-pong", "mesa de ping-pong|mesa de ping pong|mesa de tenis de mesa"),
+    ("props", "Pala de ping-pong", "pala de ping-pong|pala de ping pong|pala|raqueta"),
+    ("props", "Pelota de ping-pong", "pelota de ping-pong|pelota de ping pong"),
+    ("props", "Trofeo", "trofeo|medalla"),
     ("props", "Revólver", "revólver|revolver"),
     ("props", "Escopeta", "escopeta|rifle|fusil"),
     ("props", "Cuchillo", "cuchillo|navaja|puñal"),
@@ -227,7 +235,8 @@ SPANISH_NAMES = {name for _, name, words in WORDS if any(c in name + words for c
     "Peluca", "Sangre", "Herida", "Maquillaje", "Coche", "Furgoneta", "Moto", "Bicicleta", "Tren", "Ambulancia",
     "Carreta", "Barco", "Caballos", "Perro", "Gato", "Ganado", "Multitud", "Pasajeros", "Clientes", "Invitados",
     "Pelea", "Disparos", "Fuego", "Humo", "Lluvia", "Nieve", "Sirena", "Espejo", "Llaman a la puerta",
-    "Coche de policía", "Policías", "Transeúntes", "Público",
+    "Coche de policía", "Policías", "Transeúntes", "Público", "Mesa de ping-pong", "Pala de ping-pong",
+    "Pelota de ping-pong", "Trofeo",
 }
 
 
