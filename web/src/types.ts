@@ -170,6 +170,7 @@ export type BudgetExtra = { chapter: string; concept: string; units: number; rat
 
 export type BudgetSettings = {
   level: string;
+  country: string;
   rates: Record<string, number>;
   units: Record<string, number>;
   quotes: Record<string, number>;
@@ -181,6 +182,8 @@ export type Budget = {
   currency: string;
   level: string;
   levels: { key: string; label: string }[];
+  country: string;
+  countries: { key: string; label: string; social: number }[];
   subtotal: number;
   contingency: { pct: number; amount: number };
   total: number;
@@ -195,3 +198,5 @@ export type Budget = {
   previous: { total: number; days: number; saved_at?: string } | null;
   settings: BudgetSettings;
 };
+
+export type Reorder = { saving: number; holds_before: number; holds_after: number; changed: boolean; schedule: Schedule | null };

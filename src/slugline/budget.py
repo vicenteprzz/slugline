@@ -21,7 +21,9 @@ check, not a budget to submit.
 
 from __future__ import annotations
 
+import copy
 import math
+import time
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 
@@ -150,12 +152,29 @@ LEVELS = {
 }
 DEFAULT_LEVEL = "low"
 HOLD_LIMIT = 5  # longest gap between working days that is paid as hold
+# Social security an employer pays on top of a wage, roughly, by country. It
+# changes with the contract and the year: a starting point to check with the
+# production's payroll. "none" is for crews who invoice, or rates that already
+# include it.
+COUNTRIES = {
+    "es": ("Spain", 0.32),  # common contingencies, unemployment, FOGASA, training, accident cover
+    "fr": ("France", 0.45),
+    "it": ("Italy", 0.30),
+    "de": ("Germany", 0.21),
+    "pt": ("Portugal", 0.2375),
+    "uk": ("United Kingdom", 0.15),
+    "us": ("United States", 0.25),  # payroll taxes and union fringes, which vary a lot
+    "mx": ("Mexico", 0.30),
+    "ar": ("Argentina", 0.24),
+    "co": ("Colombia", 0.30),
+    "none": ("No social security", 0.0),
+}
+DEFAULT_COUNTRY = "es"
+
 # Percentages, all editable in the budget:
 PERCENTAGES = {
-    # Social security the production pays on top of cast and crew wages: in Spain,
-    # common contingencies, unemployment, FOGASA, training and accident cover
-    # come to about a third of the wage.
-    "social": 0.32,
+    # Social security on cast and crew wages: by default, the country's (see COUNTRIES).
+    "social": COUNTRIES[DEFAULT_COUNTRY][1],
     "overtime": 0.05,  # of crew wages
     "insurance": 0.025,  # of the budget before insurance and overheads
     "overheads": 0.07,
@@ -170,6 +189,7 @@ PERCENTAGES = {
 @dataclass
 class BudgetSettings:
     level: str = DEFAULT_LEVEL
+    country: str = DEFAULT_COUNTRY  # sets the social security percentage
     rates: dict[str, float] = field(default_factory=dict)  # line key -> rate, replacing the computed one
     units: dict[str, float] = field(default_factory=dict)  # line key -> quantity, replacing the computed one
     quotes: dict[str, float] = field(default_factory=dict)  # line key -> quoted total, for lines to be quoted
@@ -198,6 +218,7 @@ class BudgetSettings:
         level = data.get("level")
         return cls(
             level=level if level in LEVELS else DEFAULT_LEVEL,
+            country=data.get("country") if data.get("country") in COUNTRIES else DEFAULT_COUNTRY,
             rates=numbers(data.get("rates")),
             units=numbers(data.get("units")),
             quotes=numbers(data.get("quotes")),
@@ -206,6 +227,12 @@ class BudgetSettings:
             snapshot=data.get("snapshot") if isinstance(data.get("snapshot"), dict) else None,
             previous=data.get("previous") if isinstance(data.get("previous"), dict) else None,
         )
+
+
+def percentages(settings: BudgetSettings) -> dict[str, float]:
+    """The percentages in force: the defaults, the country's social security,
+    and whatever the user changed."""
+    return {**PERCENTAGES, "social": COUNTRIES[settings.country][1], **settings.percentages}
 
 
 def _clean_extra(item: dict) -> dict:
@@ -443,7 +470,7 @@ def build_lines(b: Breakdown, plan: _Plan, sheet: ElementSheet | None, settings:
 
     # Lines worked out as a percentage of others: overtime and social security on
     # the wages, then insurance and overheads on everything else.
-    pct = {**PERCENTAGES, **settings.percentages}
+    pct = percentages(settings)
     computed: list[Line] = []
 
     def percent(key: str, chapter: str, concept: str, share: str, of: float) -> None:
@@ -519,6 +546,93 @@ def scene_costs(lines: list[Line], plan: _Plan) -> dict[str, float]:
     return {n: round(v, 2) for n, v in cost.items()}
 
 
+# --- reordering the schedule to save money -------------------------------------------
+
+@dataclass
+class Reorder:
+    order: list[int]  # the schedule's days, by their position now, in the new order
+    cost_before: float
+    cost_after: float
+    holds_before: int
+    holds_after: int
+
+    @property
+    def saving(self) -> float:
+        return round(self.cost_before - self.cost_after, 2)
+
+
+def reorder_days(b: Breakdown, plan: scheduling.Schedule, settings: BudgetSettings) -> Reorder:
+    """The order of the shooting days that pays the cast for the fewest holds.
+
+    Only the order of whole days changes, so every day keeps its scenes, and
+    day work and night work stay in the blocks they are in (turning the crew
+    around between day and night is what a schedule avoids). A move of one day
+    to another place in its block is kept when it lowers the cost, until no
+    move does."""
+    rows = {s.number: s for s in b.scenes}
+    days = [[rows[n] for n in d.scenes if n in rows] for d in plan.days]
+    level = LEVELS[settings.level]["rates"]
+    words = {c.name: c.words for c in b.characters}
+    people: dict[str, list[int]] = {}
+    for i, day in enumerate(days):
+        for s in day:
+            for name in {*s.characters, *s.silent}:
+                people.setdefault(name, []).append(i)
+    worked = {name: set(d) for name, d in people.items()}
+    roles = _roles(b, worked)
+    rate = {name: settings.rates.get(f"cast:{name}", level[f"cast.{roles[name]}"]) for name in people}
+    social = 1 + percentages(settings)["social"]
+
+    def cost(order: list[int]) -> tuple[float, int]:
+        position = {day: i for i, day in enumerate(order)}
+        total, holds = 0.0, 0
+        for name, on in people.items():
+            work, hold = _paid_days({position[d] for d in on})
+            total += rate[name] * (work + hold)
+            holds += hold
+        return total * social, holds
+
+    # Blocks of consecutive days with the same shift; days move only inside their block.
+    shift = [1 if any(s.day_night == "NIGHT" for s in day) and all(s.day_night == "NIGHT" for s in day) else 0
+             for day in days]
+    blocks, start = [], 0
+    for i in range(1, len(days) + 1):
+        if i == len(days) or shift[i] != shift[start]:
+            blocks.append((start, i))
+            start = i
+
+    order = list(range(len(days)))
+    best, best_holds = cost(order)
+    before, holds_before = best, best_holds
+    deadline = time.monotonic() + 5  # a long schedule gets the best found in a few seconds
+    for _ in range(30):  # passes; each one tries every move
+        improved = False
+        for lo, hi in blocks:
+            for i in range(lo, hi):
+                if time.monotonic() > deadline:
+                    break
+                for j in range(lo, hi):
+                    if i == j:
+                        continue
+                    candidate = order[:]
+                    candidate.insert(j, candidate.pop(i))
+                    value, holds = cost(candidate)
+                    if value < best - 0.5:
+                        order, best, best_holds, improved = candidate, value, holds, True
+        if not improved:
+            break
+    return Reorder(order, round(before, 2), round(best, 2), holds_before, best_holds)
+
+
+def apply_order(plan: scheduling.Schedule, order: list[int]) -> scheduling.Schedule:
+    """The schedule with its days in a new order. Dates stay where they were
+    on the calendar: the days that move take the dates of the places they go."""
+    moved = [copy.deepcopy(plan.days[i]) for i in order]
+    for day, slot in zip(moved, plan.days):
+        day.date = slot.date
+    return replace(plan, days=moved)
+
+
 # --- the budget -----------------------------------------------------------------
 
 def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet | None,
@@ -527,7 +641,7 @@ def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet 
     shoot = _plan(b, plan, LEVELS[settings.level].get("pages_per_day", scheduling.DEFAULT_PAGES_PER_DAY))
     lines = build_lines(b, shoot, sheet, settings)
     subtotal = round(sum(line.total for line in lines), 2)
-    pct = {**PERCENTAGES, **settings.percentages}
+    pct = percentages(settings)
     contingency = round(subtotal * pct["contingency"])
     total = subtotal + contingency
     chapters = []
@@ -545,6 +659,8 @@ def compute(b: Breakdown, plan: scheduling.Schedule | None, sheet: ElementSheet 
         "currency": CURRENCY,
         "level": settings.level,
         "levels": [{"key": k, "label": v["label"]} for k, v in LEVELS.items()],
+        "country": settings.country,
+        "countries": [{"key": k, "label": label, "social": social} for k, (label, social) in COUNTRIES.items()],
         "subtotal": subtotal,
         "contingency": {"pct": pct["contingency"], "amount": contingency},
         "total": total,
@@ -602,6 +718,10 @@ BUDGET_ES = {
     "characters": "personajes", "scenes": "secuencias", "vans x days": "furgonetas x días", "meals": "comidas",
     "units": "unidades",
     "Short film": "Cortometraje", "High-budget feature": "Largometraje de alto presupuesto",
+    "Spain": "España", "France": "Francia", "Italy": "Italia", "Germany": "Alemania", "Portugal": "Portugal",
+    "United Kingdom": "Reino Unido", "United States": "Estados Unidos", "Mexico": "México",
+    "Argentina": "Argentina", "Colombia": "Colombia",
+    "No social security": "Sin cargas sociales (facturan o va incluida)",
     "Second unit: crew and equipment": "Segunda unidad: equipo y material",
     "Visual effects across the film": "Efectos visuales del conjunto de la película",
     "Rest of the crew at studio size": "Resto del equipo a escala de gran producción",
@@ -643,7 +763,7 @@ def carry_over(text: str) -> BudgetSettings | None:
     old = BudgetSettings.from_dict(previous)
     # Quantities, quotes and lines by hand that belong to scenes may not fit the
     # new draft; levels and rates still do.
-    return BudgetSettings(level=old.level, rates=old.rates, quotes=old.quotes, extra=old.extra,
+    return BudgetSettings(level=old.level, country=old.country, rates=old.rates, quotes=old.quotes, extra=old.extra,
                           percentages=old.percentages, previous={**(old.snapshot or {}), "saved_at": previous["meta"].get("saved_at")})
 
 

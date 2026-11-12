@@ -1,5 +1,5 @@
 import { language, t } from "./i18n";
-import type { Analysis, Budget, BudgetSettings, ChatEvent, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
+import type { Analysis, Budget, BudgetSettings, ChatEvent, Reorder, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
 
 /** Every request carries the app's header; the server refuses changes without it. */
 const call = (url: string, init: RequestInit = {}) =>
@@ -153,3 +153,7 @@ export const saveBudget = (id: string, settings: BudgetSettings) =>
       body: JSON.stringify(settings),
     }),
   );
+
+/** What reordering the shooting days would save; with `apply`, reorder them. */
+export const reorderSchedule = (id: string, apply = false) =>
+  json<Reorder>(call(`/api/scripts/${id}/schedule/reorder${apply ? "?apply=true" : ""}`, { method: "POST" }));

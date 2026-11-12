@@ -132,9 +132,18 @@ build the app to show a "Buy a licence" link in Settings.
   unit, stage builds and visual effects across the film to be quoted
 - What can't be priced from a script (an explosion, a visual effect) is
   marked *to be quoted*, with the scenes that need it, until you enter the quote
-- Social security on cast and crew wages (about a third in Spain), overtime,
-  insurance, overheads and a contingency reserve, each a percentage you can
-  change; the contingency is kept apart from the ICAA chapters
+- Social security on cast and crew wages set by country (Spain, France,
+  Italy, Germany, Portugal, the UK, the US, Mexico, Argentina, Colombia, or
+  none for crews who invoice), overtime, insurance, overheads and a
+  contingency reserve, each a percentage you can change; the contingency is
+  kept apart from the ICAA chapters
+- Save money by reordering the schedule: Slugline finds the order of the
+  shooting days that pays the cast for the fewest days on hold, says how much
+  it saves, and reorders them with one click (each day keeps its scenes, the
+  night block stays together and the dates stay on the calendar)
+- A production dossier in PDF to show a producer or attach to a funding
+  application: the story, the project in figures, cast and locations with
+  their days, what each department needs, the schedule and the budget
 - What each scene costs to shoot, so you know what cutting it would save, and
   what a rewrite costs: a new draft compares its total and days with the last one
 - Export it as PDF or CSV for a spreadsheet. It is a first draft for a

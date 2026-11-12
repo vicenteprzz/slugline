@@ -147,6 +147,7 @@ class ChatRequest(BaseModel):
 
 class BudgetIn(BaseModel):
     level: str = budget.DEFAULT_LEVEL
+    country: str = budget.DEFAULT_COUNTRY
     rates: dict[str, float] = {}
     units: dict[str, float] = {}
     quotes: dict[str, float] = {}
@@ -445,6 +446,8 @@ def create_app(check_host: bool = True) -> FastAPI:
         script = store.get(script_id)
         if body.level not in budget.LEVELS:
             raise HTTPException(422, "Unknown budget level.")
+        if body.country not in budget.COUNTRIES:
+            raise HTTPException(422, "Unknown country.")
         if len(body.rates) + len(body.units) + len(body.quotes) > 5000 or len(body.extra) > 200:
             raise HTTPException(422, "Too many changes in one budget.")
         with script.lock:
@@ -521,6 +524,22 @@ def create_app(check_host: bool = True) -> FastAPI:
                 plan.actors = script.schedule.actors  # a new plan keeps the cast and crew lists
                 plan.crew = script.schedule.crew
             return _save_schedule(script, plan)
+
+    @app.post("/api/scripts/{script_id}/schedule/reorder")
+    def reorder_schedule(script_id: str, apply: bool = False) -> dict:
+        """What reordering the shooting days to cut the cast's holds would save,
+        and, with `apply`, do it."""
+        script = store.get(script_id)
+        with script.lock:
+            if not script.schedule or len(script.schedule.days) < 2:
+                raise HTTPException(404, "This script has no shooting schedule yet.")
+            settings = budget.load_or_carry(script.text)
+            found = budget.reorder_days(script.breakdown, script.schedule, settings)
+            result = {"saving": found.saving, "holds_before": found.holds_before, "holds_after": found.holds_after,
+                      "changed": found.order != sorted(found.order), "schedule": None}
+            if apply and result["changed"]:
+                result["schedule"] = _save_schedule(script, budget.apply_order(script.schedule, found.order))
+            return result
 
     @app.put("/api/scripts/{script_id}/schedule")
     def edit_schedule(script_id: str, body: ScheduleIn) -> dict:
@@ -620,6 +639,15 @@ def create_app(check_host: bool = True) -> FastAPI:
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
             return _download(body, "application/pdf", filename)
+        if name == "dossier.pdf":
+            with script.lock:
+                result = _budget(script)
+            try:
+                body = export.dossier_pdf(script.breakdown, result, script.schedule, script.elements, script.analysis,
+                                          parse(script.text).title_page.get("author"), lang, trial)
+            except RuntimeError as e:
+                raise HTTPException(501, str(e)) from None
+            return _download(body, "application/pdf", f"{stem}-dossier.pdf")
         if name in ("budget.csv", "budget.pdf"):
             with script.lock:
                 result = _budget(script)

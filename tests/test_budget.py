@@ -199,3 +199,64 @@ def test_api_exports_and_new_drafts():
     assert second["contingency"]["pct"] == 0.1
     assert second["previous"]["total"] == changed["total"]
     assert second["total"] > changed["total"]
+
+
+def test_social_security_follows_the_country():
+    _, spain = setup(days=[["1"]])
+    _, uk = setup(days=[["1"]], country="uk")
+    _, none = setup(days=[["1"]], country="none")
+    _, own = setup(days=[["1"]], country="uk", percentages={"social": 0.2})
+    assert spain["social:crew"]["detail"].startswith("0.32")
+    assert uk["social:crew"]["total"] < spain["social:crew"]["total"]
+    assert none["social:crew"]["total"] == 0 and none["social:cast"]["total"] == 0
+    assert own["social:crew"]["detail"].startswith("0.2|")
+    assert budget.BudgetSettings.from_dict({"country": "mars"}).country == budget.DEFAULT_COUNTRY
+
+
+def test_reordering_days_cuts_paid_holds():
+    script = "\n\n".join(
+        f"INT. ROOM {i} - DAY\n\n{name}\nLine {i}." for i, name in enumerate(["ANNA", "BOB", "ANNA", "BOB", "ANNA"], 1)
+    )
+    b = breakdown(parse(script))
+    plan = Schedule(days=[ShootDay(scenes=[str(i)], date=f"2027-01-0{i}") for i in range(1, 6)])
+    found = budget.reorder_days(b, plan, budget.BudgetSettings())
+    # ANNA works days 1, 3, 5 and BOB days 2, 4: both pay holds. Grouped, nobody does.
+    assert found.holds_before == 3 and found.holds_after == 0 and found.saving > 0
+    moved = budget.apply_order(plan, found.order)
+    assert [d.date for d in moved.days] == [d.date for d in plan.days]  # the calendar stays
+    assert sorted(n for d in moved.days for n in d.scenes) == ["1", "2", "3", "4", "5"]
+
+
+def test_reordering_keeps_nights_together():
+    script = ("INT. A - DAY\n\nANNA\nHi.\n\nINT. B - NIGHT\n\nBOB\nHi.\n\n"
+              "INT. C - NIGHT\n\nANNA\nHi.\n")
+    b = breakdown(parse(script))
+    plan = Schedule(days=[ShootDay(scenes=["1"]), ShootDay(scenes=["2"]), ShootDay(scenes=["3"])])
+    found = budget.reorder_days(b, plan, budget.BudgetSettings())
+    assert found.order[0] == 0  # the day block stays first
+
+
+def test_reorder_and_dossier_api():
+    pytest.importorskip("fastapi")
+    from fastapi.testclient import TestClient
+
+    from slugline.server import create_app
+
+    script = "Title: Holds\n\n" + "\n\n".join(
+        f"INT. ROOM {i} - DAY\n\n{name}\nLine {i}." for i, name in enumerate(["ANNA", "BOB", "ANNA", "BOB", "ANNA"], 1)
+    )
+    client = TestClient(create_app(), headers={"x-slugline": "1"})
+    sid = client.post("/api/scripts", params={"filename": "holds.fountain"}, content=script.encode()).json()["id"]
+    assert client.post(f"/api/scripts/{sid}/schedule/reorder").status_code == 404  # no schedule yet
+    days = [{"scenes": [str(i)], "date": f"2027-01-0{i}"} for i in range(1, 6)]
+    client.put(f"/api/scripts/{sid}/schedule", json={"days": days})
+    preview = client.post(f"/api/scripts/{sid}/schedule/reorder").json()
+    assert preview["changed"] and preview["saving"] > 0 and preview["schedule"] is None
+    applied = client.post(f"/api/scripts/{sid}/schedule/reorder", params={"apply": True}).json()
+    assert [d["date"] for d in applied["schedule"]["days"]] == [f"2027-01-0{i}" for i in range(1, 6)]
+    again = client.post(f"/api/scripts/{sid}/schedule/reorder").json()
+    assert not again["changed"]
+
+    pytest.importorskip("reportlab")
+    pdf = client.get(f"/api/scripts/{sid}/export/dossier.pdf", params={"lang": "es"})
+    assert pdf.status_code == 200 and pdf.content.startswith(b"%PDF")

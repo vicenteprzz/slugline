@@ -830,3 +830,160 @@ def budget_pdf(result: dict, title: str | None, lang: str = "en", trial: bool = 
     decor = _page_decor(lang, trial)
     doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
+
+
+# --- production dossier -------------------------------------------------------------
+
+def dossier_pdf(b: Breakdown, budget_result: dict, schedule: Schedule | None = None,
+                elements: ElementSheet | None = None, analysis: Analysis | None = None,
+                author: str | None = None, lang: str = "en", trial: bool = False) -> bytes:
+    """The project in one document, to show a producer or attach to a funding
+    application: the story, the figures, cast and locations with their days,
+    the schedule and the budget by chapter. Needs `reportlab`."""
+    _reportlab()
+    from datetime import date
+    from xml.sax.saxutils import escape
+
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.units import mm
+    from reportlab.platypus import KeepTogether, PageBreak, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+    from slugline.budget import words
+
+    es = lang == "es"
+    w = words(lang)
+    L = (lambda en, sp: sp) if es else (lambda en, sp: en)  # noqa: E731
+    money = lambda amount: _money(amount, lang)  # noqa: E731
+    styles = getSampleStyleSheet()
+    cell = ParagraphStyle("cell", parent=styles["BodyText"], fontSize=8.5, leading=11)
+    body = ParagraphStyle("body", parent=styles["BodyText"], fontSize=10, leading=14)
+    small = ParagraphStyle("small", parent=cell, textColor=colors.HexColor("#52514e"))
+    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=13, spaceBefore=12, spaceAfter=6)
+    big = ParagraphStyle("big", parent=styles["Title"], fontSize=30, leading=36, spaceAfter=10)
+    centred = ParagraphStyle("centred", parent=body, alignment=1)
+    centred_h = ParagraphStyle("centred_h", parent=h2, alignment=1)
+    centred_small = ParagraphStyle("centred_small", parent=small, alignment=1)
+    p = lambda text, style=cell: Paragraph(escape(str(text)), style)  # noqa: E731
+    base = [
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.black),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.25, colors.HexColor("#c3c2b7")),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]
+    title = b.title or L("Untitled", "Sin título")
+    total_eighths = sum(s.eighths for s in b.scenes)
+    lines = {line["key"]: line for c in budget_result["chapters"] for line in c["lines"]}
+
+    # Cover
+    story = [Spacer(1, 50 * mm), Paragraph(escape(title), big)]
+    if author:
+        story.append(p(L(f"by {author}", f"de {author}"), centred))
+    story += [Spacer(1, 6 * mm), p(L("Production dossier", "Dossier de producción"), centred_h),
+              p(date.today().isoformat(), centred_small)]
+    if analysis and analysis.logline:
+        story += [Spacer(1, 10 * mm), p(analysis.logline, centred)]
+    story.append(PageBreak())
+
+    # Figures
+    def share(field: str, *keys: str) -> str:
+        part = sum(s.eighths for s in b.scenes if getattr(s, field) in keys)
+        return f"{round(100 * part / total_eighths)} %" if total_eighths else "-"
+
+    level = next((lv["label"] for lv in budget_result["levels"] if lv["key"] == budget_result["level"]), "")
+    figures = [
+        [L("Scenes", "Secuencias"), str(b.scene_count)],
+        [L("Pages, estimated", "Páginas, aproximadas"), format_eighths(total_eighths)],
+        [L("Speaking characters", "Personajes con diálogo"), str(len(b.characters))],
+        [L("Locations", "Localizaciones"), str(len(b.locations))],
+        [L("Interior / exterior", "Interior / exterior"), f"{share('int_ext', 'INT')} / {share('int_ext', 'EXT')}"],
+        [L("Day / night", "Día / noche"), f"{share('day_night', 'DAY', 'DAWN', 'DUSK')} / {share('day_night', 'NIGHT')}"],
+        [L("Shooting days", "Jornadas de rodaje"), str(budget_result["days"]) + (
+            L(" (estimated)", " (estimadas)") if budget_result["estimated_days"] else "")],
+        [L("Budget", "Presupuesto"), f"{money(budget_result['total'])} · {w(level)}"],
+    ]
+    story += [p(L("The project in figures", "El proyecto en cifras"), h2),
+              Table(figures, colWidths=[60 * mm, 110 * mm],
+                    style=TableStyle([("FONTSIZE", (0, 0), (-1, -1), 10), ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+                                      ("LINEBELOW", (0, 0), (-1, -1), 0.25, colors.HexColor("#c3c2b7")),
+                                      ("BOTTOMPADDING", (0, 0), (-1, -1), 5)]))]
+    if analysis and analysis.synopsis:
+        story += [p(L("Synopsis", "Sinopsis"), h2), p(analysis.synopsis, body)]
+
+    # Cast
+    cast = [line for c in budget_result["chapters"] for line in c["lines"] if line["key"].startswith("cast:")]
+    if cast:
+        role_name = {"lead": L("lead", "protagonista"), "supporting": L("supporting", "secundario"),
+                     "small": L("small part", "pequeño papel")}
+        rows = [[L("Character", "Personaje"), L("Part", "Papel"), L("Scenes", "Secuencias"),
+                 L("Days", "Días"), L("On hold", "En espera")]]
+        for line in cast:
+            role, work, hold = (line["detail"].split("|") + ["", "", ""])[:3]
+            rows.append([p(line["concept"]), role_name.get(role, role), str(len(line["scenes"])), work, hold])
+        story += [p(L("Cast", "Reparto"), h2),
+                  Table(rows, colWidths=[70 * mm, 32 * mm, 24 * mm, 20 * mm, 24 * mm], repeatRows=1,
+                        style=TableStyle(base), hAlign="LEFT")]
+
+    # Locations
+    rows = [[L("Location", "Localización"), L("Scenes", "Secuencias"), L("Pages", "Páginas"), L("Days", "Días")]]
+    for loc in b.locations:
+        days = lines.get(f"location:{loc.location}", {}).get("units", "")
+        rows.append([p(loc.location), str(len(loc.scenes)), format_eighths(loc.eighths), f"{days:g}" if days != "" else "-"])
+    story += [p(L("Locations", "Localizaciones"), h2),
+              Table(rows, colWidths=[110 * mm, 24 * mm, 20 * mm, 16 * mm], repeatRows=1, style=TableStyle(base))]
+
+    # Departments
+    if elements and not elements.is_empty():
+        counts: dict[str, int] = {}
+        for t in totals(elements, b):
+            counts[t.category] = counts.get(t.category, 0) + 1
+        tr = _translator(lang)
+        rows = [[L("Department", "Departamento"), L("Elements", "Elementos")]]
+        rows += [[tr(LABELS[key]), str(n)] for key, n in counts.items()]
+        story.append(KeepTogether([p(L("What each department needs", "Lo que necesita cada departamento"), h2),
+                                   Table(rows, colWidths=[90 * mm, 30 * mm], style=TableStyle(base), hAlign="LEFT")]))
+
+    # Schedule
+    if schedule and schedule.days:
+        rows = [[L("Day", "Jornada"), L("Date", "Fecha"), L("Locations", "Localizaciones"), L("Pages", "Págs."),
+                 L("Scenes", "Secuencias")]]
+        for i, day in enumerate(schedule.days, start=1):
+            stats = day_stats(day, b, schedule.pages_per_day)
+            rows.append([str(i), _date_label(day.date, lang) if day.date else "-", p(", ".join(stats.locations) or "-"),
+                         format_eighths(stats.eighths), p(", ".join(day.scenes))])
+        story += [PageBreak(), p(L("Shooting schedule", "Plan de rodaje"), h2),
+                  Table(rows, colWidths=[14 * mm, 24 * mm, 76 * mm, 16 * mm, 44 * mm], repeatRows=1,
+                        style=TableStyle(base))]
+
+    # Budget
+    rows = [[L("Ch.", "Cap."), L("Chapter", "Capítulo"), "Total"]]
+    rows += [[c["code"], w(c["label"]), money(c["total"])] for c in budget_result["chapters"]]
+    contingency = budget_result["contingency"]
+    rows += [["", "Subtotal", money(budget_result["subtotal"])],
+             ["", L(f"Contingency ({contingency['pct'] * 100:g}%)", f"Imprevistos ({contingency['pct'] * 100:g} %)"),
+              money(contingency["amount"])],
+             ["", "TOTAL", money(budget_result["total"])]]
+    story += [PageBreak(), p(L("Budget by chapter", "Presupuesto por capítulos"), h2),
+              p(L(f"{w(level)} · {budget_result['days']} shooting days", f"{w(level)} · {budget_result['days']} jornadas de rodaje"), small),
+              Spacer(1, 3 * mm),
+              Table(rows, colWidths=[14 * mm, 120 * mm, 40 * mm],
+                    style=TableStyle(base + [("ALIGN", (-1, 0), (-1, -1), "RIGHT"),
+                                             ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+                                             ("LINEABOVE", (0, -3), (-1, -3), 0.8, colors.black)]))]
+    pending = budget_result["to_quote"]
+    if pending["count"]:
+        one = pending["count"] == 1
+        story.append(p(L(f"{pending['count']} line{'' if one else 's'} still to be quoted ({money(pending['amount'])} as placeholders).",
+                         f"{pending['count']} partida{'' if one else 's'} pendiente{'' if one else 's'} de cotización "
+                         f"({money(pending['amount'])} provisionales)."), small))
+    story.append(p(L("Worked out with Slugline from the script and the schedule; rates are indicative.",
+                     "Calculado con Slugline a partir del guion y el plan de rodaje; las tarifas son orientativas."), small))
+
+    out = io.BytesIO()
+    doc = SimpleDocTemplate(out, pagesize=A4, title=f"{title} - dossier", author="Slugline",
+                            leftMargin=18 * mm, rightMargin=18 * mm, topMargin=16 * mm, bottomMargin=16 * mm)
+    decor = _page_decor(lang, trial)
+    doc.build(story, onFirstPage=decor, onLaterPages=decor)
+    return out.getvalue()

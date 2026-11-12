@@ -469,6 +469,7 @@ function ExportMenu({ script, status }: { script: Script; status: Status | null 
   const pdfs = [
     ["report.pdf", "Production report (PDF)"],
     ["breakdown-sheets.pdf", "Breakdown sheets, one per scene (PDF)"],
+    ["dossier.pdf", "Production dossier (PDF)"],
     ["budget.pdf", "Budget (PDF)"],
     ...(hasSchedule
       ? [
@@ -584,7 +585,13 @@ function Dashboard(props: {
       />
       <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
       <CrewCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
-      <BudgetCard script={script} pdfExport={status?.pdf_export ?? false} onError={props.onError} onOpenScene={props.onOpenScene} />
+      <BudgetCard
+        script={script}
+        pdfExport={status?.pdf_export ?? false}
+        onError={props.onError}
+        onOpenScene={props.onOpenScene}
+        onScheduleChange={props.onScheduleChange}
+      />
 
       <div className="grid">
         <WhoSpeaks breakdown={b} />

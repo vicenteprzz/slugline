@@ -1,11 +1,11 @@
 import { FoldTitle } from "./fold";
 import { useEffect, useRef, useState } from "react";
 
-import { exportUrl, getBudget, saveBudget } from "./api";
+import { exportUrl, getBudget, reorderSchedule, saveBudget } from "./api";
 import { RankedBars } from "./charts";
 import { eighths, titleCase } from "./format";
 import { language, t } from "./i18n";
-import type { Budget, BudgetLine, BudgetSettings, Script } from "./types";
+import type { Budget, BudgetLine, BudgetSettings, Reorder, Schedule, Script } from "./types";
 
 /** Whole euros, as a budget prints them: 12.500 € / €12,500. */
 export function money(amount: number): string {
@@ -86,9 +86,12 @@ export default function BudgetCard(props: {
   pdfExport: boolean;
   onError: (message: string) => void;
   onOpenScene: (number: string) => void;
+  onScheduleChange: (schedule: Schedule) => void;
 }) {
   const { script } = props;
   const [budget, setBudget] = useState<Budget | null>(null);
+  const [reorder, setReorder] = useState<Reorder | null>(null);
+  const [reordering, setReordering] = useState(false);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const settingsRef = useRef<BudgetSettings | null>(null);
@@ -108,6 +111,32 @@ export default function BudgetCard(props: {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [script.id, script.schedule, script.elements, script.breakdown]);
+
+  // What reordering the shooting days would save, whenever the schedule or the rates change.
+  const days = script.schedule?.days.length ?? 0;
+  useEffect(() => {
+    let live = true;
+    setReorder(null);
+    if (days < 2) return;
+    reorderSchedule(script.id)
+      .then((r) => live && setReorder(r))
+      .catch(() => live && setReorder(null));
+    return () => {
+      live = false;
+    };
+  }, [script.id, script.schedule, days, budget?.level, budget?.country, budget?.total]);
+
+  async function applyReorder() {
+    setReordering(true);
+    try {
+      const r = await reorderSchedule(script.id, true);
+      if (r.schedule) props.onScheduleChange(r.schedule);
+    } catch (e) {
+      props.onError(e instanceof Error ? e.message : t("The schedule could not be reordered."));
+    } finally {
+      setReordering(false);
+    }
+  }
 
   async function change(edit: (s: BudgetSettings) => BudgetSettings) {
     const current = settingsRef.current;
@@ -161,6 +190,26 @@ export default function BudgetCard(props: {
               {budget.levels.map((l) => (
                 <option key={l.key} value={l.key}>
                   {t(l.label)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field-inline">
+            <span>{t("Country")}</span>
+            <select
+              value={budget.country}
+              title={t("Sets the social security on wages")}
+              onChange={(e) =>
+                void change((s) => {
+                  const { social: _drop, ...rest } = s.percentages;
+                  return { ...s, country: e.target.value, percentages: rest };
+                })
+              }
+            >
+              {budget.countries.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {t(c.label)}
+                  {c.key !== "none" ? ` · ${Math.round(c.social * 1000) / 10}%` : ""}
                 </option>
               ))}
             </select>
@@ -226,6 +275,20 @@ export default function BudgetCard(props: {
             amount: money(budget.to_quote.amount),
           })}
         </p>
+      )}
+      {reorder?.changed && reorder.saving > 0 && (
+        <div className="reorder">
+          <p>
+            <strong>{t("Save {amount} by reordering the shooting days.", { amount: money(reorder.saving) })}</strong>{" "}
+            {t("The cast would be on hold {before} days instead of {after}. Each day keeps its scenes and the night block stays together; dates stay on the calendar.", {
+              before: reorder.holds_before,
+              after: reorder.holds_after,
+            })}
+          </p>
+          <button className="primary small" disabled={reordering} onClick={() => void applyReorder()}>
+            {reordering ? t("Reordering…") : t("Reorder the days")}
+          </button>
+        </div>
       )}
       {previous && (
         <p className="revision-note">
