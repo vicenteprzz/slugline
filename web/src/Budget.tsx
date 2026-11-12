@@ -270,7 +270,11 @@ export default function BudgetCard(props: {
       )}
       {budget.to_quote.count > 0 && (
         <p className="budget-warning">
-          {t("{n} lines need a quote (effects that can't be priced from the script). They carry {amount} as a placeholder until you enter the quote.", {
+          {t(
+            budget.to_quote.count === 1
+              ? "1 line needs a quote (an effect that can't be priced from the script). It carries {amount} as a placeholder until you enter the quote."
+              : "{n} lines need a quote (effects that can't be priced from the script). They carry {amount} as a placeholder until you enter the quote.",
+            {
             n: budget.to_quote.count,
             amount: money(budget.to_quote.amount),
           })}

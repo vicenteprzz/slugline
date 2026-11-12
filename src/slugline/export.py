@@ -785,8 +785,9 @@ def budget_pdf(result: dict, title: str | None, lang: str = "en", trial: bool = 
     story = [Paragraph(escape(name), styles["Title"]), p(intro, small)]
     pending = result["to_quote"]
     if pending["count"]:
-        story.append(p((f"{pending['count']} partidas a cotizar, con {money(pending['amount'])} provisionales."
-                        if es else f"{pending['count']} lines to be quoted, with {money(pending['amount'])} as placeholders."),
+        one = pending["count"] == 1
+        story.append(p((f"{pending['count']} partida{'' if one else 's'} a cotizar, con {money(pending['amount'])} provisionales."
+                        if es else f"{pending['count']} line{'' if one else 's'} to be quoted, with {money(pending['amount'])} as placeholders."),
                        warn))
     story.append(p("Primer borrador a partir del desglose y el plan de rodaje, con tarifas orientativas. "
                    "Revísalo con el jefe de producción antes de usarlo." if es else

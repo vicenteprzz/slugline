@@ -136,6 +136,8 @@ export const ES: Record<string, string> = {
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
   // Budget card
+  "1 line needs a quote (an effect that can't be priced from the script). It carries {amount} as a placeholder until you enter the quote.":
+    "1 partida necesita presupuesto de proveedor (un efecto que no se puede calcular desde el guion). Lleva {amount} provisionales hasta que pongas la cotización.",
   "Country": "País",
   "Sets the social security on wages": "Fija la Seguridad Social sobre los sueldos",
   "Save {amount} by reordering the shooting days.": "Ahorra {amount} reordenando las jornadas de rodaje.",
