@@ -2055,3 +2055,59 @@ input.num-input:focus {
 .add-line input.num-input {
   border-color: var(--border);
 }
+
+/* Folding cards: a click on the title hides the rest of the card. */
+h3.fold-title {
+  margin: 0;
+}
+
+.fold-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.fold-chevron {
+  display: inline-block;
+  font-size: 12px;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+
+.fold-button:hover .fold-chevron,
+.fold-button:focus-visible .fold-chevron {
+  color: var(--ink);
+}
+
+.card.folded .fold-chevron {
+  transform: rotate(-90deg);
+}
+
+.card.folded > :not(:has(.fold-title)),
+.card.folded :has(> .fold-title) > :not(.fold-title),
+.card.folded .card-head > :not(:has(.fold-title)) {
+  display: none;
+}
+
+.card.folded {
+  padding-bottom: 14px;
+}
+
+.fold-all {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold-chevron {
+    transition: none;
+  }
+}

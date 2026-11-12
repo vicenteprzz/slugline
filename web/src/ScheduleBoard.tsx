@@ -1,3 +1,4 @@
+import { FoldTitle } from "./fold";
 import { useState } from "react";
 
 import { clearSchedule, exportUrl, saveSchedule, suggestSchedule } from "./api";
@@ -113,7 +114,7 @@ export default function ScheduleBoard(props: {
       <section className="card">
         <header className="card-head">
           <div>
-            <h3>{t("Shooting schedule")}</h3>
+            <FoldTitle id="schedule">{t("Shooting schedule")}</FoldTitle>
             <p>
               {t(
                 "Put the scenes in shooting order, day by day. Slugline can suggest a first plan: day work first and nights in one block, each location kept together, and each day filled up to the pages you expect to shoot.",
@@ -216,7 +217,7 @@ export default function ScheduleBoard(props: {
     <section className={`card${busy ? " saving" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>{t("Shooting schedule")}</h3>
+          <FoldTitle id="schedule">{t("Shooting schedule")}</FoldTitle>
           <p>
             {t("{days} · {pages} pages · planned at {perDay} pages a day. Drag the strips to reorder them, or use the menu on each strip.", {
               days: plural(plan.days.length, "shooting day"),
@@ -394,7 +395,7 @@ export function CastCard(props: {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>{t("Cast and day out of days")}</h3>
+          <FoldTitle id="cast">{t("Cast and day out of days")}</FoldTitle>
           <p>
             {t(
               "Which shooting days each character works, from the schedule above. Holds are days between work days when the actor is paid but not shooting: moving scenes to cut them saves money. Add the actors' names for the call sheets.",
@@ -520,7 +521,7 @@ export function CrewCard(props: { script: Script; onChange: (schedule: Schedule)
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>{t("Crew")}</h3>
+          <FoldTitle id="crew">{t("Crew")}</FoldTitle>
           <p>{t("Printed on every call sheet, called at the crew call of each day.")}</p>
         </div>
       </header>

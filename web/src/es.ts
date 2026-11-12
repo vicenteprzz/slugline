@@ -129,6 +129,11 @@ export const ES: Record<string, string> = {
   "Tension (1–5)": "Tensión (1–5)",
   "Mood (−2 to +2)": "Ánimo (−2 a +2)",
   "Formatting notes": "Notas de formato",
+  // Folding sections
+  "Show this section": "Mostrar esta sección",
+  "Hide this section": "Ocultar esta sección",
+  "Fold all sections": "Plegar todas las secciones",
+  "Unfold all sections": "Desplegar todas las secciones",
   // Budget card
   "Budget":
     "Presupuesto",

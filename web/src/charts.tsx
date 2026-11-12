@@ -1,3 +1,4 @@
+import { FoldTitle } from "./fold";
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { count, niceTicks } from "./format";
@@ -84,6 +85,7 @@ export type TableData = { columns: string[]; rows: (string | number)[][] };
 
 /** A card holding one chart, with the same data available as a table. */
 export function ChartCard(props: {
+  id?: string; // remembers the card as folded; the title is used if missing
   title: string;
   subtitle?: string;
   table?: TableData;
@@ -95,7 +97,7 @@ export function ChartCard(props: {
     <section className={`card${props.wide ? " wide" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>{props.title}</h3>
+          <FoldTitle id={props.id ?? props.title}>{props.title}</FoldTitle>
           {props.subtitle && <p>{props.subtitle}</p>}
         </div>
         {props.table && (

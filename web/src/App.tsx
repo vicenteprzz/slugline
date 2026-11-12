@@ -1,3 +1,4 @@
+import { FoldAllControls, FoldTitle } from "./fold";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -536,6 +537,7 @@ function Dashboard(props: {
 
   return (
     <>
+      <FoldAllControls />
       <section className="tiles">
         <Tile label={t("Scenes")} value={count(b.scene_count)} />
         <Tile label={t("Pages, estimated")} value={b.page_count.toLocaleString(language() === "es" ? "es-ES" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
@@ -547,13 +549,13 @@ function Dashboard(props: {
 
       <div className="grid">
         <ChartCard
-          title={t("Day and night")}
+          id="day-night" title={t("Day and night")}
           subtitle={t("Share of the {pages}. Scenes marked LATER or CONTINUOUS count with the scene before.", { pages })}
           table={splitTable(b, "day_night", DAY_NIGHT)}
         >
           <SegmentedBar parts={split(b, "day_night", DAY_NIGHT)} total={pages} />
         </ChartCard>
-        <ChartCard title={t("Interior and exterior")} subtitle={t("Share of the {pages}.", { pages })} table={splitTable(b, "int_ext", INT_EXT)}>
+        <ChartCard id="int-ext" title={t("Interior and exterior")} subtitle={t("Share of the {pages}.", { pages })} table={splitTable(b, "int_ext", INT_EXT)}>
           <SegmentedBar parts={split(b, "int_ext", INT_EXT)} total={pages} />
         </ChartCard>
       </div>
@@ -587,7 +589,7 @@ function Dashboard(props: {
       <div className="grid">
         <WhoSpeaks breakdown={b} />
         <ChartCard
-          title={t("Dialogue share")}
+          id="dialogue" title={t("Dialogue share")}
           subtitle={t("Words spoken by each character, out of {n}.", { n: count(totalWords) })}
           table={{
             columns: [t("Character"), t("Words"), t("Share"), t("Cues"), t("Scenes")],
@@ -611,7 +613,7 @@ function Dashboard(props: {
 
       <div className="grid">
         <ChartCard
-          title={t("Locations")}
+          id="locations" title={t("Locations")}
           subtitle={t("Pages to shoot at each one.")}
           table={{
             columns: [t("Location"), t("Scenes"), t("Length (pages)"), t("Scene numbers")],
@@ -701,7 +703,7 @@ function Story(props: {
     return (
       <section className="card story">
         <div>
-          <h3>{t("Story notes")}</h3>
+          <FoldTitle id="story">{t("Story notes")}</FoldTitle>
           <p>
             {t(
               "Claude can read the script and add a logline, a synopsis, a summary and emotional tone for every scene, and a proofread of the formatting.",
@@ -718,7 +720,7 @@ function Story(props: {
   return (
     <section className={`card story done${analyzing ? " stale" : ""}`}>
       <div>
-        <h3>{t("Story notes")}</h3>
+        <FoldTitle id="story">{t("Story notes")}</FoldTitle>
         <p className="logline">{analysis.logline}</p>
         <p>{analysis.synopsis}</p>
         {analysis.themes.length > 0 && (
@@ -750,7 +752,7 @@ function Stripboard(props: {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>{t("Stripboard")}</h3>
+          <FoldTitle id="stripboard">{t("Stripboard")}</FoldTitle>
           <p>{t("Every scene in script order, lengths in pages and eighths. Open a scene for its breakdown sheet.")}</p>
         </div>
         <ul className="legend strips">
@@ -838,7 +840,7 @@ function WhoSpeaks({ breakdown: b }: { breakdown: Breakdown }) {
   });
   return (
     <ChartCard
-      title={t("Who speaks in each scene")}
+      id="who-speaks" title={t("Who speaks in each scene")}
       subtitle={t("Words of dialogue per scene, by character.")}
       table={{
         columns: [t("Scene"), ...series.map((s) => s.name)],
@@ -858,7 +860,7 @@ function Presence({ breakdown: b }: { breakdown: Breakdown }) {
   }));
   return (
     <ChartCard
-      title={t("Character presence")}
+      id="presence" title={t("Character presence")}
       subtitle={t("Who is in which scene, and how much they say there.")}
       table={{
         columns: [t("Character"), t("Speaks in scenes"), t("Named without lines in")],
@@ -880,7 +882,7 @@ function Tone({ breakdown: b, analysis }: { breakdown: Breakdown; analysis: Anal
   if (!analysis || analysis.scenes.length === 0) {
     return (
       <section className="card placeholder">
-        <h3>{t("Tone across the story")}</h3>
+        <FoldTitle id="tone">{t("Tone across the story")}</FoldTitle>
         <p>{t("Tension and mood, scene by scene. It appears here once the script has been analyzed.")}</p>
       </section>
     );
@@ -892,7 +894,7 @@ function Tone({ breakdown: b, analysis }: { breakdown: Breakdown; analysis: Anal
   });
   return (
     <ChartCard
-      title={t("Tone across the story")}
+      id="tone" title={t("Tone across the story")}
       subtitle={t("Claude's reading of each scene, scored against the rest of this script.")}
       table={{
         columns: [t("Scene"), t("Tone"), t("Tension (1–5)"), t("Mood (−2 to +2)")],
@@ -983,7 +985,7 @@ function Issues(props: {
     <section className="card">
       <header className="card-head">
         <div>
-          <h3>{t("Formatting notes")}</h3>
+          <FoldTitle id="issues">{t("Formatting notes")}</FoldTitle>
           <p>{analyzed ? t("From the rule-based checks and Claude's proofread.") : t("From the rule-based checks. Analyzing the script adds a proofread.")}</p>
         </div>
       </header>
@@ -1040,7 +1042,7 @@ function ElementsCard(props: {
     <section className={`card${props.extracting ? " busy" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>{t("Elements")}</h3>
+          <FoldTitle id="elements">{t("Elements")}</FoldTitle>
           <p>
             {t("What each department needs, scene by scene: extras, stunts, props, wardrobe, makeup, vehicles, effects and more.")}
             {totals.length > 0 && ` ${t("Suggesting again keeps everything you added or edited by hand.")}`}

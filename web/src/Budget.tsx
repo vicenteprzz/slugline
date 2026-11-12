@@ -1,3 +1,4 @@
+import { FoldTitle } from "./fold";
 import { useEffect, useRef, useState } from "react";
 
 import { exportUrl, getBudget, saveBudget } from "./api";
@@ -130,7 +131,7 @@ export default function BudgetCard(props: {
     <section className={`card budget${saving ? " busy" : ""}`}>
       <header className="card-head">
         <div>
-          <h3>{t("Budget")}</h3>
+          <FoldTitle id="budget">{t("Budget")}</FoldTitle>
           <p>
             {t(
               "Worked out from the breakdown and the schedule: shooting days, the days each actor works, extras, locations, vehicles. Quantities follow the schedule; the rates are a starting point to replace with your own.",
