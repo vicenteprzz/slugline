@@ -56,6 +56,7 @@ def test_every_message_is_translated_in_the_app_and_the_pdfs():
     checks = importlib.import_module("slugline.lint")
     templates = [checks.NO_INT_EXT, checks.NO_TIME, checks.EMPTY_SCENE, checks.EMPTY_DIALOGUE, checks.LONG_ACTION,
                  checks.LONG_ACTIONS, checks.PARTIAL_NUMBERING, checks.DUPLICATE_NUMBER, checks.NO_TITLE,
+                 checks.READ_NO_DIALOGUE, checks.READ_FEW_SCENES, checks.READ_NO_LIGHT,
                  *checks.SIMILAR.values()]
     es_ts = (Path(__file__).parents[1] / "web" / "src" / "es.ts").read_text(encoding="utf-8")
     for template in templates:
@@ -64,3 +65,15 @@ def test_every_message_is_translated_in_the_app_and_the_pdfs():
     # Every issue the checks write carries its template.
     issues = lint(parse("EXT. A\n\nBOB\n\nINT. B - DAY\n\nHi.\n"))
     assert issues and all(i.template in templates for i in issues)
+
+
+
+def test_a_badly_read_file_is_reported():
+    no_dialogue = "\n\n".join(f"INT. ROOM {i} - DAY\n\nSomething happens." for i in range(6))
+    assert "read-no-dialogue" in codes(no_dialogue)
+    no_light = "\n\n".join(f"INT. ROOM {i}\n\nANNA\nHi." for i in range(12))
+    assert "read-no-light" in codes(no_light)
+    long_scene = "INT. ROOM - DAY\n\n" + "\n\n".join("A long paragraph of action. " * 12 for _ in range(260)) + "\n\nANNA\nHi.\n"
+    assert "read-few-scenes" in codes(long_scene + "\n\nINT. HALL - DAY\n\nANNA\nBye.\n")
+    healthy = "\n\n".join(f"INT. ROOM {i} - DAY\n\nANNA\nHi." for i in range(12))
+    assert not {c for c in codes(healthy) if c.startswith("read-")}

@@ -553,6 +553,7 @@ function Dashboard(props: {
 
   return (
     <>
+      <ReadingWarning issues={script.issues} filename={script.filename} />
       <FoldAllControls />
       <section className="tiles">
         <Tile label={t("Scenes")} value={count(b.scene_count)} />
@@ -1237,4 +1238,30 @@ function RevisionBanner(props: { revision: NonNullable<Elements["revision"]>; on
 /** True when what is being dragged includes files from outside the page. */
 function isFileDrag(e: React.DragEvent): boolean {
   return Array.from(e.dataTransfer?.types ?? []).includes("Files");
+}
+
+const READ_CODES = new Set(["read-no-dialogue", "read-few-scenes", "read-no-light"]);
+
+/** When the file looks badly read, say so before anyone plans with it. */
+function ReadingWarning({ issues, filename }: { issues: Issue[]; filename: string }) {
+  const found = issues.filter((i) => READ_CODES.has(i.code));
+  if (found.length === 0) return null;
+  return (
+    <section className="read-warning" role="alert">
+      <strong>{t("This script may not have been read correctly.")}</strong>
+      <ul>
+        {found.map((i) => (
+          <li key={i.code}>{i.template ? t(i.template, i.params ?? undefined) : i.message}</li>
+        ))}
+      </ul>
+      <p>
+        {/\.pdf$/i.test(filename)
+          ? t(
+              "Check the breakdown before using it. If {file} is a normal script, send it to us from the website so we can fix the reading; a Fountain or Final Draft file, if you have one, is read exactly.",
+              { file: filename },
+            )
+          : t("Check the breakdown before using it, and the formatting notes below: the scene headings or the character names may not follow the usual format.")}
+      </p>
+    </section>
+  );
 }

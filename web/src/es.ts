@@ -136,6 +136,12 @@ export const ES: Record<string, string> = {
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
   // Budget card
+  "Check the breakdown before using it, and the formatting notes below: the scene headings or the character names may not follow the usual format.":
+    "Revisa el desglose antes de usarlo y las notas de formato de abajo: puede que los encabezados o los nombres de los personajes no sigan el formato habitual.",
+  "This script may not have been read correctly.":
+    "Puede que este guion no se haya leído bien.",
+  "Check the breakdown before using it. If {file} is a normal script, send it to us from the website so we can fix the reading; a Fountain or Final Draft file, if you have one, is read exactly.":
+    "Revisa el desglose antes de usarlo. Si {file} es un guion normal, mándanoslo desde la web para que arreglemos la lectura; si tienes el guion en Fountain o Final Draft, se lee sin errores.",
   "1 line needs a quote (an effect that can't be priced from the script). It carries {amount} as a placeholder until you enter the quote.":
     "1 partida necesita presupuesto de proveedor (un efecto que no se puede calcular desde el guion). Lleva {amount} provisionales hasta que pongas la cotización.",
   "Country": "País",
@@ -333,6 +339,12 @@ export const ES: Record<string, string> = {
   "Low-budget feature": "Largometraje de bajo presupuesto",
   "Mid-budget feature": "Largometraje de presupuesto medio",
   // Formatting notes from the checks (the same text as MESSAGES_ES in lint.py)
+  "No speaking characters were found in {scenes} scenes: the file may not have been read correctly.":
+    "No se ha encontrado ningún personaje con diálogo en {scenes} secuencias: puede que el archivo no se haya leído bien.",
+  "Only {scenes} scenes in about {pages} pages: some scene headings may not have been recognised.":
+    "Solo {scenes} secuencias en unas {pages} páginas: puede que no se hayan reconocido algunos encabezados.",
+  "{n} of {total} scenes have no day or night: the times in the headings may not have been read.":
+    "{n} de {total} secuencias no tienen día ni noche: puede que no se haya leído el momento del día de los encabezados.",
   "Heading \"{heading}\" has no INT./EXT.":
     "El encabezado \"{heading}\" no dice si es INT. o EXT.",
   "Heading \"{heading}\" has no time of day.":

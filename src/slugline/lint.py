@@ -47,6 +47,11 @@ SIMILAR = {
 PARTIAL_NUMBERING = "Only {n} of {total} scenes have a scene number."
 DUPLICATE_NUMBER = "Scene number {number} is used {n} times."
 NO_TITLE = "The script has no title page."
+# Signs that a file was not read well, shown at the top of the dashboard.
+READ_NO_DIALOGUE = "No speaking characters were found in {scenes} scenes: the file may not have been read correctly."
+READ_FEW_SCENES = "Only {scenes} scenes in about {pages} pages: some scene headings may not have been recognised."
+READ_NO_LIGHT = "{n} of {total} scenes have no day or night: the times in the headings may not have been read."
+READ_CODES = ("read-no-dialogue", "read-few-scenes", "read-no-light")
 
 
 MESSAGES_ES = {
@@ -63,6 +68,9 @@ MESSAGES_ES = {
     PARTIAL_NUMBERING: "Solo {n} de {total} secuencias tienen número.",
     DUPLICATE_NUMBER: "El número de secuencia {number} se usa {n} veces.",
     NO_TITLE: "El guion no tiene portada.",
+    READ_NO_DIALOGUE: "No se ha encontrado ningún personaje con diálogo en {scenes} secuencias: puede que el archivo no se haya leído bien.",
+    READ_FEW_SCENES: "Solo {scenes} secuencias en unas {pages} páginas: puede que no se hayan reconocido algunos encabezados.",
+    READ_NO_LIGHT: "{n} de {total} secuencias no tienen día ni noche: puede que no se haya leído el momento del día de los encabezados.",
 }
 
 
@@ -143,4 +151,21 @@ def lint(play: Screenplay) -> list[Issue]:
 
     if play.scenes and not play.title:
         issues.append(_issue("info", "no-title", NO_TITLE))
-    return issues
+    return _reading_checks(play) + issues
+
+
+def _reading_checks(play: Screenplay) -> list[Issue]:
+    """Signs that the file was not read well: a script with no dialogue at
+    all, far too few scenes for its length, or most scenes without day or
+    night. Better to say so than to let someone plan with a bad reading."""
+    scenes = len(play.scenes)
+    found: list[Issue] = []
+    if scenes >= 5 and not any(s.dialogues for s in play.scenes):
+        found.append(_issue("warning", "read-no-dialogue", READ_NO_DIALOGUE, scenes=scenes))
+    pages = play.page_count
+    if pages >= 20 and scenes and pages / scenes > 4:
+        found.append(_issue("warning", "read-few-scenes", READ_FEW_SCENES, scenes=scenes, pages=round(pages)))
+    dark = sum(1 for s in play.scenes if not s.day_night)
+    if scenes >= 10 and dark * 2 > scenes:
+        found.append(_issue("warning", "read-no-light", READ_NO_LIGHT, n=dark, total=scenes))
+    return found
