@@ -41,6 +41,8 @@ export type Issue = {
   scene: string | null;
   source: "rule" | "ai";
   names?: string[] | null; // two spellings of one name, most used first
+  template?: string | null; // the message before its values were filled in, for translation
+  params?: Record<string, string | number> | null;
 };
 
 export type Corrections = {

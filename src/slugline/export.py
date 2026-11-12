@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from slugline.breakdown import Breakdown
 from slugline.elements import COLORS, LABELS, ElementSheet, totals
 from slugline.schedule import Schedule, day_stats
-from slugline.lint import Issue
+from slugline.lint import MESSAGES_ES, Issue
 from slugline.parser import format_eighths
 
 if TYPE_CHECKING:
@@ -75,6 +75,13 @@ def _translator(lang: str):
         return out.format(**values) if values else out
 
     return tr
+
+
+def _issue_text(issue: Issue, lang: str) -> str:
+    """A formatting note in the document's language (Claude's notes are already in it)."""
+    if lang == "es" and issue.template in MESSAGES_ES:
+        return MESSAGES_ES[issue.template].format(**(issue.params or {}))
+    return issue.message
 
 
 def _light(value: str | None, lang: str) -> str:
@@ -291,7 +298,7 @@ def report_pdf(
     if all_issues:
         story.append(Paragraph(tr("Formatting notes"), h2))
         rows = [[tr("Level"), tr("Scene"), tr("Note"), tr("Source")]]
-        rows += [[tr(i.severity), i.scene or "-", p(i.message), tr(i.source)] for i in all_issues]
+        rows += [[tr(i.severity), i.scene or "-", p(_issue_text(i, lang)), tr(i.source)] for i in all_issues]
         story.append(Table(rows, colWidths=[20 * mm, 14 * mm, 215 * mm, 18 * mm], repeatRows=1, style=TableStyle(base)))
 
     out = io.BytesIO()

@@ -75,3 +75,78 @@ def test_letters_spaced_out_by_the_pdf_are_joined():
         lines += [cue + name, " " * 12 + "Hi.", ""]
     play = parse(pdf_text_to_fountain("\n".join(lines)))
     assert [d.character for d in play.scenes[0].dialogues] == ["MARTY", "MARTY", "MARTY", "MARY ANN"]
+
+
+# A shooting script laid out with wider margins: action at 11, dialogue at 27,
+# cues at 48, scene numbers on both sides, revision headers, and a cue the PDF
+# put at the end of the first line of dialogue.
+WIDE_TITLE = (
+    " " * 52 + "Rev. 12/17/20 (Blue)\n\n" + " " * 47 + "THE CAPE\n\n" + " " * 49 + "an origin\n\n"
+    + " " * 52 + "by\n\n" + " " * 40 + "Ann Writer\n"
+)
+
+
+def _wide_page(number: int) -> str:
+    a, d, c = " " * 11, " " * 27, " " * 48
+    return "\n".join([
+        f"02/09/20  (White Shooting Script)  {number}.",
+        f"{number}          INT.  POLICE  STATION  -  NIGHT" + " " * 40 + f"{number}",
+        "",
+        f"{a}Rain  hammers  the  windows.  GORDON  waits  by  the  door",
+        f"{a}with  a  file.",
+        "",
+        f"{c}GORDON",
+        f"{d}Where  were  you?",
+        "",
+        f"{d}What  do  we  know? CAPE",
+        f"{d}Nothing  yet.",
+        "",
+        f"{a}He  turns  away.",
+        "",
+        f"{c}CAPE",
+        f"{d}Up  here.",
+        "",
+        f"{number + 1}          ON  THE  ROOF" + " " * 50 + f"{number + 1}",
+        "",
+        f"{a}Wind.",
+        "",
+        f"{c}CUT TO:" if number == 1 else "",
+        "",
+        f"{' ' * 80}(CONTINUED)",
+    ])
+
+
+def test_wide_margins_and_shooting_script_marks():
+    pages = [WIDE_TITLE, _wide_page(1), _wide_page(3)]
+    # A scanned page sits a few characters to the right of the others.
+    pages[2] = "\n".join(" " * 6 + line if line.strip() else line for line in pages[2].splitlines())
+    play = parse(pdf_text_to_fountain("\f".join(pages)))
+    assert play.title == "THE CAPE"
+    assert play.title_page["author"] == "Ann Writer"
+    assert [(s.number, s.heading) for s in play.scenes] == [
+        ("1", "INT. POLICE STATION - NIGHT"), ("2", "ON THE ROOF"),
+        ("3", "INT. POLICE STATION - NIGHT"), ("4", "ON THE ROOF"),
+    ]
+    first = play.scenes[0]
+    assert [(d.character, d.lines) for d in first.dialogues] == [
+        ("GORDON", ["Where were you?"]), ("CAPE", ["What do we know?", "Nothing yet."]), ("CAPE", ["Up here."]),
+    ]
+    assert first.elements[0].text == "Rain hammers the windows. GORDON waits by the door with a file."
+    assert [d.character for d in play.scenes[2].dialogues] == ["GORDON", "CAPE", "CAPE"]
+    assert "White Shooting Script" not in pdf_text_to_fountain("\f".join(pages))
+
+
+def test_centred_text_in_action_stays_on_its_lines():
+    page = "\n".join([
+        "INT. CINEMA - NIGHT",
+        "",
+        "The screen lights up:",
+        "",
+        " " * 23 + '"Modern Times". A story',
+        " " * 21 + "of industry.",
+        "",
+        "The crowd claps.",
+    ])
+    text = pdf_text_to_fountain(page)
+    assert '"Modern Times". A story\nof industry.' in text
+    assert not parse(text).scenes[0].dialogues

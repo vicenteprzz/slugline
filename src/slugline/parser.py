@@ -36,6 +36,12 @@ TIME_HINT = re.compile(
     r"|TWILIGHT|MAGIC HOUR|LATERN?|CONTIN[UI]+OUS|SAME|MOMENTS?|SOON|AFTER|SHOWTIME|AFTERN?OON)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
     re.IGNORECASE,
 )
+# Parts of a heading that say how it is shot, not where: "EXT. BODEGA - MOVING
+# POV TOWARD THE WINDOW - NIGHT" is shot at the BODEGA.
+SHOT = re.compile(
+    r"\b(POV|ANGLE|ANGLES|CLOSE|CLOSEUP|CLOSE-UP|CLOSE ON|MOVING|TRACKING|WIDE|INSERT|AERIAL|OVERHEAD"
+    r"|HIGH ANGLE|LOW ANGLE|ESTABLISHING|ON THE|ON HIS|ON HER|FAVORING|PLANO|ÁNGULO|SUBJETIVA)\b"
+)
 # Production boards only care about four lighting conditions. Order matters:
 # "PRE-DAWN" is dawn, "THE NEXT DAY" is day.
 DAY_NIGHT = [
@@ -94,6 +100,10 @@ class Scene:
     # DAY / NIGHT / DAWN / DUSK. Relative times (LATER, CONTINUOUS...) inherit
     # the value of the scene before them.
     day_night: str | None = None
+    # A heading that names neither INT./EXT. nor a time, like "INSIDE" or "THE
+    # CAR AHEAD" in a shooting script, is a new shot in the same place: it
+    # takes the location (and INT./EXT.) of the scene before.
+    continues: bool = False
     # 1-based line of the heading in the source text.
     line: int = 0
 
@@ -208,6 +218,13 @@ def parse_heading(text: str) -> tuple[str | None, str, str | None]:
     if len(parts) > 1 and TIME_HINT.search(parts[-1]):
         return int_ext, " - ".join(parts[:-1]).strip(), parts[-1].strip().upper()
     return int_ext, " - ".join(p.strip() for p in parts), None
+
+
+def _place(location: str) -> str:
+    """The location without the parts that only describe the shot."""
+    parts = location.split(" - ")
+    kept = [parts[0]] + [part for part in parts[1:] if not SHOT.search(part)]
+    return " - ".join(kept)
 
 
 def day_night(time_of_day: str | None) -> str | None:
@@ -340,6 +357,10 @@ def parse(text: str) -> Screenplay:
                 scene_number=scene_number,
                 line=i + 1,
             )
+            scene.location = _place(scene.location)
+            if int_ext is None and time is None and play.scenes:
+                before = play.scenes[-1]
+                scene.int_ext, scene.location, scene.continues = before.int_ext, before.location, True
             scene.day_night = day_night(time) or (play.scenes[-1].day_night if play.scenes else None)
             play.scenes.append(scene)
             current = scene.elements

@@ -995,7 +995,7 @@ function Issues(props: {
               </span>
               <span className="issue-text">
                 {issue.scene && <strong>{t("Scene {n}.", { n: issue.scene })} </strong>}
-                {issue.message}
+                {issue.template ? t(issue.template, issue.params ?? undefined) : issue.message}
                 {issue.source === "ai" && <span className="source"> {t("Found by Claude.")}</span>}
                 <IssueFix issue={issue} onCorrect={props.onCorrect} />
               </span>

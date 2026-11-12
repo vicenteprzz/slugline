@@ -129,6 +129,33 @@ export const ES: Record<string, string> = {
   "Tension (1–5)": "Tensión (1–5)",
   "Mood (−2 to +2)": "Ánimo (−2 a +2)",
   "Formatting notes": "Notas de formato",
+  // Formatting notes from the checks (the same text as MESSAGES_ES in lint.py)
+  "Heading \"{heading}\" has no INT./EXT.":
+    "El encabezado \"{heading}\" no dice si es INT. o EXT.",
+  "Heading \"{heading}\" has no time of day.":
+    "El encabezado \"{heading}\" no dice el momento del día.",
+  "Scene \"{heading}\" is empty.":
+    "La secuencia \"{heading}\" está vacía.",
+  "{character} has a cue with no dialogue.":
+    "{character} tiene una intervención sin diálogo.",
+  "1 action paragraph longer than {lines} lines; shorter blocks read faster.":
+    "1 párrafo de acción de más de {lines} líneas; los bloques cortos se leen mejor.",
+  "{n} action paragraphs longer than {lines} lines; shorter blocks read faster.":
+    "{n} párrafos de acción de más de {lines} líneas; los bloques cortos se leen mejor.",
+  "Characters {a} and {b} differ only in punctuation or spacing ({na} and {nb} cues).":
+    "Los personajes {a} y {b} solo se diferencian en la puntuación o los espacios ({na} y {nb} intervenciones).",
+  "Characters {a} and {b} look like the same name spelled two ways ({na} and {nb} cues).":
+    "Los personajes {a} y {b} parecen el mismo nombre escrito de dos formas ({na} y {nb} intervenciones).",
+  "Locations \"{a}\" and \"{b}\" differ only in punctuation or spacing.":
+    "Los decorados \"{a}\" y \"{b}\" solo se diferencian en la puntuación o los espacios.",
+  "Locations \"{a}\" and \"{b}\" look like the same name spelled two ways.":
+    "Los decorados \"{a}\" y \"{b}\" parecen el mismo nombre escrito de dos formas.",
+  "Only {n} of {total} scenes have a scene number.":
+    "Solo {n} de {total} secuencias tienen número.",
+  "Scene number {number} is used {n} times.":
+    "El número de secuencia {number} se usa {n} veces.",
+  "The script has no title page.":
+    "El guion no tiene portada.",
   "Merge as {name}": "Juntar como {name}",
   "Set day or night for scene {n}": "Elegir día o noche para la secuencia {n}",
   "Corrected in Slugline": "Corregido en Slugline",

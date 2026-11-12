@@ -48,8 +48,14 @@ build the app to show a "Buy a licence" link in Settings.
 - Parses Fountain screenplays into scenes, dialogue, action and transitions
 - Imports Final Draft (`.fdx`) scripts, scene numbers and dual dialogue included
 - Imports PDF screenplays by reading the industry layout (indentation tells
-  action, dialogue, parentheticals, character cues and transitions apart), and
-  joins dialogue split across pages with `(MORE)` / `(CONT'D)`
+  action, dialogue, parentheticals, character cues and transitions apart),
+  measured on each script and each page, so wide margins and scanned pages
+  work too. It joins dialogue split across pages with `(MORE)` / `(CONT'D)`,
+  reads scene numbers beside headings, and drops revision headers and
+  `CONTINUED` lines
+- In shooting scripts, shot descriptions (`MOVING POV`, `ANGLE ON`...) are kept
+  out of the location, and a numbered shot with no INT./EXT. (`INSIDE`) stays
+  in the location of the scene before, so the schedule groups them
 - Handles the tricky parts of Fountain: forced scene headings (`.FLASHBACK`),
   forced characters (`@McCLANE`) and action (`!KNOCK KNOCK`), extensions like
   `(V.O.)` / `(CONT'D)`, dual dialogue (`^`), centered text, emphasis markers,
@@ -308,7 +314,7 @@ To work on the dashboard, run `slugline serve` in one terminal and
   appearances are found by name, so a character called WILL would also match
   the capitalised word "Will" at the start of a sentence.
 - `INTERCUT` blocks stay inside the scene where they start.
-- PDF import expects standard screenplay layout; dual dialogue in PDFs isn't supported yet.
+- PDF import reads the layout, not the meaning: dual dialogue and badly scanned pages can come out mixed up. Check the formatting notes after importing.
 - Drafts are recognised as the same script by their title page (or, without
   one, by their scene headings). Matching scenes is a judgement from the text:
   check the scenes it flags, and a scene moved to a new location with new

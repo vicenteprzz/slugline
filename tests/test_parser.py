@@ -32,7 +32,19 @@ def test_scene_numbers_and_forced_heading():
     play = parse("INT. A - DAY #1#\n\nX.\n\n.FLASHBACK #1A#\n\nY.\n\nEXT. B - NIGHT\n\nZ.\n")
     assert [s.number for s in play.scenes] == ["1", "1A", "3"]
     assert play.scenes[1].heading == "FLASHBACK"
-    assert play.scenes[1].int_ext is None
+    # No INT./EXT. and no time: another shot in the same place as the scene before.
+    assert (play.scenes[1].int_ext, play.scenes[1].location, play.scenes[1].continues) == ("INT", "A", True)
+    assert not play.scenes[2].continues
+
+
+def test_shot_descriptions_are_not_part_of_the_location():
+    play = parse(
+        "EXT. BODEGA - MOVING POV TOWARD THE WINDOW - NIGHT\n\nA.\n\n"
+        "EXT. ROOFTOP - ON THE RUSTED SEARCHLIGHT - NIGHT\n\nB.\n\n"
+        "INT. RANCH - CORRAL - DAY\n\nC.\n\nEXT. BODEGA - NIGHT\n\nD.\n"
+    )
+    assert [s.location for s in play.scenes] == ["BODEGA", "ROOFTOP", "RANCH - CORRAL", "BODEGA"]
+    assert play.scenes[0].heading == "EXT. BODEGA - MOVING POV TOWARD THE WINDOW - NIGHT"
 
 
 def test_extensions_are_not_part_of_the_name():

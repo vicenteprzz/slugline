@@ -46,3 +46,21 @@ def test_scene_numbering_problems():
 def test_long_action_paragraph_is_a_note():
     issues = lint(parse("Title: X\n\nINT. A - DAY\n\n" + "He walks and walks. " * 30 + "\n"))
     assert [(i.severity, i.code) for i in issues] == [("info", "long-action")]
+
+
+def test_every_message_is_translated_in_the_app_and_the_pdfs():
+    import importlib
+    import json
+    from pathlib import Path
+
+    checks = importlib.import_module("slugline.lint")
+    templates = [checks.NO_INT_EXT, checks.NO_TIME, checks.EMPTY_SCENE, checks.EMPTY_DIALOGUE, checks.LONG_ACTION,
+                 checks.LONG_ACTIONS, checks.PARTIAL_NUMBERING, checks.DUPLICATE_NUMBER, checks.NO_TITLE,
+                 *checks.SIMILAR.values()]
+    es_ts = (Path(__file__).parents[1] / "web" / "src" / "es.ts").read_text(encoding="utf-8")
+    for template in templates:
+        assert template in checks.MESSAGES_ES, template
+        assert json.dumps(template, ensure_ascii=False) in es_ts, template
+    # Every issue the checks write carries its template.
+    issues = lint(parse("EXT. A\n\nBOB\n\nINT. B - DAY\n\nHi.\n"))
+    assert issues and all(i.template in templates for i in issues)
