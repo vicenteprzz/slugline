@@ -15,7 +15,9 @@ The conversion works on the extracted text, so it can be tested without a PDF.
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
+from difflib import SequenceMatcher
 from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
@@ -45,7 +47,7 @@ TRAILING_NAME = re.compile(
     r"(?:(?<=[\s.?!,;:)\-\"'…’])|^)([A-Z][A-Z0-9.'’#&/-]*(?: [A-Z][A-Z0-9.'’#&/-]*){0,3})(\s*\([^)]*\)?)?\s*$"
 )
 NOT_NAMES = {"OK", "NO", "YES", "TV", "FBI", "CIA", "USA", "LA", "NYC", "DNA", "ATM", "SWAT", "GCPD", "NOW", "HEY", "WHAT"}
-LEADING_JUNK = re.compile(r"^[^A-Za-z0-9(\"']+")
+LEADING_JUNK = re.compile(r"^(?:[^\w(\"']|_)+")  # marks before a name; accented letters are letters (ÁNGEL)
 # Revision page headers: "02/09/20 (White February Shooting Script) 3." or
 # "3 02/09/20 CONTINUED: (2)".
 DATED_HEADER = re.compile(
@@ -373,21 +375,71 @@ def pdf_text_to_fountain(text: str) -> str:
     return body + "\n"
 
 
+# What a scan leaves at the end of a name: dashes, dots in the middle of a
+# line, tildes, quotes, soft hyphens. A full stop is kept (MR., JR.).
+NAME_TAIL_JUNK = re.compile(r"[\s\-–—·•~_,:;*`\"\u00ad]+$")
+# Characters a real cue doesn't have: a name with any of them was misread.
+# Accented capitals are letters (JOSÉ, ÁNGELA, MAÎTRE D').
+SCAN_CHARACTERS = re.compile(r"[^A-Z0-9ÁÉÍÓÚÜÑÀÈÌÒÙÂÊÎÔÛÄËÏÖÇ .'’#&/()\-]")
+
+
+def _letters_only(name: str) -> str:
+    """The letters of a name without accents, to compare spellings."""
+    plain = unicodedata.normalize("NFKD", name.upper())
+    return re.sub(r"[^A-Z]", "", "".join(c for c in plain if not unicodedata.combining(c)))
+
+
 def _join_split_cues(out: list[str], cues: list[int]) -> None:
-    """Some PDFs space out the letters of a name ("M ARTY" for "MARTY") when
-    the text is extracted. A cue that, without spaces, is a name used more
-    often elsewhere is written that way."""
+    """Put right the names a PDF garbles, so each character is counted once.
+
+    - Junk a scan leaves after a name goes ("ANAKIN---", "OBI-WAN·").
+    - Letters spaced out by the extraction ("M ARTY") join the spelling the
+      script uses most.
+    - A name with characters no cue has ("GENBR.'\\.L GRIEVOUS") becomes the
+      much more frequent name it is closest to, if it is clearly that one.
+    - A "cue" that is a transition (CUT TO:) becomes a transition, and one
+      that is mostly smudges stops being a character.
+    Only misread names are changed: two real names that look alike (MAN 1,
+    MAN 2) are left for the formatting notes to point out."""
+    def split(line: str) -> tuple[str, str]:
+        text = line.strip()
+        base = CUE_BASE.sub("", text).strip()
+        return base, text[len(base):]
+
+    for i in cues:
+        base, rest = split(out[i])
+        clean = NAME_TAIL_JUNK.sub("", base) or base
+        if clean.endswith(":") or base.endswith(":"):
+            out[i] = "> " + base  # CUT TO:, misread as a cue
+            continue
+        if SCAN_CHARACTERS.search(clean) and sum(c.isalpha() for c in clean) < len(clean.replace(" ", "")) * 0.6:
+            out[i] = "!" + out[i].strip()  # a smudge, kept as action so nothing is lost (P.A. is not one)
+            continue
+        out[i] = clean + rest
+    cues[:] = [i for i in cues if not out[i].startswith(("> ", "!"))]
+
     counts: dict[str, dict[str, int]] = {}
     for i in cues:
-        base = CUE_BASE.sub("", out[i]).strip()
+        base, _ = split(out[i])
         spellings = counts.setdefault(base.replace(" ", ""), {})
         spellings[base] = spellings.get(base, 0) + 1
     for i in cues:
-        base = CUE_BASE.sub("", out[i]).strip()
+        base, rest = split(out[i])
         spellings = counts[base.replace(" ", "")]
         best = max(spellings, key=lambda name: (spellings[name], -name.count(" ")))
         if best != base and spellings[best] > spellings[base]:
-            out[i] = best + out[i].strip()[len(base):]
+            out[i] = best + rest
+
+    totals: Counter[str] = Counter(split(out[i])[0] for i in cues)
+    frequent = [name for name, n in totals.items() if n >= 3 and not SCAN_CHARACTERS.search(name)]
+    for i in cues:
+        base, rest = split(out[i])
+        if not SCAN_CHARACTERS.search(base) or not frequent:
+            continue
+        letters = _letters_only(base)
+        score, best = max((SequenceMatcher(None, letters, _letters_only(name)).ratio(), name) for name in frequent)
+        if score >= 0.6:
+            out[i] = best + rest
 
 
 def pdf_to_fountain(path: str | Path | BinaryIO) -> str:

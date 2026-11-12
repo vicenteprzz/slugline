@@ -210,3 +210,19 @@ def test_cues_glued_to_dialogue_and_headings_glued_to_action():
     ]
     assert [d.character for d in play.scenes[1].dialogues] == ["GRUMPY", "CHUCKLES"]
     assert "*" not in pdf_text_to_fountain(page)
+
+
+
+def test_names_a_scan_garbles_are_put_right():
+    c, d = " " * 25, " " * 12
+    lines = ["INT. BRIDGE - DAY", ""]
+    for name in ["ANAKIN", "ANAKIN", "ANAKIN", "OBI-WAN", "OBI-WAN", "OBI-WAN", "GENERAL GRIEVOUS", "GENERAL GRIEVOUS",
+                 "GENERAL GRIEVOUS", "ANAKIN---\u00ad", "OBI-WAN·", "GENER.¾ CRIEVOO~", "P.A.", "A.D.", "MAN 1", "MAN 2",
+                 "ÁNGEL", "ÁNGELA", "ÁNGELA", "ÁNGELA", "CUT TO:"]:
+        lines += [c + name, d + "Line.", ""]
+    play = parse(pdf_text_to_fountain("\n".join(lines)))
+    names = [x.character for x in play.scenes[0].dialogues]
+    assert names.count("ANAKIN") == 4 and names.count("OBI-WAN") == 4 and names.count("GENERAL GRIEVOUS") == 4
+    # Real names that only look alike stay apart.
+    assert {"P.A.", "A.D.", "MAN 1", "MAN 2", "ÁNGEL", "ÁNGELA"} <= set(names)
+    assert "CUT TO:" not in names
