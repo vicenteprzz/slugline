@@ -173,11 +173,11 @@ def compare(results: dict[str, dict], baseline: dict[str, dict]) -> bool:
             a, b = len(before["found"].get(kind, [])), len(r["found"][kind])
             if a != b:
                 notes.append(f"{kind} {a} -> {b}")
-                worse |= b > a
-        if r["score"] > before["score"]:
-            worse = True
+        # Worse: a higher score, or scenes or characters lost that the score can't see.
+        bad = r["score"] > before["score"] or r["scenes"] < before["scenes"] and not r["score"] < before["score"] or bool(lost)
+        worse |= bad
         if notes:
-            mark = "!" if r["score"] > before["score"] else "~"
+            mark = "!" if bad else "~"
             print(f"{mark} {name}: score {before['score']} -> {r['score']}; " + "; ".join(notes))
     print("\nNothing got worse." if not worse else "\nSomething got worse: look at the lines marked !")
     return not worse

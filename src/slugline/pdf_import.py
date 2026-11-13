@@ -326,6 +326,17 @@ def _recover_headings(pages: list[list[str]]) -> list[str]:
     return known
 
 
+def _dual_cue(line: str) -> str:
+    """Mark two names far apart on a cue line; never a heading ("INT.     KITCHEN")."""
+    m = DUAL_CUE.match(line)
+    if not m or SCENE_PREFIX.match(m.group(2) + " ") or HEADING_WORD.match(m.group(2)):
+        return line
+    return f"{m.group(1)}{m.group(2)}{DUAL_MARK}{m.group(3)}"
+
+
+HEADING_WORD = re.compile(r"^(?:INT|EXT|I/E|INT\./EXT|EXT\./INT)\.?$")
+
+
 def _drop_running_lines(pages: list[list[str]]) -> None:
     """Remove the headers and footers printed on every page ("KOTFM - Final
     Shooting Script - August 10, 2022  12.", "209 POST FINAL -- 3.3.24"): a
@@ -460,7 +471,7 @@ def pdf_text_to_fountain(text: str) -> str:
         header = _title_page(pages[0])
         pages = pages[1:]
 
-    page_lines = [[DUAL_CUE.sub(rf"\1\2{DUAL_MARK}\3", _unmark(raw)) for raw in page.splitlines()] for page in pages]
+    page_lines = [[_dual_cue(_unmark(raw)) for raw in page.splitlines()] for page in pages]
     _drop_running_lines(page_lines)
     known_headings = _recover_headings(page_lines)
     columns = _columns([raw for page in page_lines for raw in page])

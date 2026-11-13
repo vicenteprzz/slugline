@@ -247,11 +247,37 @@ def parse_heading(text: str) -> tuple[str | None, str, str | None]:
         parts = parts[:-1]
     if len(parts) > 1 and TIME_HINT.search(parts[-1]):
         return int_ext, " - ".join(parts[:-1]).strip(), parts[-1].strip().upper()
+    # The time first: "EXT. NIGHT - MULHOLLAND DRIVE".
+    if len(parts) > 1 and len(parts[0].split()) <= 2 and any(rx.fullmatch(parts[0].strip().upper()) for rx in FIRST_TIME):
+        return int_ext, " - ".join(parts[1:]).strip(), parts[0].strip().upper()
+    # A time a scan misread by one letter: "DAX", "EARLY DAMN", "NIGHI".
+    if len(parts) > 1:
+        fixed = _misread_time(parts[-1].strip().upper())
+        if fixed:
+            return int_ext, " - ".join(parts[:-1]).strip(), fixed
     # The time with no dash before it: "APARTMENT- STUDY NIGHT", "COCINA NOCHE".
     bare = BARE_TIME.search(rest)
     if bare and rest[:bare.start()].strip(" -–—"):
         return int_ext, rest[:bare.start()].strip(" -–—"), bare.group(1).upper()
     return int_ext, " - ".join(p.strip() for p in parts), None
+
+
+FIRST_TIME = [re.compile(r"(?:EARLY |LATE )?(?:DAY|NIGHT|DAWN|DUSK|MORNING|EVENING|AFTERNOON|DÍA|NOCHE)")]
+TIMES = ("DAY", "NIGHT", "DAWN", "DUSK", "MORNING", "EVENING", "AFTERNOON")
+
+
+def _misread_time(text: str) -> str | None:
+    """"DAX" is DAY and "EARLY DAMN" is EARLY DAWN: one letter off a time, in a
+    short last part of the heading. Words that are words stay (DAMP, NIGHTS)."""
+    words = text.split()
+    if not words or len(words) > 2 or (len(words) == 2 and words[0] not in ("EARLY", "LATE")):
+        return None
+    last = words[-1].strip(".")
+    for time in TIMES:
+        if len(last) == len(time) and last != time and sum(a != b for a, b in zip(last, time)) == 1 \
+                and last[0] == time[0]:
+            return " ".join([*words[:-1], time])
+    return None
 
 
 def _place(location: str) -> str:

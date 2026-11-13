@@ -12,6 +12,7 @@ already has). `available()` says whether it can run here.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 # A screenplay is typed in 12 pt Courier: ten characters an inch, six lines an inch.
@@ -33,14 +34,21 @@ def _page_image(page, scale: float):
     import Quartz
 
     box = Quartz.CGPDFPageGetBoxRect(page, Quartz.kCGPDFMediaBox)
-    width, height = int(box.size.width * scale), int(box.size.height * scale)
+    # A scanned page is often stored sideways and turned for display (/Rotate 90):
+    # draw it the way it is read, or every line lands in the wrong place.
+    w, h = box.size.width, box.size.height
+    if Quartz.CGPDFPageGetRotationAngle(page) % 180:
+        w, h = h, w
+    width, height = int(w * scale), int(h * scale)
     space = Quartz.CGColorSpaceCreateDeviceRGB()
     context = Quartz.CGBitmapContextCreate(None, width, height, 8, 0, space, Quartz.kCGImageAlphaPremultipliedLast)
     Quartz.CGContextSetRGBFillColor(context, 1, 1, 1, 1)
     Quartz.CGContextFillRect(context, Quartz.CGRectMake(0, 0, width, height))
     Quartz.CGContextScaleCTM(context, scale, scale)
+    transform = Quartz.CGPDFPageGetDrawingTransform(page, Quartz.kCGPDFMediaBox, Quartz.CGRectMake(0, 0, w, h), 0, True)
+    Quartz.CGContextConcatCTM(context, transform)
     Quartz.CGContextDrawPDFPage(context, page)
-    return Quartz.CGBitmapContextCreateImage(context), box.size.width, box.size.height
+    return Quartz.CGBitmapContextCreateImage(context), w, h
 
 
 def _read_lines(image) -> list[tuple[float, float, float, str]]:
@@ -51,6 +59,8 @@ def _read_lines(image) -> list[tuple[float, float, float, str]]:
     request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
     request.setUsesLanguageCorrection_(False)  # names and slug lines are not dictionary words
     request.setRecognitionLanguages_(["en-US", "es-ES"])
+    if hasattr(request, "setAutomaticallyDetectsLanguage_"):
+        request.setAutomaticallyDetectsLanguage_(False)  # a smudge is not Russian
     handler = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(image, None)
     ok, _ = handler.performRequests_error_([request], None)
     lines = []
@@ -59,8 +69,21 @@ def _read_lines(image) -> list[tuple[float, float, float, str]]:
         if not candidates:
             continue
         box = observation.boundingBox()  # from the bottom left, 0 to 1
-        lines.append((box.origin.x, 1 - box.origin.y - box.size.height, box.origin.x + box.size.width, str(candidates[0].string())))
+        text = _latin(str(candidates[0].string()))
+        if text.strip():
+            lines.append((box.origin.x, 1 - box.origin.y - box.size.height, box.origin.x + box.size.width, text))
     return lines
+
+
+# Letters of other alphabets that look like Latin ones: a scan's "АДАМ" is ADAM.
+LOOKALIKES = str.maketrans("АВЕКМНОРСТХУДЛаеорсухіїІЈјΑΒΕΗΙΚΜΝΟΡΤΧΥΖ", "ABEKMHOPCTXYDLaeopcyxiiIJjABEHIKMNOPTXYZ")
+
+
+def _latin(text: str) -> str:
+    """Lookalike letters made Latin; words still in another alphabet are smudges."""
+    text = text.translate(LOOKALIKES)
+    words = [w for w in text.split(" ") if not re.search(r"[\u0370-\u03ff\u0400-\u04ff\u0590-\u06ff]", w)]
+    return " ".join(words)
 
 
 def _lay_out(lines: list[tuple[float, float, float, str]], width: float, height: float) -> str:
