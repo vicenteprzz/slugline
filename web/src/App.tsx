@@ -1,5 +1,7 @@
 import { FoldAllControls, FoldTitle } from "./fold";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+import { Clapper, CountUp, Loading, Slate } from "./cinema";
 
 import {
   analyzeScript,
@@ -49,10 +51,25 @@ const INT_EXT = [
   { key: "INT/EXT", name: "Int./Ext.", color: "var(--series-3)", ink: "#ffffff" },
 ];
 
-/** The script id in the address (#/scripts/<id>), so a reload or the back button keeps your place. */
+/** The script id in the address (#/scripts/<id>/<reel>), so a reload or the back button keeps your place. */
 const routeId = () => location.hash.match(/^#\/scripts\/(\w+)/)?.[1] ?? null;
 const goTo = (id: string | null) => {
   location.hash = id ? `#/scripts/${id}` : "#/";
+};
+
+/** The dashboard's reels: one screen each instead of one long page. */
+const REELS = [
+  { key: "overview", label: "Overview" },
+  { key: "breakdown", label: "Breakdown" },
+  { key: "cast", label: "Cast and locations" },
+  { key: "continuity", label: "Continuity" },
+  { key: "schedule", label: "Schedule" },
+  { key: "budget", label: "Budget" },
+] as const;
+type Reel = (typeof REELS)[number]["key"];
+const routeReel = (): Reel => {
+  const key = location.hash.match(/^#\/scripts\/\w+\/(\w+)/)?.[1];
+  return REELS.find((r) => r.key === key)?.key ?? "overview";
 };
 
 export default function App() {
@@ -72,6 +89,22 @@ export default function App() {
   const [extracting, setExtracting] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
   const [dragging, setDragging] = useState(false);
+  // The slate claps when a script is opened from the app, not on a reload.
+  const [slate, setSlate] = useState<{ title: string; scenes: number } | null>(null);
+  const firstLoad = useRef(true);
+  const endSlate = useCallback(() => setSlate(null), []);
+  const clap = useCallback((s: Script) => setSlate({ title: s.breakdown.title ?? s.filename, scenes: s.breakdown.scene_count }), []);
+  // The reel bar sits right under the top bar, whatever its height.
+  const topbar = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const bar = topbar.current;
+    if (!bar || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--topbar-h", `${bar.offsetHeight}px`);
+    set();
+    const observer = new ResizeObserver(set);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, []);
   // Whatever happens to a drag (dropped on a strip, outside the window,
   // cancelled with Escape), the "drop the script" veil goes away.
   useEffect(() => {
@@ -109,6 +142,8 @@ export default function App() {
 
   // Follow the address: a script id opens that script, no id shows the library.
   useEffect(() => {
+    const initial = firstLoad.current;
+    firstLoad.current = false;
     if (!route) {
       setScript(null);
       setPanel(null);
@@ -123,6 +158,7 @@ export default function App() {
       .then((s) => {
         setScript(s);
         setPanel(null);
+        if (!initial) clap(s);
       })
       .catch((e) => {
         setError(e instanceof Error ? e.message : t("Could not open that script."));
@@ -131,11 +167,15 @@ export default function App() {
       .finally(() => setLoading(null));
   }, [route]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const show = useCallback((opened: Script) => {
-    setScript(opened);
-    setPanel(null);
-    goTo(opened.id);
-  }, []);
+  const show = useCallback(
+    (opened: Script) => {
+      setScript(opened);
+      setPanel(null);
+      clap(opened);
+      goTo(opened.id);
+    },
+    [clap],
+  );
 
   const open = useCallback(
     async (file: File) => {
@@ -292,9 +332,10 @@ export default function App() {
           e.target.value = "";
         }}
       />
-      <header className="topbar">
+      <header className="topbar" ref={topbar}>
         <div className="brand">
           <a className="wordmark" href="#/" title={t("Your scripts")}>
+            <Clapper size={18} className="wordmark-mark" />
             Slugline
           </a>
           {script && (
@@ -358,9 +399,7 @@ export default function App() {
             onOpenSettings={() => setPanel({ kind: "settings" })}
           />
         ) : route || loading ? (
-          <div className="empty">
-            <p>{loading ?? t("Opening the script…")}</p>
-          </div>
+          <Loading text={loading ?? t("Opening the script…")} />
         ) : (
           <Home
             library={library}
@@ -416,6 +455,7 @@ export default function App() {
         />
       )}
       {dragging && <div className="drop-veil">{t("Drop the script to open it")}</div>}
+      {slate && <Slate title={slate.title} scenes={slate.scenes} onDone={endSlate} />}
     </div>
   );
 }
@@ -449,6 +489,7 @@ function Home(props: {
           </button>
         </div>
         <p className="fine">{t("Fountain, Final Draft (.fdx) and PDF. You can also drop the file anywhere on this page.")}</p>
+        <div className="filmstrip" aria-hidden="true" />
         {props.license && !props.license.licensed && (
           <p className="trial">
             {t("Trial version · {used} of {n} scripts.", {
@@ -570,122 +611,254 @@ function Dashboard(props: {
   const totalWords = b.characters.reduce((sum, c) => sum + c.words, 0);
   const pages = t("{n} pages", { n: eighths(totalEighths) });
 
+  const [reel, setReel] = useState<Reel>(routeReel);
+  const go = useCallback(
+    (next: Reel) => {
+      setReel(next);
+      history.replaceState(null, "", `#/scripts/${script.id}${next === "overview" ? "" : `/${next}`}`);
+      window.scrollTo({ top: 0 });
+    },
+    [script.id],
+  );
+  // 1 to 6 jump between reels, unless you are typing.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const index = Number(e.key) - 1;
+      if (Number.isInteger(index) && index >= 0 && index < REELS.length) go(REELS[index].key);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go]);
+
+  const warnings = issues.filter((i) => i.severity === "warning").length;
+  const badges: Record<Reel, string> = {
+    overview: warnings ? String(warnings) : "",
+    breakdown: String(b.scene_count),
+    cast: String(b.characters.length),
+    continuity: script.continuity?.days ? String(script.continuity.days) : "",
+    schedule: script.schedule?.days.length ? String(script.schedule.days.length) : "",
+    budget: "",
+  };
+  const decimal = (n: number) =>
+    n.toLocaleString(language() === "es" ? "es-ES" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const whole = (n: number) => count(Math.round(n));
+
   return (
     <>
+      <ReelBar reel={reel} badges={badges} warn={warnings > 0} onGo={go} />
       <ReadingWarning issues={script.issues} filename={script.filename} />
-      <FoldAllControls />
-      <section className="tiles">
-        <Tile label={t("Scenes")} value={count(b.scene_count)} />
-        <Tile label={t("Pages, estimated")} value={b.page_count.toLocaleString(language() === "es" ? "es-ES" : "en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} />
-        <Tile label={t("Speaking characters")} value={count(b.characters.length)} />
-        <Tile label={t("Locations")} value={count(b.locations.length)} />
-      </section>
 
-      <Story analysis={analysis} status={status} analyzing={analyzing} onAnalyze={props.onAnalyze} onOpenSettings={props.onOpenSettings} />
+      <div key={reel} className="reel" role="tabpanel" aria-label={t(REELS.find((r) => r.key === reel)!.label)}>
+        {reel === "overview" && (
+          <>
+            <section className="tiles">
+              <Tile label={t("Scenes")} value={<CountUp value={b.scene_count} format={whole} />} onClick={() => go("breakdown")} />
+              <Tile label={t("Pages, estimated")} value={<CountUp value={b.page_count} format={decimal} />} onClick={() => go("breakdown")} />
+              <Tile label={t("Speaking characters")} value={<CountUp value={b.characters.length} format={whole} />} onClick={() => go("cast")} />
+              <Tile label={t("Locations")} value={<CountUp value={b.locations.length} format={whole} />} onClick={() => go("cast")} />
+            </section>
 
-      <div className="grid">
-        <ChartCard
-          id="day-night" title={t("Day and night")}
-          subtitle={t("Share of the {pages}. Scenes marked LATER or CONTINUOUS count with the scene before.", { pages })}
-          table={splitTable(b, "day_night", DAY_NIGHT)}
-        >
-          <SegmentedBar parts={split(b, "day_night", DAY_NIGHT)} total={pages} />
-        </ChartCard>
-        <ChartCard id="int-ext" title={t("Interior and exterior")} subtitle={t("Share of the {pages}.", { pages })} table={splitTable(b, "int_ext", INT_EXT)}>
-          <SegmentedBar parts={split(b, "int_ext", INT_EXT)} total={pages} />
-        </ChartCard>
-      </div>
+            <Story analysis={analysis} status={status} analyzing={analyzing} onAnalyze={props.onAnalyze} onOpenSettings={props.onOpenSettings} />
 
-      <Stripboard breakdown={b} notes={notes} elements={script.elements} onOpenScene={props.onOpenScene} />
+            <div className="grid">
+              <ChartCard
+                id="day-night" title={t("Day and night")}
+                subtitle={t("Share of the {pages}. Scenes marked LATER or CONTINUOUS count with the scene before.", { pages })}
+                table={splitTable(b, "day_night", DAY_NIGHT)}
+              >
+                <SegmentedBar parts={split(b, "day_night", DAY_NIGHT)} total={pages} />
+              </ChartCard>
+              <ChartCard id="int-ext" title={t("Interior and exterior")} subtitle={t("Share of the {pages}.", { pages })} table={splitTable(b, "int_ext", INT_EXT)}>
+                <SegmentedBar parts={split(b, "int_ext", INT_EXT)} total={pages} />
+              </ChartCard>
+            </div>
 
-      <ContinuityCard script={script} onOpenScene={props.onOpenScene} />
-      <ElementsCard
-        breakdown={b}
-        elements={script.elements}
-        categories={status?.categories ?? []}
-        available={status?.llm.available ?? false}
-        extracting={props.extracting}
-        onExtract={props.onExtract}
-        onClear={props.onClearElements}
-        onResuggest={props.onResuggest}
-        onOpenScene={props.onOpenScene}
-        onOpenSettings={props.onOpenSettings}
-      />
+            <Issues issues={issues} analyzed={analysis !== null} corrections={script.corrections} onCorrect={props.onCorrect} />
+            <NextReels onGo={go} />
+          </>
+        )}
 
-      <ScheduleBoard
-        script={script}
-        pdfExport={status?.pdf_export ?? false}
-        onChange={props.onScheduleChange}
-        onError={props.onError}
-        onOpenScene={props.onOpenScene}
-      />
-      <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
-      <CrewCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
-      <BudgetCard
-        script={script}
-        pdfExport={status?.pdf_export ?? false}
-        onError={props.onError}
-        onOpenScene={props.onOpenScene}
-        onScheduleChange={props.onScheduleChange}
-      />
+        {reel === "breakdown" && (
+          <>
+            <Stripboard breakdown={b} notes={notes} elements={script.elements} onOpenScene={props.onOpenScene} />
+            <ElementsCard
+              breakdown={b}
+              elements={script.elements}
+              categories={status?.categories ?? []}
+              available={status?.llm.available ?? false}
+              extracting={props.extracting}
+              onExtract={props.onExtract}
+              onClear={props.onClearElements}
+              onResuggest={props.onResuggest}
+              onOpenScene={props.onOpenScene}
+              onOpenSettings={props.onOpenSettings}
+            />
+          </>
+        )}
 
-      <div className="grid">
-        <WhoSpeaks breakdown={b} />
-        <ChartCard
-          id="dialogue" title={t("Dialogue share")}
-          subtitle={t("Words spoken by each character, out of {n}.", { n: count(totalWords) })}
-          table={{
-            columns: [t("Character"), t("Words"), t("Share"), t("Cues"), t("Scenes")],
-            rows: b.characters.map((c) => [c.name, c.words, percent(c.words, totalWords), c.dialogue_blocks, c.scenes.length]),
-          }}
-        >
-          <RankedBars
-            color={SERIES[0]}
-            rows={b.characters.slice(0, 14).map((c) => ({
-              name: titleCase(c.name),
-              value: c.words,
-              label: `${count(c.words)} · ${percent(c.words, totalWords)}`,
-              detail: t("words in {cues}, {scenes}", { cues: plural(c.dialogue_blocks, "cue"), scenes: plural(c.scenes.length, "scene") }),
-            }))}
+        {reel === "cast" && (
+          <>
+            <div className="grid">
+              <ChartCard
+                id="dialogue" title={t("Dialogue share")}
+                subtitle={t("Words spoken by each character, out of {n}.", { n: count(totalWords) })}
+                table={{
+                  columns: [t("Character"), t("Words"), t("Share"), t("Cues"), t("Scenes")],
+                  rows: b.characters.map((c) => [c.name, c.words, percent(c.words, totalWords), c.dialogue_blocks, c.scenes.length]),
+                }}
+              >
+                <RankedBars
+                  color={SERIES[0]}
+                  rows={b.characters.slice(0, 14).map((c) => ({
+                    name: titleCase(c.name),
+                    value: c.words,
+                    label: `${count(c.words)} · ${percent(c.words, totalWords)}`,
+                    detail: t("words in {cues}, {scenes}", { cues: plural(c.dialogue_blocks, "cue"), scenes: plural(c.scenes.length, "scene") }),
+                  }))}
+                />
+                {b.characters.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.characters.length - 14 })}</p>}
+              </ChartCard>
+              <ChartCard
+                id="locations" title={t("Locations")}
+                subtitle={t("Pages to shoot at each one.")}
+                table={{
+                  columns: [t("Location"), t("Scenes"), t("Length (pages)"), t("Scene numbers")],
+                  rows: b.locations.map((l) => [l.location, l.scenes.length, eighths(l.eighths), l.scenes.join(", ")]),
+                }}
+              >
+                <RankedBars
+                  color={SERIES[0]}
+                  rows={b.locations.slice(0, 14).map((l) => ({
+                    name: titleCase(l.location),
+                    value: l.eighths,
+                    label: `${eighths(l.eighths)} · ${plural(l.scenes.length, "scene")}`,
+                    detail: t("pages, in scenes {list}", { list: l.scenes.join(", ") }),
+                  }))}
+                />
+                {b.locations.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.locations.length - 14 })}</p>}
+              </ChartCard>
+            </div>
+            <WhoSpeaks breakdown={b} />
+            <Presence breakdown={b} />
+            <Tone breakdown={b} analysis={analysis} />
+          </>
+        )}
+
+        {reel === "continuity" &&
+          (script.continuity && b.scenes.some((s) => s.story_day) ? (
+            <ContinuityCard script={script} onOpenScene={props.onOpenScene} />
+          ) : (
+            <section className="card placeholder">
+              <h3>{t("Story days and continuity")}</h3>
+              <p>{t("The days of the story appear here once the scenes have a day or a night.")}</p>
+            </section>
+          ))}
+
+        {reel === "schedule" && (
+          <>
+            <ScheduleBoard
+              script={script}
+              pdfExport={status?.pdf_export ?? false}
+              onChange={props.onScheduleChange}
+              onError={props.onError}
+              onOpenScene={props.onOpenScene}
+            />
+            <CastCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
+            <CrewCard script={script} onChange={props.onScheduleChange} onError={props.onError} />
+          </>
+        )}
+
+        {reel === "budget" && (
+          <BudgetCard
+            script={script}
+            pdfExport={status?.pdf_export ?? false}
+            onError={props.onError}
+            onOpenScene={props.onOpenScene}
+            onScheduleChange={props.onScheduleChange}
           />
-          {b.characters.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.characters.length - 14 })}</p>}
-        </ChartCard>
-        <Presence breakdown={b} />
-        <Tone breakdown={b} analysis={analysis} />
-      </div>
-
-      <div className="grid">
-        <ChartCard
-          id="locations" title={t("Locations")}
-          subtitle={t("Pages to shoot at each one.")}
-          table={{
-            columns: [t("Location"), t("Scenes"), t("Length (pages)"), t("Scene numbers")],
-            rows: b.locations.map((l) => [l.location, l.scenes.length, eighths(l.eighths), l.scenes.join(", ")]),
-          }}
-        >
-          <RankedBars
-            color={SERIES[0]}
-            rows={b.locations.slice(0, 14).map((l) => ({
-              name: titleCase(l.location),
-              value: l.eighths,
-              label: `${eighths(l.eighths)} · ${plural(l.scenes.length, "scene")}`,
-              detail: t("pages, in scenes {list}", { list: l.scenes.join(", ") }),
-            }))}
-          />
-          {b.locations.length > 14 && <p className="more">{t("{n} more in the table view.", { n: b.locations.length - 14 })}</p>}
-        </ChartCard>
-        <Issues issues={issues} analyzed={analysis !== null} corrections={script.corrections} onCorrect={props.onCorrect} />
+        )}
       </div>
     </>
   );
 }
 
-function Tile({ label, value }: { label: string; value: string }) {
+/** The bar of reels: a strip of film, the frame you are on lit. */
+function ReelBar(props: { reel: Reel; badges: Record<Reel, string>; warn: boolean; onGo: (reel: Reel) => void }) {
+  const refs = useRef(new Map<Reel, HTMLButtonElement>());
+  const bar = useRef<HTMLElement>(null);
+  // What sticks under the reels (the schedule's days) needs their height.
+  useLayoutEffect(() => {
+    const el = bar.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const set = () => document.documentElement.style.setProperty("--reels-h", `${el.offsetHeight}px`);
+    set();
+    const observer = new ResizeObserver(set);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  const [mark, setMark] = useState<{ left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const button = refs.current.get(props.reel);
+      if (button) setMark({ left: button.offsetLeft, width: button.offsetWidth });
+    };
+    place();
+    window.addEventListener("resize", place);
+    return () => window.removeEventListener("resize", place);
+  }, [props.reel, props.badges]);
   return (
-    <div className="tile">
+    <nav className="reels" ref={bar} aria-label={t("Sections")}>
+      <div className="reels-strip" role="tablist">
+        {REELS.map((r, i) => (
+          <button
+            key={r.key}
+            ref={(el) => {
+              if (el) refs.current.set(r.key, el);
+            }}
+            role="tab"
+            aria-selected={props.reel === r.key}
+            className="reel-tab"
+            title={t("Key {n}", { n: i + 1 })}
+            onClick={() => props.onGo(r.key)}
+          >
+            <span className="reel-number">{String(i + 1).padStart(2, "0")}</span>
+            <span className="reel-label">{t(r.label)}</span>
+            {props.badges[r.key] && (
+              <span className={`reel-badge${r.key === "overview" && props.warn ? " warn" : ""}`}>{props.badges[r.key]}</span>
+            )}
+          </button>
+        ))}
+        {mark && <span className="reel-mark" style={{ transform: `translateX(${mark.left}px)`, width: mark.width }} />}
+      </div>
+      <FoldAllControls />
+    </nav>
+  );
+}
+
+/** At the end of the overview, where to go next. */
+function NextReels({ onGo }: { onGo: (reel: Reel) => void }) {
+  return (
+    <section className="next-reels">
+      {REELS.slice(1).map((r, i) => (
+        <button key={r.key} className="next-reel" onClick={() => onGo(r.key)}>
+          <span className="reel-number">{String(i + 2).padStart(2, "0")}</span>
+          {t(r.label)}
+          <span aria-hidden="true">→</span>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function Tile({ label, value, onClick }: { label: string; value: React.ReactNode; onClick?: () => void }) {
+  return (
+    <button className="tile" onClick={onClick}>
       <span className="tile-label">{label}</span>
       <span className="tile-value">{value}</span>
-    </div>
+    </button>
   );
 }
 
@@ -791,6 +964,14 @@ function Stripboard(props: {
   onOpenScene: (number: string) => void;
 }) {
   const { breakdown: b, notes, elements } = props;
+  const [query, setQuery] = useState("");
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const scenes = words.length
+    ? b.scenes.filter((s) => {
+        const text = [s.number, s.heading, s.story_label, ...s.characters, ...s.silent, notes.get(s.number)?.summary ?? ""].join(" ").toLowerCase();
+        return words.every((w) => text.includes(w));
+      })
+    : b.scenes;
   return (
     <section className="card">
       <header className="card-head">
@@ -814,6 +995,17 @@ function Stripboard(props: {
           ))}
         </ul>
       </header>
+        <label className="search">
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={query}
+            placeholder={t("Find a scene, place or character")}
+            aria-label={t("Find a scene, place or character")}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {words.length > 0 && <span className="search-count">{t("{n} of {total}", { n: scenes.length, total: b.scenes.length })}</span>}
+        </label>
       <div className="table-scroll">
         <table className="data board">
           <thead>
@@ -829,7 +1021,14 @@ function Stripboard(props: {
             </tr>
           </thead>
           <tbody>
-            {b.scenes.map((s) => {
+            {scenes.length === 0 && (
+              <tr>
+                <td colSpan={8} className="muted">
+                  {t("No scene matches “{q}”.", { q: query.trim() })}
+                </td>
+              </tr>
+            )}
+            {scenes.map((s) => {
               const note = notes.get(s.number);
               return (
                 <tr key={s.number}>
@@ -1026,6 +1225,11 @@ function Issues(props: {
   onCorrect: (change: (id: string) => Promise<Script>) => void;
 }) {
   const { issues, analyzed } = props;
+  const [all, setAll] = useState(false);
+  const FIRST = 6;
+  // Fixes first, then notes: what needs a hand comes to the top.
+  const sorted = [...issues].sort((x, y) => Number(y.severity === "warning") - Number(x.severity === "warning"));
+  const shown = all ? sorted : sorted.slice(0, FIRST);
   return (
     <section className="card">
       <header className="card-head">
@@ -1038,7 +1242,7 @@ function Issues(props: {
         <p className="clean">{t("Nothing to fix: headings, cues and numbering all look consistent.")}</p>
       ) : (
         <ul className="issues">
-          {issues.map((issue, i) => (
+          {shown.map((issue, i) => (
             <li key={i}>
               <span className={`badge ${issue.severity}`}>
                 <span aria-hidden="true">{issue.severity === "warning" ? "▲" : "●"}</span>
@@ -1053,6 +1257,11 @@ function Issues(props: {
             </li>
           ))}
         </ul>
+      )}
+      {issues.length > FIRST && (
+        <button className="link" onClick={() => setAll(!all)}>
+          {all ? t("Show fewer") : t("Show all {n} notes", { n: issues.length })}
+        </button>
       )}
       <CorrectionsList corrections={props.corrections} onCorrect={props.onCorrect} />
     </section>

@@ -295,11 +295,32 @@ export default function ScheduleBoard(props: {
         </p>
       )}
 
+      {plan.days.length > 3 && (
+        <nav className="day-jump" aria-label={t("Go to a day")}>
+          <span className="day-jump-label">{t("Days")}</span>
+          {plan.days.map((day, i) => {
+            const troubled = plan.problems.some((p) => p.day === i + 1);
+            return (
+              <button
+                key={day.id || i}
+                className={`day-chip${over === i ? " drop" : ""}${troubled ? " troubled" : ""}${day.stats?.over ? " long" : ""}`}
+                title={`${t("Day {n}", { n: i + 1 })}${day.date ? ` · ${day.date}` : ""} · ${plural(day.scenes.length, "scene")}`}
+                onClick={() => document.getElementById(`shoot-day-${i}`)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                {...dropZone(i)}
+              >
+                {i + 1}
+              </button>
+            );
+          })}
+          <span className="day-jump-hint">{t("Drop a strip on a number to send it to that day.")}</span>
+        </nav>
+      )}
+
       <ol className="days">
         {plan.days.map((day, i) => {
           const stats = localStats(day);
           return (
-            <li key={day.id || i} className={`day${over === i ? " drop" : ""}`} {...dropZone(i)}>
+            <li key={day.id || i} id={`shoot-day-${i}`} className={`day${over === i ? " drop" : ""}`} {...dropZone(i)}>
               <div className="day-head">
                 <strong>{t("Day {n}", { n: i + 1 })}</strong>
                 <input type="date" value={day.date} aria-label={t("Date of day {n}", { n: i + 1 })} onChange={(e) => editDay(i, { date: e.target.value })} />
