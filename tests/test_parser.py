@@ -181,3 +181,15 @@ def test_every_scene_gets_its_own_number():
     assert [s.scene_number for s in play.scenes] == ["1", None, "2", "2", None, None]
     unnumbered = parse("INT. A - DAY\n\nA.\n\nINT. B - DAY\n\nB.\n")
     assert [s.number for s in unnumbered.scenes] == ["1", "2"]
+
+
+
+def test_ways_of_speaking_without_brackets_are_not_new_characters():
+    play = parse(
+        "INT. CLUB - NIGHT\n\nBOB\nHi.\n\nBOB SINGS ON RADIO\nHow does it feel.\n\n"
+        "JOHNNY CASH V.O.\nHello.\n\nANA CANTA\nLa la.\n\nFAN VOICES SING\nYeah.\n"
+    )
+    assert [(d.character, d.extensions) for d in play.scenes[0].dialogues] == [
+        ("BOB", []), ("BOB", ["SINGS ON RADIO"]), ("JOHNNY CASH", ["V.O."]), ("ANA", ["CANTA"]),
+        ("FAN VOICES SING", []),
+    ]

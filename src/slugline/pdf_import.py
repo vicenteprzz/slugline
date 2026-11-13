@@ -213,8 +213,14 @@ def pdf_text_to_fountain(text: str) -> str:
     pages = text.split("\f")
     header: list[str] = []
     first = [_squeeze(line) for line in pages[0].splitlines()] if pages else []
-    # A title page has a byline and no scene headings.
-    if any(line.lower() in BYLINES for line in first) and not any(SCENE_PREFIX.match(line) for line in first):
+    # A title page has no scene headings, and a byline or only a few lines
+    # (some have nothing but the title).
+    words = [line for line in first if line]
+    title_only = 0 < len(words) <= 12 and not any(
+        line[:1].islower() or "CONT'D" in line or "(MORE)" in line for line in words  # a short page of script isn't one
+    )
+    if (any(line.lower() in BYLINES for line in first) or title_only) \
+            and not any(SCENE_PREFIX.match(line) for line in first):
         header = _title_page(pages[0])
         pages = pages[1:]
 
@@ -271,19 +277,31 @@ def pdf_text_to_fountain(text: str) -> str:
             # At the action margin, "1   EXT. SPACE" is a numbered heading; any other
             # line that starts with a number ("2   men walk in") is just action.
             rest = _squeeze(numbered.group(2))
-            if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(numbered.group(1)):])):
+            number = numbered.group(1)
+            twice = rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit() \
+                and _caps(rest[len(number):])  # "128   128THE NEWPORT FESTIVAL": the number on both sides
+            if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(number):]) or twice):
                 numbered = None
         if numbered:
             number, rest = numbered.group(1), _squeeze(numbered.group(2))
-            if rest.startswith(number) and SCENE_PREFIX.match(rest[len(number):]):
-                rest = rest[len(number):]  # "168A 168AINT. DEN": the number printed twice
+            # The number on the right can come out glued in front of the text:
+            # "128   128THE NEWPORT FOLK FESTIVAL". It still counts as numbered
+            # on both sides.
+            glued = rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit()
+            if glued:
+                rest = rest[len(number):].lstrip()
+            if not rest:
+                continue  # just the scene number, twice: nothing to read
             if CONTINUED.match(rest) or CONTINUED_HEADER.search(rest):
                 continue
             # Numbered on both sides, it is a heading even without INT./EXT.
             forced = "" if SCENE_PREFIX.match(rest) else "."
+            if forced:
+                rest = rest.rstrip(" :") or rest  # "BACKSTAGE :"
             marks = rest.replace(" ", "")
             garbled = sum(c.isalpha() for c in marks) < len(marks) * 0.6  # a smudge, not words
-            if forced and not numbered.group(0).rstrip().endswith(number) or not _caps(rest) or garbled:
+            both_sides = glued or numbered.group(0).rstrip().endswith(number)
+            if forced and not both_sides or not _caps(rest) or garbled:
                 s, indent = rest, columns.action  # just a line that starts with a number
             else:
                 out += ["", f"{forced}{rest} #{number}#", ""]
@@ -303,6 +321,8 @@ def pdf_text_to_fountain(text: str) -> str:
         if last == "parenthetical" and out[-1].startswith("(") and not out[-1].endswith(")") and kind != "cue":
             kind = "parenthetical"  # the rest of a parenthetical that runs onto a second line
         s = REVISION_MARKS.sub("", _squeeze(s)) or s  # revision stars in the margin: "See ya. ******"
+        if not s:
+            continue
         if s[0] == "{":  # a scanned parenthesis
             s = "(" + s[1:]
 

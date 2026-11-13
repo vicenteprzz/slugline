@@ -22,6 +22,11 @@ SCENE_NUMBER = re.compile(r"\s*#([\w.\-]+)#\s*$")
 # Location and time are separated by a dash surrounded by spaces: "HOUSE - NIGHT".
 TIME_SEPARATOR = re.compile(r"\s+(?:--|[-–—])\s+")  # "HOUSE - NIGHT", also "HOUSE -- NIGHT"
 EXTENSION = re.compile(r"\(([^)]*)\)")
+# Ways of speaking written after a name without brackets: "JOHNNY CASH V.O.",
+# "BOB SINGS ON RADIO", "ANA CANTA". The character is the name before them.
+BARE_EXTENSION = re.compile(
+    r"\s+(V\.\s?O\.?|O\.\s?S\.?|O\.\s?C\.?|CONT['’]D|(?:SINGS|SINGING|CANTA|CANTANDO)\b.*)$"
+)
 TITLE_KEY = re.compile(r"^([A-Za-z][A-Za-z ]*):\s*(.*)$")
 NOTE = re.compile(r"\[\[.*?\]\]", re.DOTALL)
 BONEYARD = re.compile(r"/\*.*?\*/", re.DOTALL)
@@ -309,6 +314,10 @@ def _character_name(line: str) -> tuple[str, list[str], bool] | None:
         cue = cue.rstrip()[:-1]
     extensions = [e.strip() for e in EXTENSION.findall(cue)]
     name = EXTENSION.sub("", cue).strip()
+    bare = BARE_EXTENSION.search(name)
+    if bare and bare.start() > 0:
+        extensions.insert(0, bare.group(1).strip())
+        name = name[: bare.start()].strip()
     if not name:
         return None
     if not forced and (name != name.upper() or not any(c.isalpha() for c in name)):

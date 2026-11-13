@@ -226,3 +226,30 @@ def test_names_a_scan_garbles_are_put_right():
     # Real names that only look alike stay apart.
     assert {"P.A.", "A.D.", "MAN 1", "MAN 2", "ÁNGEL", "ÁNGELA"} <= set(names)
     assert "CUT TO:" not in names
+
+
+
+def test_headings_without_int_ext_and_a_title_page_with_only_the_title():
+    a = " " * 10
+    pages = [
+        " " * 23 + "A COMPLETE UNKNOWN\n",
+        "\n".join([
+            f"127{' ' * 67}127EXT. THE VIKING MOTEL -- NIGHT",
+            f"{a}Bob walks out.",
+            "",
+            f"128{' ' * 67}128THE NEWPORT FOLK FESTIVAL -- SUNDAY NIGHT CONCERT",
+            f"{a}The crowd waits.",
+            "",
+            f"129{' ' * 67}129BACKSTAGE :",
+            f"{a}Pete paces.",
+            "",
+            f"130{' ' * 67}130ONSTAGE :",
+            f"{a}Bob plugs in.",
+        ]),
+    ]
+    play = parse(pdf_text_to_fountain("\f".join(pages)))
+    assert play.title == "A COMPLETE UNKNOWN"
+    assert [(s.number, s.heading) for s in play.scenes] == [
+        ("127", "EXT. THE VIKING MOTEL -- NIGHT"), ("128", "THE NEWPORT FOLK FESTIVAL -- SUNDAY NIGHT CONCERT"),
+        ("129", "BACKSTAGE"), ("130", "ONSTAGE"),
+    ]
