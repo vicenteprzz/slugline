@@ -16,6 +16,8 @@ from pathlib import Path
 from typing import Union
 
 # A scene heading starts with one of these, followed by a dot or a space.
+# How the PDF reader marks a wide gap inside a cue line (see _glued_names).
+DUAL_MARK = " \uff06 "
 SCENE_PREFIX = re.compile(r"^(?:INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)[.\s]", re.IGNORECASE)
 HEADING_PARTS = re.compile(r"^(INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)\.?\s*", re.IGNORECASE)
 SCENE_NUMBER = re.compile(r"\s*#([\w.\-]+)#\s*$")
@@ -419,6 +421,7 @@ def parse(text: str) -> Screenplay:
 
     _unique_numbers(play)
     _single_names(play)
+    _glued_names(play)
     return play
 
 
@@ -435,6 +438,49 @@ def _single_names(play: Screenplay) -> None:
                 single = " ".join(words[:half])
                 if single in names:
                     d.character = single
+
+
+def _glued_names(play: Screenplay) -> None:
+    """Names run together, put right with the names the script uses on their own:
+
+    - two speakers at once, "BATMAN & SELINA" (how a PDF's dual dialogue is
+      read, or written by hand): the first speaks the lines and the second is
+      there too, so both count in the scene;
+    - a scrap of dialogue glued in front of a name ("GREAT -- NOW I GOT YOU ON
+      CHIEF BOCK"): the name, when it is said at least twice on its own and
+      more often than the glued one."""
+    counts: dict[str, int] = {}
+    for s in play.scenes:
+        for d in s.dialogues:
+            counts[d.character] = counts.get(d.character, 0) + 1
+
+    for s in play.scenes:
+        out: list = []
+        for e in s.elements:
+            out.append(e)
+            if not isinstance(e, Dialogue) or e.dual:
+                continue
+            name, n = e.character, counts.get(e.character, 0)
+            mark = DUAL_MARK if DUAL_MARK in name else " & " if " & " in name else ""
+            if mark:
+                first, _, second = (part.strip() for part in name.partition(mark))
+                if first == second and counts.get(first):  # "BRYAN   BRYAN"; JAR JAR stays
+                    e.character = first
+                elif first and second and counts.get(first) and counts.get(second):
+                    e.character = first
+                    out.append(Dialogue(character=second, dual=True))
+                elif mark == DUAL_MARK:  # a name the PDF spaced out: "TION   MEDON"
+                    e.character = f"{first} {second}".strip()
+                continue
+            words = name.split()
+            if len(words) < 2 or n > 2:
+                continue
+            if "--" in name or len(words) > 4 or any(not re.sub(r"[-'.’/#]", "", w).isalnum() for w in words):
+                tail = next((" ".join(words[i:]) for i in range(1, len(words))
+                             if counts.get(" ".join(words[i:]), 0) >= max(2, n + 1)), None)
+                if tail:
+                    e.character = tail
+        s.elements[:] = out
 
 
 def _unique_numbers(play: Screenplay) -> None:

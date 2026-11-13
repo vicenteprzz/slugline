@@ -2974,3 +2974,10 @@ button.tile:hover {
     display: none;
   }
 }
+
+/* Room for every reel before the fold button. */
+@media (max-width: 1180px) {
+  .reels .fold-all {
+    display: none;
+  }
+}

@@ -22,10 +22,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from slugline.parser import SCENE_PREFIX
+from slugline.parser import DUAL_MARK, SCENE_PREFIX
 
 PAGE_NUMBER = re.compile(r"^\d+\.?$")
 CUE_BASE = re.compile(r"\s*\(.*$")
+# Two speakers at once: the PDF prints both names on the cue line, far apart
+# ("BATMAN        SELINA"). Some PDFs also space out a single name ("TION
+# MEDON"), so the gap is kept as a mark (DUAL_MARK) and the parser decides:
+# two speakers when both names speak on their own, one name otherwise.
+_NAME = r"[A-Z][A-Z0-9.'’#/-]*(?: [A-Z0-9.'’#/-]+)*"
+DUAL_CUE = re.compile(rf"^(\s{{15,}})({_NAME})\s{{3,}}({_NAME})\s*$")
 # Title page placeholders that templates leave behind; they are not real data.
 PLACEHOLDERS = {"address", "phone", "e-mail", "email", "contact"}
 BYLINES = {"written by", "by", "screenplay by"}
@@ -267,7 +273,7 @@ def pdf_text_to_fountain(text: str) -> str:
         header = _title_page(pages[0])
         pages = pages[1:]
 
-    page_lines = [[_unmark(raw) for raw in page.splitlines()] for page in pages]
+    page_lines = [[DUAL_CUE.sub(rf"\1\2{DUAL_MARK}\3", _unmark(raw)) for raw in page.splitlines()] for page in pages]
     _drop_running_lines(page_lines)
     columns = _columns([raw for page in page_lines for raw in page])
     shifted = [columns.shifted(_page_shift(page, columns)) for page in page_lines]

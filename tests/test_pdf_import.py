@@ -288,3 +288,26 @@ def test_doubled_name_stays_when_it_is_the_name():
 def test_extensions_in_brackets():
     play = parse("INT. CAR - DAY\n\nMARTY [PHONE]\nHello?\n\nRACHEL (V.O.)\nIt's me.\n")
     assert [(d.character, d.extensions) for d in play.scenes[0].dialogues] == [("MARTY", ["PHONE"]), ("RACHEL", ["V.O."])]
+
+
+def test_two_speakers_at_once_and_names_the_pdf_spaces_out():
+    c, d = " " * 30, " " * 20
+    page = "\n".join([
+        "INT. ROOF - NIGHT", "",
+        f"{c}BATMAN", f"{d}Down.", "",
+        f"{c}SELINA", f"{d}Up.", "",
+        f"{c}BATMAN          SELINA", f"{d}Now.", "",
+        f"{c}TION     MEDON", f"{d}Senator.", "",
+        f"{c}GREAT -- NOW I GOT YOU ON BATMAN", f"{d}Hm.", "",
+        f"{c}BATMAN", f"{d}Again.", "",
+    ])
+    scene = parse(pdf_text_to_fountain(page)).scenes[0]
+    assert [(x.character, x.dual) for x in scene.dialogues] == [
+        ("BATMAN", False), ("SELINA", False), ("BATMAN", False), ("SELINA", True),
+        ("TION MEDON", False), ("BATMAN", False), ("BATMAN", False),
+    ]
+
+
+def test_a_real_name_of_two_words_is_kept():
+    play = parse("INT. CLUB - NIGHT\n\nBOB\nHey.\n\nBOB\nHo.\n\nNEUWIRTH\nYo.\n\nNEUWIRTH\nYa.\n\nBOB NEUWIRTH\nMe.\n")
+    assert play.scenes[0].dialogues[-1].character == "BOB NEUWIRTH"
