@@ -87,15 +87,26 @@ def _latin(text: str) -> str:
 
 
 def _lay_out(lines: list[tuple[float, float, float, str]], width: float, height: float) -> str:
-    """The page as monospaced text: each line at its column and row."""
+    """The page as monospaced text: each line at its column, rows one after
+    another. A scan is never quite 12 points a line, so rows are counted from
+    the page's own line spacing, line to line, instead of from the top: a
+    rounding error would otherwise leave a blank row inside a speech."""
+    if not lines:
+        return ""
+    items = sorted((top * height, round(left * width / CHAR_WIDTH), text.strip()) for left, top, _, text in lines)
+    steps = sorted(b[0] - a[0] for a, b in zip(items, items[1:]) if 0.6 * LINE_HEIGHT < b[0] - a[0] < 1.6 * LINE_HEIGHT)
+    unit = steps[len(steps) // 2] if steps else LINE_HEIGHT
     rows: dict[int, list[tuple[int, str]]] = {}
-    for left, top, _, text in lines:
-        row = round(top * height / LINE_HEIGHT)
-        rows.setdefault(row, []).append((round(left * width / CHAR_WIDTH), text.strip()))
+    row, previous = round(items[0][0] / unit), items[0][0]
+    for top, column, text in items:
+        if top - previous > 0.5 * unit:
+            row += max(1, round((top - previous) / unit))
+            previous = top
+        rows.setdefault(row, []).append((column, text))
     out = []
-    for row in range(max(rows) + 1 if rows else 0):
+    for r in range(max(rows) + 1):
         line = ""
-        for column, text in sorted(rows.get(row, [])):
+        for column, text in sorted(rows.get(r, [])):
             gap = column - len(line)
             line += (" " * gap if gap > 0 else ("   " if line else "")) + text
         out.append(line.rstrip())

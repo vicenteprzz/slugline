@@ -574,7 +574,18 @@ def pdf_text_to_fountain(text: str) -> str:
     more = False  # dialogue continues on the next page
     cues: list[int] = []  # where character cues are in `out`
 
-    for raw, columns in lines:
+    # Where each page starts in `lines`: a speech can begin on the page after its name.
+    page_starts, at = set(), 0
+    for page in page_lines:
+        page_starts.add(at)
+        at += len(page)
+    written, seen = -1, 0  # where the last line written to `out` came from
+
+    for index, (raw, columns) in enumerate(lines):
+        if len(out) != seen:
+            if out and out[-1]:
+                written = index - 1
+            seen = len(out)
         s = raw.strip()
         if not s:
             out.append("")
@@ -584,6 +595,15 @@ def pdf_text_to_fountain(text: str) -> str:
         indent = len(raw) - len(raw.lstrip())
 
         if DATED_HEADER.match(_squeeze(s)):
+            continue
+        crossed = any(written < start <= index for start in page_starts)
+        # Some PDFs print a line twice, glued: "(MORE)(MORE)", "HALE (CONT'D)HALE (CONT'D)".
+        half = len(s) // 2
+        if len(s) >= 6 and len(s) % 2 == 0 and s[:half] == s[half:]:
+            s = s[:half]
+            raw = raw[:len(raw) - len(raw.lstrip())] + s
+
+        if False:
             continue
         numbered = NUMBERED.match(s) if indent < columns.kind_limit() else None
         if numbered and indent >= columns.action - 1:
@@ -640,6 +660,9 @@ def pdf_text_to_fountain(text: str) -> str:
         if MORE.match(_squeeze(s)):
             more = True
             continue
+        tail = re.search(r"\s*\(MORE\)(?:\s*\(MORE\))*\s*$", s)
+        if tail and tail.start() > 0:  # "(beat)  (MORE)": the speech goes on over the page
+            s, more = s[:tail.start()], True
         kind = columns.kind(indent, s)
         if last == "parenthetical" and out[-1].startswith("(") and not out[-1].endswith(")") and kind != "cue":
             kind = "parenthetical"  # the rest of a parenthetical that runs onto a second line
@@ -670,6 +693,8 @@ def pdf_text_to_fountain(text: str) -> str:
                 more = False
                 continue
             more = False
+            if out and out[-1]:
+                out.append("")  # a name always starts its own block
             cues.append(len(out))
             out.append(s)
             last_cue, last = base, "cue"
@@ -678,6 +703,9 @@ def pdf_text_to_fountain(text: str) -> str:
                 out[-1] += " " + s
                 last = "parenthetical"
             elif s.startswith("("):
+                if last == "cue" and crossed:
+                    while out and not out[-1]:
+                        out.pop()
                 out.append(s)
                 last = "parenthetical"
             elif last in ("cue", "dialogue", "parenthetical"):
@@ -689,6 +717,10 @@ def pdf_text_to_fountain(text: str) -> str:
                 out.append(s)
                 last = "centred"
         elif kind == "dialogue":
+            if last in ("cue", "parenthetical") and crossed:
+                # A name at the foot of a page and its speech on the next one.
+                while out and not out[-1]:
+                    out.pop()
             split = _trailing_cue(s, names)
             if split:
                 cue, s = split

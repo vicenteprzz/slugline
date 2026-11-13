@@ -5,17 +5,23 @@ from slugline.parser import parse_heading
 
 
 def test_a_page_is_laid_out_column_for_column():
-    # (left, top, right, text) as fractions of a 612 x 792 point page
+    # (left, top, right, text) as fractions of a 612 x 792 point page; a scan's
+    # lines are 12.6 points apart, not 12, and a blank line sits before the cue.
+    row = lambda n: n * 12.6 / 792  # noqa: E731
     lines = [
-        (0.15, 0.10, 0.6, "INT. KITCHEN - NIGHT"),
-        (0.15, 0.13, 0.9, "Rain on the window."),
-        (0.43, 0.16, 0.6, "ANNA"),
-        (0.29, 0.18, 0.7, "Who's there?"),
+        (0.15, row(7), 0.6, "INT. KITCHEN - NIGHT"),
+        (0.15, row(9), 0.9, "Rain on the window."),
+        (0.43, row(11), 0.6, "ANNA"),
+        (0.29, row(12), 0.7, "Who's there?"),
+        (0.29, row(13), 0.7, "Show yourself."),
     ]
-    page = ocr._lay_out(lines, 612, 792).splitlines()
-    assert page[7].lstrip() == "INT. KITCHEN - NIGHT" and page[7].index("INT") == 13
-    assert page[11].lstrip() == "ANNA" and page[11].index("ANNA") == 37
-    assert page[12].lstrip() == "Who's there?" and page[12].index("Who") == 25
+    page = [line for line in ocr._lay_out(lines, 612, 792).splitlines()]
+    text = [line.strip() for line in page]
+    k = text.index("ANNA")
+    assert text[k + 1:k + 3] == ["Who's there?", "Show yourself."]  # no blank row inside the speech
+    assert text[k - 1] == "" and text[k - 2] == "Rain on the window."
+    assert page[k].index("ANNA") == 37 and page[k + 1].index("Who") == 25
+    assert page[text.index("INT. KITCHEN - NIGHT")].index("INT") == 13
 
 
 def test_other_alphabets_are_lookalikes_or_smudges():
