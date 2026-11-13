@@ -57,13 +57,16 @@ class Schedule:
     actors: dict[str, str] = field(default_factory=dict)  # character -> actor's name
     # The crew list printed on every call sheet: {"role", "name", "phone"}.
     crew: list[dict[str, str]] = field(default_factory=list)
+    # Calendar, availability, daylight and rest (see `constraints`), as saved.
+    constraints: dict = field(default_factory=dict)
 
     def scheduled(self) -> set[str]:
         return {n for d in self.days for n in d.scenes}
 
     def to_dict(self) -> dict:
         return {"days": [asdict(d) for d in self.days], "pages_per_day": self.pages_per_day,
-                "revision": self.revision, "actors": self.actors, "crew": self.crew}
+                "revision": self.revision, "actors": self.actors, "crew": self.crew,
+                "constraints": self.constraints}
 
     @classmethod
     def from_dict(cls, data: dict) -> Schedule:
@@ -79,6 +82,7 @@ class Schedule:
             revision=data.get("revision"),
             actors={str(k): str(v) for k, v in data.get("actors", {}).items()},
             crew=[{k: str(c.get(k, "")) for k in ("role", "name", "phone")} for c in data.get("crew", [])],
+            constraints=data.get("constraints") if isinstance(data.get("constraints"), dict) else {},
         )
 
 
@@ -202,6 +206,7 @@ def set_days(
         revision=previous.revision if previous else None,
         actors={k: v.strip() for k, v in actors.items() if v.strip()},
         crew=clean_crew,
+        constraints=previous.constraints if previous else {},
     )
 
 
@@ -272,8 +277,11 @@ def day_out_of_days(schedule: Schedule, b: Breakdown) -> list[CastDays]:
 def to_payload(schedule: Schedule | None, b: Breakdown) -> dict | None:
     if schedule is None:
         return None
+    from slugline import constraints as limits
+
     scheduled = schedule.scheduled()
     return {
+        **limits.to_payload(schedule, b, limits.Constraints.from_dict(schedule.constraints)),
         "pages_per_day": schedule.pages_per_day,
         "days": [{**asdict(d), "stats": asdict(day_stats(d, b, schedule.pages_per_day))} for d in schedule.days],
         "unscheduled": [s.number for s in b.scenes if s.number not in scheduled],
@@ -324,7 +332,7 @@ def carry_over(text: str) -> Schedule | None:
     cast = {c for s in play.scenes for d in s.dialogues for c in [d.character]}
     actors = {k: v for k, v in old.actors.items() if k in cast}
     return Schedule(days=days, pages_per_day=old.pages_per_day, actors=actors, crew=old.crew,
-                    revision=revisions.matching_payload(matching, previous["meta"]))
+                    constraints=old.constraints, revision=revisions.matching_payload(matching, previous["meta"]))
 
 
 def load_or_carry(text: str) -> Schedule | None:

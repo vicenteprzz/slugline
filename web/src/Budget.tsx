@@ -280,10 +280,25 @@ export default function BudgetCard(props: {
           })}
         </p>
       )}
-      {reorder?.changed && reorder.saving > 0 && (
+      {reorder?.changed && (reorder.saving > 0 || reorder.conflicts_after < reorder.conflicts_before) && (
         <div className="reorder">
           <p>
-            <strong>{t("Save {amount} by reordering the shooting days.", { amount: money(reorder.saving) })}</strong>{" "}
+            {reorder.conflicts_after < reorder.conflicts_before && (
+              <strong>
+                {t("Reordering the days solves {n} of the {total} availability conflicts.", {
+                  n: reorder.conflicts_before - reorder.conflicts_after,
+                  total: reorder.conflicts_before,
+                })}{" "}
+              </strong>
+            )}
+            {reorder.saving > 0 && <strong>{t("Save {amount} by reordering the shooting days.", { amount: money(reorder.saving) })}</strong>}{" "}
+            {reorder.conflicts_after > 0 && (
+              <span>
+                {t("{n} availability conflicts can't be solved by reordering: move scenes to other days or change the dates.", {
+                  n: reorder.conflicts_after,
+                })}{" "}
+              </span>
+            )}
             {t("The cast would be on hold {before} days instead of {after}. Each day keeps its scenes and the night block stays together; dates stay on the calendar.", {
               before: reorder.holds_before,
               after: reorder.holds_after,

@@ -593,6 +593,25 @@ def call_sheets_pdf(
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]
 
+    from datetime import date as _date
+
+    from slugline.constraints import Constraints, sun_times
+
+    city = Constraints.from_dict(schedule.constraints).city
+
+    def date_cell(day):
+        """The date, and sunrise and sunset there when the city is set."""
+        if not day.date:
+            return p("-", value)
+        text = escape(_date_label(day.date, lang))
+        try:
+            sun = sun_times(_date.fromisoformat(day.date), city)
+        except ValueError:
+            sun = None
+        if sun:
+            text += f"<br/><font size=8>{'Sol' if lang == 'es' else 'Sun'} {sun[0]}–{sun[1]}</font>"
+        return Paragraph(text, value)
+
     def sheet(i: int) -> list:
         d = schedule.days[i]
         scenes = [rows[n] for n in d.scenes if n in rows]
@@ -602,7 +621,7 @@ def call_sheets_pdf(
         head = [
             [p(title, big), p(tr("DAY"), label), p(tr("DATE"), label), p(tr("CREW CALL"), label)],
             [p(tr("CALL SHEET"), label), p(tr("{i} of {n}", i=i + 1, n=len(schedule.days)), value),
-             p(_date_label(d.date, lang) if d.date else "-", value), p(d.call_time or "-", value)],
+             date_cell(d), p(d.call_time or "-", value)],
         ]
         story.append(Table(head, colWidths=[width - 120 * mm, 30 * mm, 50 * mm, 40 * mm], style=TableStyle([
             ("SPAN", (0, 0), (0, 0)), ("VALIGN", (0, 0), (-1, -1), "TOP"),

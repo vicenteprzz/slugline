@@ -105,6 +105,14 @@ build the app to show a "Buy a licence" link in Settings.
 - Drag the strips between days (or use the menu on each strip), add dates and
   notes, and see each day's pages, locations and lighting at a glance
 - Export it as a PDF stripboard or CSV
+- Calendar and constraints: a first shooting date and the shooting weekdays
+  date every day at once; dates when an actor or a location can't be used;
+  a city for daylight (sunrise and sunset worked out on the computer, shown
+  on each day and on the call sheets); the length of a day and the minimum
+  rest. Conflicts are listed and marked on each day: an actor or location on
+  a date they can't do, an exterior at dawn called after sunrise, too little
+  rest between a night and the next day. Reordering the days (in the budget)
+  also moves them to dates that work, when it can
 
 **Call sheets and day out of days**
 

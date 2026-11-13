@@ -1518,7 +1518,7 @@ line.axis {
 .strip {
   position: relative;
   display: grid;
-  grid-template-columns: 16px 34px minmax(0, 2.2fr) 48px minmax(0, 2fr) auto;
+  grid-template-columns: 16px 34px minmax(0, 2.2fr) 30px 48px minmax(0, 2fr) auto;
   align-items: center;
   gap: 8px;
   padding: 5px 8px 5px 18px;
@@ -1571,15 +1571,15 @@ line.axis {
 
 @media (max-width: 860px) {
   .strip {
-    grid-template-columns: 16px 30px minmax(0, 1fr) 44px;
+    grid-template-columns: 16px 30px minmax(0, 1fr) 28px 44px;
   }
 
   .strip-cast {
-    grid-column: 3 / 5;
+    grid-column: 3 / 6;
   }
 
   .strip-move {
-    grid-column: 3 / 5;
+    grid-column: 3 / 6;
     justify-self: start;
   }
 }
@@ -2245,7 +2245,7 @@ td.story-day,
 }
 
 .strip-day {
-  padding: 0 6px;
+  padding: 0;
 }
 
 .story-day-field {
@@ -2261,4 +2261,95 @@ td.story-day,
 
 .small-note {
   font-size: 11px;
+}
+
+/* Calendar and constraints */
+.constraints {
+  margin: 4px 0 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--page);
+}
+
+.constraints summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.constraints h4 {
+  margin: 14px 0 6px;
+  font-size: 13px;
+}
+
+.constraints-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.constraints .weekdays {
+  gap: 4px;
+}
+
+.periods {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--grid);
+  font-size: 13px;
+}
+
+.period-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.period-add {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.schedule-problems {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--warning) 70%, transparent);
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  font-size: 13px;
+}
+
+.schedule-problems ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.problem-day {
+  font-weight: 600;
+}
+
+.day-sun {
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.day-problem {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--warning);
+  cursor: help;
+}
+
+@media (max-width: 700px) {
+  .periods {
+    grid-template-columns: 1fr;
+  }
 }

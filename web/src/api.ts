@@ -1,5 +1,5 @@
 import { language, t } from "./i18n";
-import type { Analysis, Budget, BudgetSettings, ChatEvent, Reorder, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
+import type { Analysis, Budget, BudgetSettings, ChatEvent, Reorder, ScheduleConstraints, CrewMember, Elements, LibraryEntry, LicenseStatus, Schedule, Script, Settings, ShootDay, Status } from "./types";
 
 /** Every request carries the app's header; the server refuses changes without it. */
 const call = (url: string, init: RequestInit = {}) =>
@@ -106,6 +106,17 @@ export const saveSchedule = (
       body: JSON.stringify({ days, pages_per_day: options.pagesPerDay ?? null, actors: options.actors ?? null, crew: options.crew ?? null }),
     }),
   );
+
+export const saveConstraints = (id: string, constraints: ScheduleConstraints) =>
+  json<Schedule>(
+    call(`/api/scripts/${id}/schedule/constraints`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(constraints),
+    }),
+  );
+
+export const fillDates = (id: string) => json<Schedule>(call(`/api/scripts/${id}/schedule/dates`, { method: "POST" }));
 
 export const clearSchedule = (id: string) => json<{ ok: boolean }>(call(`/api/scripts/${id}/schedule`, { method: "DELETE" }));
 

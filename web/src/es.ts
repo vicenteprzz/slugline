@@ -135,6 +135,85 @@ export const ES: Record<string, string> = {
   "Hide this section": "Ocultar esta sección",
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
+  // Calendar and constraints
+  "{n} availability conflicts can't be solved by reordering: move scenes to other days or change the dates.":
+    "{n} conflictos de disponibilidad no se pueden resolver reordenando: mueve secuencias a otras jornadas o cambia las fechas.",
+  "{name} is not available on {date}.":
+    "{name} no está disponible el {date}.",
+  "{name} can't be used on {date}.":
+    "{name} no se puede usar el {date}.",
+  "Exterior at dawn (scenes {scenes}): the sun rises at {sunrise} and the call is at {call}.":
+    "Exterior al amanecer (secuencias {scenes}): el sol sale a las {sunrise} y la citación es a las {call}.",
+  "Only {rest} h of rest before the {call} call (the minimum is {minimum} h).":
+    "Solo {rest} h de descanso antes de la citación de las {call} (el mínimo es {minimum} h).",
+  "Call times assumed where none is set.":
+    "Donde no hay citación, se supone una (07:00 de día, 18:00 de noche).",
+  "From":
+    "Desde",
+  "To":
+    "Hasta",
+  "The constraints could not be saved.":
+    "No se han podido guardar las restricciones.",
+  "The dates could not be set.":
+    "No se han podido poner las fechas.",
+  "Calendar and constraints":
+    "Calendario y restricciones",
+  "{n} conflicts":
+    "{n} conflictos",
+  "no conflicts":
+    "sin conflictos",
+  "dates, availability, daylight and rest":
+    "fechas, disponibilidad, horas de luz y descansos",
+  "First shooting day":
+    "Primer día de rodaje",
+  "Shooting weekdays":
+    "Días de la semana de rodaje",
+  "Mon":
+    "L",
+  "Tue":
+    "M",
+  "Wed":
+    "X",
+  "Thu":
+    "J",
+  "Fri":
+    "V",
+  "Sat":
+    "S",
+  "Sun":
+    "D",
+  "Date every day":
+    "Poner fecha a todas las jornadas",
+  "City (for daylight)":
+    "Ciudad (para las horas de luz)",
+  "None":
+    "Ninguna",
+  "Hours from call to wrap":
+    "Horas de citación a fin de jornada",
+  "Minimum rest (h)":
+    "Descanso mínimo (h)",
+  "When the cast is not available":
+    "Cuándo no está disponible el reparto",
+  "Add a character":
+    "Añadir un personaje",
+  "+ Add a character":
+    "+ Añadir un personaje",
+  "When a location can't be used":
+    "Cuándo no se puede usar una localización",
+  "Add a location":
+    "Añadir una localización",
+  "+ Add a location":
+    "+ Añadir una localización",
+  "Reordering the days in the budget also moves them to dates that work, when it can. Daylight is worked out on this computer, for the city chosen.":
+    "Reordenar las jornadas, en el presupuesto, también las mueve a fechas en que todo cuadra cuando es posible. Las horas de luz se calculan en este ordenador para la ciudad elegida.",
+  "{n} conflicts with the calendar and constraints":
+    "{n} conflictos con el calendario y las restricciones",
+  "{n} more, marked on each day.":
+    "{n} más, marcados en cada jornada.",
+  "Sunrise and sunset on this date, {hours} h of daylight":
+    "Amanecer y puesta de sol en esta fecha: {hours} h de luz",
+  "Reordering the days solves {n} of the {total} availability conflicts.":
+    "Reordenar las jornadas resuelve {n} de los {total} conflictos de disponibilidad.",
   // Story days and continuity
   "1 set by hand": "1 puesto a mano",
   "Story day {n}": "Día {n}",

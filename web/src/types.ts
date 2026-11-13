@@ -114,6 +114,30 @@ export type Schedule = {
   actors: Record<string, string>;
   crew: CrewMember[];
   day_out_of_days: CastDays[];
+  constraints: ScheduleConstraints;
+  cities: { key: string; name: string }[];
+  problems: Problem[];
+  daylight: ({ sunrise: string; sunset: string; hours: number } | null)[];
+};
+
+export type Period = [string, string];
+
+export type ScheduleConstraints = {
+  start: string;
+  weekdays: number[];
+  city: string;
+  day_hours: number;
+  rest_hours: number;
+  cast_off: Record<string, Period[]>;
+  location_off: Record<string, Period[]>;
+};
+
+export type Problem = {
+  kind: "cast" | "location" | "dawn" | "rest";
+  day: number;
+  date: string;
+  name: string;
+  detail: { call?: string; sunrise?: string; scenes?: string[]; rest?: number; minimum?: number; assumed?: boolean };
 };
 
 export type Script = {
@@ -209,4 +233,12 @@ export type Budget = {
   settings: BudgetSettings;
 };
 
-export type Reorder = { saving: number; holds_before: number; holds_after: number; changed: boolean; schedule: Schedule | null };
+export type Reorder = {
+  saving: number;
+  holds_before: number;
+  holds_after: number;
+  conflicts_before: number;
+  conflicts_after: number;
+  changed: boolean;
+  schedule: Schedule | null;
+};

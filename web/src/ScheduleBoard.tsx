@@ -1,3 +1,4 @@
+import ConstraintsPanel, { problemText } from "./Constraints";
 import { FoldTitle } from "./fold";
 import { useState } from "react";
 
@@ -179,11 +180,9 @@ export default function ScheduleBoard(props: {
         <button className="slug slug-button strip-heading" onClick={() => props.onOpenScene(s.number)}>
           {s.heading}
         </button>
-        {s.story_label && (
-          <span className="strip-day" title={t("Day of the story: D3 is day 3, N3 the night of day 3")}>
-            {s.story_label}
-          </span>
-        )}
+        <span className="strip-day" title={t("Day of the story: D3 is day 3, N3 the night of day 3")}>
+          {s.story_label}
+        </span>
         <span className="strip-pages">{eighths(s.eighths)}</span>
         <span className="strip-cast">{s.characters.map(titleCase).join(", ") || "–"}</span>
         <select
@@ -272,6 +271,21 @@ export default function ScheduleBoard(props: {
         </div>
       </header>
 
+      <ConstraintsPanel script={script} plan={plan} busy={busy} onChange={props.onChange} onError={props.onError} />
+      {plan.problems.length > 0 && (
+        <div className="schedule-problems" role="status">
+          <strong>{t("{n} conflicts with the calendar and constraints", { n: plan.problems.length })}</strong>
+          <ul>
+            {plan.problems.slice(0, 8).map((p, k) => (
+              <li key={k}>
+                <span className="problem-day">{t("Day {n}", { n: p.day })}</span> {problemText(p)}
+              </li>
+            ))}
+          </ul>
+          {plan.problems.length > 8 && <p className="fine">{t("{n} more, marked on each day.", { n: plan.problems.length - 8 })}</p>}
+        </div>
+      )}
+
       {newScenes.length > 0 && (
         <p className="revision-note schedule-note">
           <span>
@@ -306,6 +320,22 @@ export default function ScheduleBoard(props: {
                   {stats.locations.map(titleCase).join(" · ") || t("No scenes yet")}
                   {stats.light.length > 0 && ` · ${stats.light.map(light).join(", ")}`}
                 </span>
+                {plan.daylight?.[i] && (
+                  <span className="day-sun" title={t("Sunrise and sunset on this date, {hours} h of daylight", { hours: plan.daylight[i]!.hours })}>
+                    ☀ {plan.daylight[i]!.sunrise}–{plan.daylight[i]!.sunset}
+                  </span>
+                )}
+                {plan.problems.some((p) => p.day === i + 1) && (
+                  <span
+                    className="day-problem"
+                    title={plan.problems
+                      .filter((p) => p.day === i + 1)
+                      .map(problemText)
+                      .join("\n")}
+                  >
+                    ▲ {plan.problems.filter((p) => p.day === i + 1).length}
+                  </span>
+                )}
                 {pdf && day.scenes.length > 0 && (
                   <a className="small-link" href={exportUrl(script.id, "call-sheets.pdf", `?day=${i + 1}`)} download>
                     {t("Call sheet")}

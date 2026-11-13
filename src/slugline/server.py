@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, budget, continuity, corrections, elements, export, library, licensing, llm, revisions, settings
+from slugline import __version__, budget, constraints, continuity, corrections, elements, export, library, licensing, llm, revisions, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -543,6 +543,7 @@ def create_app(check_host: bool = True) -> FastAPI:
             if script.schedule:
                 plan.actors = script.schedule.actors  # a new plan keeps the cast and crew lists
                 plan.crew = script.schedule.crew
+                plan.constraints = script.schedule.constraints
             return _save_schedule(script, plan)
 
     @app.post("/api/scripts/{script_id}/schedule/reorder")
@@ -556,10 +557,37 @@ def create_app(check_host: bool = True) -> FastAPI:
             settings = budget.load_or_carry(script.text)
             found = budget.reorder_days(script.breakdown, script.schedule, settings)
             result = {"saving": found.saving, "holds_before": found.holds_before, "holds_after": found.holds_after,
+                      "conflicts_before": found.conflicts_before, "conflicts_after": found.conflicts_after,
                       "changed": found.order != sorted(found.order), "schedule": None}
             if apply and result["changed"]:
                 result["schedule"] = _save_schedule(script, budget.apply_order(script.schedule, found.order))
             return result
+
+    @app.put("/api/scripts/{script_id}/schedule/constraints")
+    def edit_constraints(script_id: str, body: dict) -> dict:
+        """Save the calendar, availability, city and rest; the conflicts are worked out again."""
+        script = store.get(script_id)
+        with script.lock:
+            if not script.schedule:
+                raise HTTPException(404, "This script has no shooting schedule yet.")
+            limits = constraints.Constraints.from_dict(body)
+            script.schedule.constraints = limits.to_dict()
+            return _save_schedule(script, script.schedule)
+
+    @app.post("/api/scripts/{script_id}/schedule/dates")
+    def fill_dates(script_id: str) -> dict:
+        """Give every shooting day a date, from the start date on the shooting weekdays."""
+        script = store.get(script_id)
+        with script.lock:
+            if not script.schedule:
+                raise HTTPException(404, "This script has no shooting schedule yet.")
+            limits = constraints.Constraints.from_dict(script.schedule.constraints)
+            dates = constraints.shooting_dates(limits, len(script.schedule.days))
+            if not dates:
+                raise HTTPException(422, "Set the first shooting date first.")
+            for day, when in zip(script.schedule.days, dates):
+                day.date = when
+            return _save_schedule(script, script.schedule)
 
     @app.put("/api/scripts/{script_id}/schedule")
     def edit_schedule(script_id: str, body: ScheduleIn) -> dict:

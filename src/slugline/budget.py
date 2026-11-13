@@ -555,6 +555,8 @@ class Reorder:
     cost_after: float
     holds_before: int
     holds_after: int
+    conflicts_before: int = 0  # cast or locations on dates they can't be used
+    conflicts_after: int = 0
 
     @property
     def saving(self) -> float:
@@ -583,14 +585,27 @@ def reorder_days(b: Breakdown, plan: scheduling.Schedule, settings: BudgetSettin
     rate = {name: settings.rates.get(f"cast:{name}", level[f"cast.{roles[name]}"]) for name in people}
     social = 1 + percentages(settings)["social"]
 
-    def cost(order: list[int]) -> tuple[float, int]:
+    # Conflicts of each day on each date of the calendar: a day moves to another
+    # date when it moves, as the dates stay where they are.
+    from slugline import constraints as limits
+
+    rules = limits.Constraints.from_dict(plan.constraints)
+    dates = [limits._day(d.date) for d in plan.days]
+    clash = [[len(limits.conflicts_on(plan.days[d], when, rows, rules)) if when else 0 for when in dates]
+             for d in range(len(days))]
+
+    def cost(order: list[int]) -> tuple[float, int, int]:
         position = {day: i for i, day in enumerate(order)}
         total, holds = 0.0, 0
         for name, on in people.items():
             work, hold = _paid_days({position[d] for d in on})
             total += rate[name] * (work + hold)
             holds += hold
-        return total * social, holds
+        conflicts = sum(clash[d][slot] for slot, d in enumerate(order))
+        return total * social, holds, conflicts
+
+    def score(value: tuple[float, int, int]) -> float:
+        return value[2] * 1e9 + value[0]  # no saving is worth a conflict
 
     # Blocks of consecutive days with the same shift; days move only inside their block.
     shift = [1 if any(s.day_night == "NIGHT" for s in day) and all(s.day_night == "NIGHT" for s in day) else 0
@@ -602,8 +617,7 @@ def reorder_days(b: Breakdown, plan: scheduling.Schedule, settings: BudgetSettin
             start = i
 
     order = list(range(len(days)))
-    best, best_holds = cost(order)
-    before, holds_before = best, best_holds
+    first = best_value = cost(order)
     deadline = time.monotonic() + 5  # a long schedule gets the best found in a few seconds
     for _ in range(30):  # passes; each one tries every move
         improved = False
@@ -616,12 +630,12 @@ def reorder_days(b: Breakdown, plan: scheduling.Schedule, settings: BudgetSettin
                         continue
                     candidate = order[:]
                     candidate.insert(j, candidate.pop(i))
-                    value, holds = cost(candidate)
-                    if value < best - 0.5:
-                        order, best, best_holds, improved = candidate, value, holds, True
+                    value = cost(candidate)
+                    if score(value) < score(best_value) - 0.5:
+                        order, best_value, improved = candidate, value, True
         if not improved:
             break
-    return Reorder(order, round(before, 2), round(best, 2), holds_before, best_holds)
+    return Reorder(order, round(first[0], 2), round(best_value[0], 2), first[1], best_value[1], first[2], best_value[2])
 
 
 def apply_order(plan: scheduling.Schedule, order: list[int]) -> scheduling.Schedule:
