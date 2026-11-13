@@ -140,7 +140,10 @@ def _running_key(line: str) -> str:
 
 
 HEADING_SPECKS = re.compile(r"[^\w\s.,'’/&()#:\-–—!?\"]|\s[._,'’]+(?:\s|$)")
-OMITTED = re.compile(r"^\W*OMIT(?:TED)?\b", re.IGNORECASE)
+# A scene cut from the draft, or moved to another number: "OMITTED", "OMITTEDMOVED TO 65A", "MOVED TO A89".
+OMITTED = re.compile(r"^\W*(?:OMIT(?:TED)?(?:\b|(?=[A-Z]))|MOVED TO\b)", re.IGNORECASE)
+# "36-37   36-37OMITTED": a run of scenes cut at once.
+OMITTED_RANGE = re.compile(r"^\s*(\d{1,4})\s*[-–]\s*(\d{1,4})\s{2,}(?:\d{1,4}\s*[-–]\s*\d{1,4})?\s*OMIT", re.IGNORECASE)
 NUMBER_PARTS = re.compile(r"^([A-Z]{0,2})(\d{1,4})([A-Z]{0,2})$")
 MAX_GAP = 15  # a longer run of missing numbers is a cut, not a misreading
 
@@ -227,6 +230,11 @@ def _recover_headings(pages: list[list[str]]) -> list[str]:
     for page in pages:
         for i, line in enumerate(page):
             page[i] = speck.sub(lambda m: " " * len(m.group(0)), line)
+    for page in pages:
+        for i in range(len(page) - 1, -1, -1):
+            cut = OMITTED_RANGE.match(page[i])
+            if cut and 0 < int(cut.group(2)) - int(cut.group(1)) < 50:
+                page[i:i + 1] = [f"{n}   {n}OMITTED" for n in range(int(cut.group(1)), int(cut.group(2)) + 1)]
     spots = [(p, i) for p, page in enumerate(pages) for i in range(len(page))]
     strict = []
     for k, (p, i) in enumerate(spots):
@@ -539,7 +547,7 @@ def pdf_text_to_fountain(text: str) -> str:
                 # "94...HE BRINGS THE BOX": dots after a forced "." would hide the heading.
                 rest = re.sub(r"^[.…\s]+", "", rest) or rest
             marks = rest.replace(" ", "")
-            garbled = sum(c.isalpha() for c in marks) < len(marks) * 0.6  # a smudge, not words
+            garbled = sum(c.isalnum() for c in marks) < len(marks) * 0.6  # a smudge, not words
             both_sides = glued or numbered.group(0).rstrip().endswith(number)
             if forced and not both_sides or not _caps(rest) or garbled:
                 s, indent = rest, columns.action  # just a line that starts with a number
@@ -634,9 +642,9 @@ def pdf_text_to_fountain(text: str) -> str:
         heading = line.startswith(".") and not line.startswith("..") or SCENE_PREFIX.match(line)
         body = SCENE_NUMBER_MARK.sub("", line).lstrip(".")
         marks = body.replace(" ", "")
-        if heading and marks and sum(c.isalpha() for c in marks) < len(marks) * 0.6:
+        if heading and marks and sum(c.isalnum() for c in marks) < len(marks) * 0.6:
             out[i] = "!" + body
-        elif line.startswith("..") and not line.startswith("...") and sum(c.isalpha() for c in marks) < len(marks) * 0.6:
+        elif line.startswith("..") and not line.startswith("...") and sum(c.isalnum() for c in marks) < len(marks) * 0.6:
             out[i] = "!" + line
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
     if header:
@@ -726,4 +734,34 @@ def pdf_to_fountain(path: str | Path | BinaryIO) -> str:
     except PyPdfError as e:
         name = "the file" if hasattr(path, "read") else path
         raise RuntimeError(f"cannot read {name} as a PDF: {e}") from e
+    if is_scanned(text):
+        text = _ocr(path, text)
     return pdf_text_to_fountain(text)
+
+
+def is_scanned(text: str) -> bool:
+    """A PDF of pictures: next to no text on its pages."""
+    pages = text.split("\f")
+    return len(re.sub(r"\s", "", text)) < 40 * max(1, len(pages))
+
+
+def _ocr(path: str | Path | BinaryIO, text: str) -> str:
+    """Read a scanned PDF with the Mac's own text recognition."""
+    from slugline import ocr
+
+    if not ocr.available():
+        raise RuntimeError(
+            "This PDF is a scan: its pages are pictures, with no text to read. "
+            "Slugline reads scans with the text recognition built into macOS; it is not available here."
+        )
+    if hasattr(path, "read"):  # Vision reads from a file
+        import tempfile
+
+        path.seek(0)
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
+            f.write(path.read())
+        try:
+            return ocr.pdf_text(f.name)
+        finally:
+            Path(f.name).unlink(missing_ok=True)
+    return ocr.pdf_text(path)

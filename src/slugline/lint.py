@@ -206,7 +206,10 @@ def _reading_checks(play: Screenplay) -> list[Issue]:
     pages = play.page_count
     if pages >= 20 and scenes and pages / scenes > 4:
         found.append(_issue("warning", "read-few-scenes", READ_FEW_SCENES, scenes=scenes, pages=round(pages)))
-    dark = sum(1 for s in play.scenes if not s.day_night)
+    # Only when the headings do name the time and it wasn't read: a script that
+    # never says day or night (many don't) is not a bad reading.
+    named = re.compile(r"\b(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|AFTERNOON|DÍA|NOCHE|AMANECER|ATARDECER)\b", re.IGNORECASE)
+    dark = sum(1 for s in play.scenes if not s.day_night and named.search(s.heading))
     if scenes >= 10 and dark * 2 > scenes:
         found.append(_issue("warning", "read-no-light", READ_NO_LIGHT, n=dark, total=scenes))
     return found

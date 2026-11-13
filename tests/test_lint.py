@@ -71,8 +71,12 @@ def test_every_message_is_translated_in_the_app_and_the_pdfs():
 def test_a_badly_read_file_is_reported():
     no_dialogue = "\n\n".join(f"INT. ROOM {i} - DAY\n\nSomething happens." for i in range(6))
     assert "read-no-dialogue" in codes(no_dialogue)
-    no_light = "\n\n".join(f"INT. ROOM {i}\n\nANNA\nHi." for i in range(12))
+    # The headings name the time and it wasn't read: a bad reading.
+    no_light = "\n\n".join(f"INT. ROOM {i} (NIGHT)\n\nANNA\nHi." for i in range(12))
     assert "read-no-light" in codes(no_light)
+    # A script that never says day or night is not badly read.
+    no_times = "\n\n".join(f"INT. ROOM {i}\n\nANNA\nHi." for i in range(12))
+    assert "read-no-light" not in codes(no_times)
     long_scene = "INT. ROOM - DAY\n\n" + "\n\n".join("A long paragraph of action. " * 12 for _ in range(260)) + "\n\nANNA\nHi.\n"
     assert "read-few-scenes" in codes(long_scene + "\n\nINT. HALL - DAY\n\nANNA\nBye.\n")
     healthy = "\n\n".join(f"INT. ROOM {i} - DAY\n\nANNA\nHi." for i in range(12))

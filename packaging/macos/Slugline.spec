@@ -13,7 +13,7 @@ datas += collect_data_files("reportlab")  # fonts for the PDFs
 hiddenimports = (
     collect_submodules("uvicorn")
     + collect_submodules("slugline")
-    + ["webview.platforms.cocoa", "anthropic", "pypdf", "httpx2"]
+    + ["webview.platforms.cocoa", "anthropic", "pypdf", "httpx2", "Vision", "Quartz"]
 )
 
 a = Analysis(

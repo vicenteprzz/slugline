@@ -55,6 +55,11 @@ SHOT = re.compile(
 )
 # Production boards only care about four lighting conditions. Order matters:
 # "PRE-DAWN" is dawn, "THE NEXT DAY" is day.
+AFTER_TIME = re.compile(r"^(?:\(.*\)|\d{4}|INTERCUT\b.*|FLASHBACK\b.*|\(?CONT'?D\)?)$", re.IGNORECASE)
+BARE_TIME = re.compile(
+    r"(?:\s+|\s*[-–—]+\s*)((?:EARLY |LATE )?(?:DAY|NIGHT|MORNING|AFTERNOON|EVENING|DAWN|DUSK|SUNSET|SUNRISE|DÍA|NOCHE|AMANECER|ATARDECER))[\s.]*$",
+    re.IGNORECASE,
+)
 DAY_NIGHT = [
     ("DAWN", re.compile(r"\b(DAWN|SUNRISE|AMANECER)\b")),
     ("DUSK", re.compile(r"\b(DUSK|SUNSET|TWILIGHT|MAGIC HOUR|ATARDECER|OCASO)\b")),
@@ -233,8 +238,19 @@ def parse_heading(text: str) -> tuple[str | None, str, str | None]:
         int_ext = "INT/EXT" if prefix in ("INT/EXT", "I/E") else prefix
         rest = rest[m.end():]
     parts = TIME_SEPARATOR.split(rest)
+    # What can follow the time: "DAY - (1980)", "NIGHT - INTERCUT".
+    while len(parts) > 2 and TIME_HINT.search(parts[-2]) and (
+        AFTER_TIME.match(parts[-1].strip())
+        # "NIGHT -- LATE", "DAY -- LATE SUMMER", "WET DAY -- WINTER 1961": the time, then more about it
+        or not TIME_HINT.search(parts[-1]) and len(parts[-2].split()) <= 2 and any(rx.search(parts[-2].upper()) for _, rx in DAY_NIGHT)
+    ):
+        parts = parts[:-1]
     if len(parts) > 1 and TIME_HINT.search(parts[-1]):
         return int_ext, " - ".join(parts[:-1]).strip(), parts[-1].strip().upper()
+    # The time with no dash before it: "APARTMENT- STUDY NIGHT", "COCINA NOCHE".
+    bare = BARE_TIME.search(rest)
+    if bare and rest[:bare.start()].strip(" -–—"):
+        return int_ext, rest[:bare.start()].strip(" -–—"), bare.group(1).upper()
     return int_ext, " - ".join(p.strip() for p in parts), None
 
 

@@ -365,3 +365,35 @@ def test_a_heading_written_as_a_sentence_and_a_number_on_the_right():
     numbers = {s.number: s.heading for s in parse(pdf_text_to_fountain(" " * 30 + "OSAGE\f" + page)).scenes}
     assert numbers["P11"] == "CUT TO CHAUFFEUR OPENING THE DOOR"
     assert numbers["2"] == "OUTSIDE THE ELEVATOR HALLWAY"
+
+
+def test_times_written_every_which_way():
+    from slugline.parser import parse_heading
+
+    assert parse_heading("INT. APARTMENT- STUDY NIGHT")[1:] == ("APARTMENT- STUDY", "NIGHT")
+    assert parse_heading("INT. AUTOMATED WAREHOUSE-DAY")[1:] == ("AUTOMATED WAREHOUSE", "DAY")
+    assert parse_heading("INT. PENTHOUSE - DAY - (1980)")[1:] == ("PENTHOUSE", "DAY")
+    assert parse_heading("INT. BOB'S APARTMENT -- NIGHT -- LATE")[1:] == ("BOB'S APARTMENT", "NIGHT")
+    assert parse_heading("EXT. CITY - PRE-DAWN")[1:] == ("CITY", "PRE-DAWN")
+    assert parse_heading("INT. NIGHT CLUB")[2] is None and parse_heading("INT. DAY ROOM - HOSPITAL")[2] is None
+
+
+def test_runs_of_omitted_scenes_and_a_heading_with_its_year():
+    page = "\n".join([
+        "35                                                                 35INT. DINER - DAY (1974)", "", "Food.", "",
+        "36-37                                                           36-37OMITTED", "",
+        "38                                                                 38INT. OFFICE - NIGHT", "", "Work.", "",
+        "39                                                                 39OMITTEDMOVED TO 65A", "",
+        "40                                                                 40EXT. STREET - DAY", "", "Cars.", "",
+    ])
+    play = parse(pdf_text_to_fountain(" " * 30 + "DINER\f" + page))
+    assert [s.number for s in play.scenes] == ["35", "38", "40"]
+    assert play.scenes[0].heading == "INT. DINER - DAY (1974)"
+    assert play.omitted == ["36", "37", "39"]
+
+
+def test_a_scanned_pdf_is_recognised():
+    from slugline.pdf_import import is_scanned
+
+    assert is_scanned("\f".join(["", " ", "\n\n"]))
+    assert not is_scanned("INT. HOUSE - DAY\n\nJohn walks in and sits down at the table." * 3)
