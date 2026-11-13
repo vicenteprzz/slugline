@@ -18,6 +18,8 @@ from typing import Union
 # A scene heading starts with one of these, followed by a dot or a space.
 # How the PDF reader marks a wide gap inside a cue line (see _glued_names).
 DUAL_MARK = " \uff06 "
+# The same, when the names are columns apart: two people speaking at once, for sure.
+DUAL_WIDE = " \uff06\uff06 "
 SCENE_PREFIX = re.compile(r"^(?:INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)[.\s]", re.IGNORECASE)
 HEADING_PARTS = re.compile(r"^(INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)\.?\s*", re.IGNORECASE)
 SCENE_NUMBER = re.compile(r"\s*#([\w.\-]+)#\s*$")
@@ -507,11 +509,14 @@ def _glued_names(play: Screenplay) -> None:
             if not isinstance(e, Dialogue) or e.dual:
                 continue
             name, n = e.character, counts.get(e.character, 0)
-            mark = DUAL_MARK if DUAL_MARK in name else " & " if " & " in name else ""
+            mark = DUAL_WIDE if DUAL_WIDE in name else DUAL_MARK if DUAL_MARK in name else " & " if " & " in name else ""
             if mark:
                 first, _, second = (part.strip() for part in name.partition(mark))
-                if first == second and counts.get(first):  # "BRYAN   BRYAN"; JAR JAR stays
+                if first == second and (counts.get(first) or mark == DUAL_WIDE):  # "BRYAN   BRYAN"; JAR JAR stays
                     e.character = first
+                elif mark == DUAL_WIDE and first and second:  # "BATMAN              SELINA"
+                    e.character = first
+                    out.append(Dialogue(character=second, dual=True))
                 elif first and second and counts.get(first) and counts.get(second):
                     e.character = first
                     out.append(Dialogue(character=second, dual=True))

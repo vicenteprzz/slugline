@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import BinaryIO
 
-from slugline.parser import DUAL_MARK, SCENE_PREFIX
+from slugline.parser import DUAL_MARK, DUAL_WIDE, SCENE_PREFIX
 
 PAGE_NUMBER = re.compile(r"^\d+\.?$")
 CUE_BASE = re.compile(r"\s*\(.*$")
@@ -30,8 +30,10 @@ CUE_BASE = re.compile(r"\s*\(.*$")
 # ("BATMAN        SELINA"). Some PDFs also space out a single name ("TION
 # MEDON"), so the gap is kept as a mark (DUAL_MARK) and the parser decides:
 # two speakers when both names speak on their own, one name otherwise.
-_NAME = r"[A-Z][A-Z0-9.'’#/-]*(?: [A-Z0-9.'’#/-]+)*"
-DUAL_CUE = re.compile(rf"^(\s{{15,}})({_NAME})\s{{3,}}({_NAME})\s*$")
+_UP = "A-ZÁÉÍÓÚÜÑÀÈÌÒÙÇ"
+_NAME = rf"[{_UP}][{_UP}0-9.'’#/-]*(?: [{_UP}0-9.'’#/-]+)*"
+DUAL_CUE = re.compile(rf"^(\s{{6,}})({_NAME})(\s{{3,}})({_NAME})\s*$")
+WIDE_GAP = 10  # two speakers' names sit columns apart; a spaced-out name, a few spaces
 # Title page placeholders that templates leave behind; they are not real data.
 PLACEHOLDERS = {"address", "phone", "e-mail", "email", "contact"}
 BYLINES = {"written by", "by", "screenplay by"}
@@ -148,6 +150,12 @@ NUMBER_PARTS = re.compile(r"^([A-Z]{0,2})(\d{1,4})([A-Z]{0,2})$")
 MAX_GAP = 15  # a longer run of missing numbers is a cut, not a misreading
 
 
+def _continued_like(text: str) -> bool:
+    """CONTINUED: as a scan smudges it ("COJITUlUE,D: . {J4)")."""
+    word = re.sub(r"[^A-Za-z]", "", text.split(":")[0]).upper()
+    return 6 <= len(word) <= 11 and word != "CONTINUOUS" and SequenceMatcher(None, word, "CONTINUED").ratio() >= 0.6
+
+
 def _strict_heading(line: str) -> tuple[str, str] | None:
     """(number, text) of a numbered heading read cleanly: "25   INT. MAIN HANGAR"."""
     m = NUMBERED.match(line.strip())
@@ -157,7 +165,7 @@ def _strict_heading(line: str) -> tuple[str, str] | None:
     rest = re.sub(rf"^\d{{1,4}} (?={re.escape(number)})", "", rest)
     if rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit():
         rest = rest[len(number):].lstrip()
-    if OMITTED.match(rest) or CONTINUED.match(rest) or CONTINUED_HEADER.search(rest):
+    if OMITTED.match(rest) or CONTINUED.match(rest) or CONTINUED_HEADER.search(rest) or _continued_like(rest):
         return None  # "2   OMIT": a scene cut from the script, not a scene
     if SCENE_PREFIX.match(rest) or (len(LETTERS.findall(rest)) >= 3 and _caps(rest)):
         return number, rest
@@ -245,8 +253,16 @@ def _recover_headings(pages: list[list[str]]) -> list[str]:
     known = list(dict.fromkeys(h for *_, h in strict if SCENE_PREFIX.match(h) and not HEADING_SPECKS.search(h)))
     # A clean heading that fits the numbering (94 < 95 < 96) is a heading
     # wherever the page puts it: a scanned page can sit off the margins.
-    for (ka, _, a, _), (k, series, n, heading), (kb, _, b, _) in zip(strict, strict[1:], strict[2:]):
-        if a < n < b:
+    # ...and so is one next to its neighbour in the same run (P1 before P2, P3 after
+    # it), when nothing else has its number.
+    numbers = Counter((series, n) for _, series, n, _ in strict)
+    for i_, (k, series, n, heading) in enumerate(strict):
+        a = strict[i_ - 1][2] if i_ else -1
+        b = strict[i_ + 1][2] if i_ + 1 < len(strict) else -1
+        same = {(s, m) for _, s, m, _ in strict[max(0, i_ - 1):i_ + 2]}
+        if not (a < n < b or (series, n - 1) in same or (series, n + 1) in same) or numbers[(series, n)] > 1:
+            continue
+        if True:
             p, i = spots[k]
             number = NUMBERED.match(pages[p][i].strip()).group(1)
             if HEADING_SPECKS.search(heading):
@@ -264,6 +280,29 @@ def _recover_headings(pages: list[list[str]]) -> list[str]:
         numbers = {n for _, n in marks}
         if series and (len(numbers) < 5 or len(numbers) < 0.6 * (max(numbers) - min(numbers) + 1)):
             continue
+        # The ends of the run: "P1" before the first one found, the one after the last.
+        edges = []
+        if marks[0][1] > 1:
+            before = max([k for k, *_ in strict if k < marks[0][0]], default=-1)
+            edges.append((before, 0, marks[0][0], marks[0][1]))
+        after = min([k for k, *_ in strict if k > marks[-1][0]], default=len(spots))
+        edges.append((marks[-1][0], marks[-1][1], after, marks[-1][1] + 2))
+        for low_k, a, high_k, b in edges:
+            for missing in range(max(a + 1, b - 3), b):
+                number = f"{series}{missing}"
+                pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(number)}(?![0-9])(?![A-Z]{{1,2}}\b)")
+                for k in range(low_k + 1, high_k):
+                    p, i = spots[k]
+                    line = pages[p][i]
+                    m = pattern.match(line.lstrip())
+                    if not m or not series:  # only a lettered run (P1); a bare "1" is too common
+                        continue
+                    after_text = re.sub(rf"^\s*{re.escape(number)}(?![0-9])", "", line.lstrip()[m.end():]).strip()
+                    after_text = re.sub(rf"\s+{re.escape(number)}\W*$", "", after_text)
+                    heading = _clean_heading(after_text, known)
+                    if len(re.findall(r"[A-Z]{3,}", heading)) >= 2:
+                        pages[p][i] = f"{number}   {number}{heading}"
+                        break
         for j, ((ka, a), (kb, b)) in enumerate(zip(marks, marks[1:])):
             if not 1 < b - a <= MAX_GAP:
                 continue
@@ -326,12 +365,37 @@ def _recover_headings(pages: list[list[str]]) -> list[str]:
     return known
 
 
+MISREAD = {"0": "O", "5": "S", "1": "I", "l": "I"}
+# A capital word with one digit (or an l) a scan put in for a letter: AZ0TEA, PI5O, C0CHE, MARC0, KlTCHEN.
+MISREAD_WORD = re.compile(r"\b([A-ZÁÉÍÓÚÑ]{2,}[015l][A-ZÁÉÍÓÚÑ]+|[A-ZÁÉÍÓÚÑ]+[015l][A-ZÁÉÍÓÚÑ]{2,}|[A-ZÁÉÍÓÚÑ]{3,}[05])\b")
+
+
+def _misread_letters(line: str) -> str:
+    """Letters a scan read as digits, inside capital words. Numbers, scene
+    numbers (A10) and words with digits of their own (R2-D2, MP5) stay."""
+    def fix(m: re.Match) -> str:
+        word = m.group(1)
+        number = re.match(r"^[A-Z]{1,2}\d+", word)
+        # "P1INT." and "A12CUT TO": a scene number glued to its heading, the number printed before it too.
+        if number and re.search(rf"(?<!\S){re.escape(number.group(0))}(?!\S)", line[:m.start()]):
+            return word
+        if re.search(r"\d(?:INT|EXT|I/E)", word):
+            return word
+        return "".join(MISREAD.get(c, c) for c in word)
+
+    return MISREAD_WORD.sub(fix, line)
+
+
 def _dual_cue(line: str) -> str:
     """Mark two names far apart on a cue line; never a heading ("INT.     KITCHEN")."""
     m = DUAL_CUE.match(line)
     if not m or SCENE_PREFIX.match(m.group(2) + " ") or HEADING_WORD.match(m.group(2)):
         return line
-    return f"{m.group(1)}{m.group(2)}{DUAL_MARK}{m.group(3)}"
+    wide = len(m.group(3)) >= WIDE_GAP
+    if not wide and len(m.group(1)) < 15:  # a few spaces, near the margin: just words
+        return line
+    mark = DUAL_WIDE if wide else DUAL_MARK
+    return f"{m.group(1)}{m.group(2)}{mark}{m.group(4)}"
 
 
 HEADING_WORD = re.compile(r"^(?:INT|EXT|I/E|INT\./EXT|EXT\./INT)\.?$")
@@ -471,7 +535,7 @@ def pdf_text_to_fountain(text: str) -> str:
         header = _title_page(pages[0])
         pages = pages[1:]
 
-    page_lines = [[_dual_cue(_unmark(raw)) for raw in page.splitlines()] for page in pages]
+    page_lines = [[_dual_cue(_misread_letters(_unmark(raw))) for raw in page.splitlines()] for page in pages]
     _drop_running_lines(page_lines)
     known_headings = _recover_headings(page_lines)
     columns = _columns([raw for page in page_lines for raw in page])
@@ -546,7 +610,7 @@ def pdf_text_to_fountain(text: str) -> str:
             if OMITTED.match(rest):
                 out += ["", f"[[OMITTED {number}]]", ""]
                 continue
-            if CONTINUED.match(rest) or CONTINUED_HEADER.search(rest):
+            if CONTINUED.match(rest) or CONTINUED_HEADER.search(rest) or _continued_like(rest):
                 continue
             # Scan specks in a heading ("INT. CAIURONI • S CAR ._ NIM ·"): cleaned.
             if HEADING_SPECKS.search(rest):
