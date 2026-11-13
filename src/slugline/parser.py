@@ -21,7 +21,7 @@ HEADING_PARTS = re.compile(r"^(INT\.?/EXT|INT/EXT|I/E|INT|EXT|EST)\.?\s*", re.IG
 SCENE_NUMBER = re.compile(r"\s*#([\w.\-]+)#\s*$")
 # Location and time are separated by a dash surrounded by spaces: "HOUSE - NIGHT".
 TIME_SEPARATOR = re.compile(r"\s+(?:--|[-–—])\s+")  # "HOUSE - NIGHT", also "HOUSE -- NIGHT"
-EXTENSION = re.compile(r"\(([^)]*)\)")
+EXTENSION = re.compile(r"\(([^)]*)\)|\[([^\]]*)\]")  # (V.O.), and notes in brackets: [PHONE]
 # Ways of speaking written after a name without brackets: "JOHNNY CASH V.O.",
 # "BOB SINGS ON RADIO", "ANA CANTA". The character is the name before them.
 BARE_EXTENSION = re.compile(
@@ -316,7 +316,7 @@ def _character_name(line: str) -> tuple[str, list[str], bool] | None:
     dual = cue.rstrip().endswith("^")
     if dual:
         cue = cue.rstrip()[:-1]
-    extensions = [e.strip() for e in EXTENSION.findall(cue)]
+    extensions = [(a or b).strip() for a, b in EXTENSION.findall(cue)]
     name = EXTENSION.sub("", cue).strip()
     bare = BARE_EXTENSION.search(name)
     if bare and bare.start() > 0:
@@ -418,7 +418,23 @@ def parse(text: str) -> Screenplay:
         prev_blank = False
 
     _unique_numbers(play)
+    _single_names(play)
     return play
+
+
+def _single_names(play: Screenplay) -> None:
+    """A cue that is a name printed twice ("ERNEST ERNEST", as dual dialogue
+    often comes out of a PDF) is that character, when the name is also a cue
+    on its own. JAR JAR, with no JAR anywhere, stays as it is."""
+    names = {d.character for s in play.scenes for d in s.dialogues}
+    for s in play.scenes:
+        for d in s.dialogues:
+            words = d.character.split()
+            half = len(words) // 2
+            if words and len(words) % 2 == 0 and words[:half] == words[half:]:
+                single = " ".join(words[:half])
+                if single in names:
+                    d.character = single
 
 
 def _unique_numbers(play: Screenplay) -> None:

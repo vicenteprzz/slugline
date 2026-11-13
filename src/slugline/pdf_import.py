@@ -30,7 +30,9 @@ CUE_BASE = re.compile(r"\s*\(.*$")
 PLACEHOLDERS = {"address", "phone", "e-mail", "email", "contact"}
 BYLINES = {"written by", "by", "screenplay by"}
 # "12   INT. HOUSE - NIGHT   12": a heading with its scene number on each side.
-NUMBERED = re.compile(r"^(\d{1,4}[A-Z]{0,2})\s{2,}(\S.*?)(?:\s{2,}\1)?$")
+# Scene numbers: 12, 12A, and with a letter in front, as prologues use (P1, A12).
+# A page or reel number can come before it: "1 P1   1 P1INT. OSAGE LODGE".
+NUMBERED = re.compile(r"^(?:\d{1,4} (?=[A-Z]))?((?:[A-Z]{1,2}\d{1,4}|\d{1,4})[A-Z]{0,2})\s{2,}(\S.*?)(?:\s{2,}\1)?$")
 # Page-break noise: (CONTINUED), CONTINUED: (2), (CONT'D), and the same scanned
 # with braces or cut short at the page edge.
 CONTINUED = re.compile(r"^[({]?\s*CONT(INUED|'D)?\s*[:)}]?\s*([({]\s*\d+\s*[)}])?$", re.IGNORECASE)
@@ -56,6 +58,7 @@ DATED_HEADER = re.compile(
 )
 MARGIN_MARK = re.compile(r"^\s*(?:[Il|!.,'`]|[^\w\s]{2,3})\s{5,}(?=\S)")
 SPEECH_MARKS = set(".-!?—–…")  # a line of just "..." can be dialogue
+SCENE_NUMBER_MARK = re.compile(r"\s*#[\w.\-]+#\s*$")
 NOISE = set("·•~_|\\^¬")
 
 
@@ -123,6 +126,46 @@ def _columns(lines: list[str]) -> _Columns:
     names = Counter(i for i, s in rows if i > dialogue + 3 and _caps(s) and len(s) < 40 and not s.endswith(":"))
     cue = names.most_common(1)[0][0] if names else dialogue + 13
     return _Columns(action, dialogue, cue)
+
+
+def _running_key(line: str) -> str:
+    """A page header or footer without its page number or date, to compare pages."""
+    return re.sub(r"\d+", "#", _squeeze(line)).strip(" .")
+
+
+def _drop_running_lines(pages: list[list[str]]) -> None:
+    """Remove the headers and footers printed on every page ("KOTFM - Final
+    Shooting Script - August 10, 2022  12.", "209 POST FINAL -- 3.3.24"): a
+    line among the first or last two of a page that comes back, page number
+    aside, on a good share of the pages."""
+    if len(pages) < 6:
+        return
+
+    def edges(page: list[str]) -> list[int]:
+        filled = [i for i, line in enumerate(page) if line.strip()]
+        return filled[:2] + filled[-2:]
+
+    def heading(line: str) -> bool:  # the same place can start many pages
+        line = line.strip()
+        if "CONTINUED" in line.upper():
+            return False
+        return bool(NUMBERED.match(line) or SCENE_PREFIX.match(re.sub(r"^\S*\d\S*\s+", "", line)))
+
+    counts: Counter[str] = Counter()
+    for page in pages:
+        counts.update({_running_key(page[i]) for i in edges(page) if not heading(page[i])})
+    # Headers carry a page number, a date or a revision; a line without one
+    # (a character's name at the top of many pages) only counts if it is on
+    # almost every page.
+    running = {
+        key for key, n in counts.items()
+        if len(key) > 3 and not PAGE_NUMBER.match(key.replace("#", "1"))
+        and n >= (max(3, len(pages) * 0.3) if "#" in key else len(pages) * 0.8)
+    }
+    for page in pages:
+        for i in edges(page):
+            if _running_key(page[i]) in running:
+                page[i] = ""
 
 
 def _page_shift(page: list[str], columns: _Columns) -> int:
@@ -225,6 +268,7 @@ def pdf_text_to_fountain(text: str) -> str:
         pages = pages[1:]
 
     page_lines = [[_unmark(raw) for raw in page.splitlines()] for page in pages]
+    _drop_running_lines(page_lines)
     columns = _columns([raw for page in page_lines for raw in page])
     shifted = [columns.shifted(_page_shift(page, columns)) for page in page_lines]
     lines = [(raw, cols) for page, cols in zip(page_lines, shifted) for raw in page]
@@ -278,12 +322,14 @@ def pdf_text_to_fountain(text: str) -> str:
             # line that starts with a number ("2   men walk in") is just action.
             rest = _squeeze(numbered.group(2))
             number = numbered.group(1)
+            rest = re.sub(rf"^\d{{1,4}} (?={re.escape(number)})", "", rest)
             twice = rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit() \
                 and _caps(rest[len(number):])  # "128   128THE NEWPORT FESTIVAL": the number on both sides
             if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(number):]) or twice):
                 numbered = None
         if numbered:
             number, rest = numbered.group(1), _squeeze(numbered.group(2))
+            rest = re.sub(rf"^\d{{1,4}} (?={re.escape(number)})", "", rest)
             # The number on the right can come out glued in front of the text:
             # "128   128THE NEWPORT FOLK FESTIVAL". It still counts as numbered
             # on both sides.
@@ -389,6 +435,15 @@ def pdf_text_to_fountain(text: str) -> str:
             last = "action"
 
     _join_split_cues(out, cues)
+    # A "heading" that is mostly smudges is scanning noise: kept as action, not a scene.
+    for i, line in enumerate(out):
+        heading = line.startswith(".") and not line.startswith("..") or SCENE_PREFIX.match(line)
+        body = SCENE_NUMBER_MARK.sub("", line).lstrip(".")
+        marks = body.replace(" ", "")
+        if heading and marks and sum(c.isalpha() for c in marks) < len(marks) * 0.6:
+            out[i] = "!" + body
+        elif line.startswith("..") and not line.startswith("...") and sum(c.isalpha() for c in marks) < len(marks) * 0.6:
+            out[i] = "!" + line
     body = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
     if header:
         return "\n".join(header) + "\n\n" + body + "\n"

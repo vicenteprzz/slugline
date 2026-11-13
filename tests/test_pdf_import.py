@@ -253,3 +253,38 @@ def test_headings_without_int_ext_and_a_title_page_with_only_the_title():
         ("127", "EXT. THE VIKING MOTEL -- NIGHT"), ("128", "THE NEWPORT FOLK FESTIVAL -- SUNDAY NIGHT CONCERT"),
         ("129", "BACKSTAGE"), ("130", "ONSTAGE"),
     ]
+
+
+def _numbered_page(page: int, scenes: list[str]) -> str:
+    a, c, d = " " * 11, " " * 48, " " * 27
+    lines = [f"{' ' * 30}KOTFM - Final Shooting Script - August 10, 2022{' ' * 10}{page}.", ""]
+    for number in scenes:
+        if number == "P1":  # a reel number printed before the scene number, on both sides
+            lines.append(f"1 P1{' ' * 9}1 P1INT. LODGE - NIGHT")
+        else:
+            lines.append(f"{number}{' ' * 9}EXT. FIELD - DAY{' ' * 30}{number}")
+        cue = "ERNEST ERNEST" if number == "A2" else "ERNEST"
+        lines += ["", f"{a}Wind over the grass.", "", f"{c}{cue}", f"{d}Look.", ""]
+    return "\n".join(lines)
+
+
+def test_running_headers_lettered_scenes_and_doubled_names():
+    title = " " * 30 + "KILLERS\n\n" + " " * 33 + "by\n\n" + " " * 30 + "Ann Writer\n"
+    pages = [title, _numbered_page(1, ["P1", "P2"]), _numbered_page(2, ["1", "2"]), _numbered_page(3, ["A2", "3"]),
+             _numbered_page(4, ["4"]), _numbered_page(5, ["5"]), _numbered_page(6, ["6"])]
+    text = pdf_text_to_fountain("\f".join(pages))
+    assert "Final Shooting Script" not in text  # the running header, page number and all
+    play = parse(text)
+    assert [s.number for s in play.scenes] == ["P1", "P2", "1", "2", "A2", "3", "4", "5", "6"]
+    assert play.scenes[0].heading == "INT. LODGE - NIGHT"
+    # ERNEST ERNEST is ERNEST, since ERNEST speaks on his own too.
+    assert {d.character for s in play.scenes for d in s.dialogues} == {"ERNEST"}
+
+def test_doubled_name_stays_when_it_is_the_name():
+    play = parse("INT. SHIP - DAY\n\nJAR JAR\nHello.\n")
+    assert play.scenes[0].dialogues[0].character == "JAR JAR"
+
+
+def test_extensions_in_brackets():
+    play = parse("INT. CAR - DAY\n\nMARTY [PHONE]\nHello?\n\nRACHEL (V.O.)\nIt's me.\n")
+    assert [(d.character, d.extensions) for d in play.scenes[0].dialogues] == [("MARTY", ["PHONE"]), ("RACHEL", ["V.O."])]
