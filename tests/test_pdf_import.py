@@ -311,3 +311,57 @@ def test_two_speakers_at_once_and_names_the_pdf_spaces_out():
 def test_a_real_name_of_two_words_is_kept():
     play = parse("INT. CLUB - NIGHT\n\nBOB\nHey.\n\nBOB\nHo.\n\nNEUWIRTH\nYo.\n\nNEUWIRTH\nYa.\n\nBOB NEUWIRTH\nMe.\n")
     assert play.scenes[0].dialogues[-1].character == "BOB NEUWIRTH"
+
+
+def _scanned_page(lines: list[str]) -> str:
+    a = " " * 22
+    out = []
+    for line in lines:
+        out += [line, "", f"{a}Something happens here, slowly.", ""]
+    return "\n".join(out)
+
+
+def test_garbled_headings_are_found_by_the_script_numbering():
+    from slugline.lint import lint
+
+    a = " " * 22
+    page = _scanned_page([
+        f"{a}21   INT.  HANGAR - TRADE FEDERATION CRUISER",
+        f"{a}22   INT.  ELEVATOR - TRADE FEDERATION CRUISER",
+        f"{a[:-6]}------23- IN'l'~  MAIN  HANGAR- -TRADE-FEDERATION ---£RKUt!±IoSl",  # a scan's smudge
+        f"(  · r··{a[8:]}24   INT.  ELEVATOR ..",
+        f"{a}25   INT.  MAIN HANGAR - TRADE FEDERATION CRUISER",
+        f"{a}26   OMITTED",
+        f"{a}27   INT.  ELEVATOR SHAFT - PRE-DAWN",
+        f"{a}29   EXT.  SPACE - BATTLE",
+        f"{a}30   EXT.  SPACE - LATER",
+    ])
+    play = parse(pdf_text_to_fountain(page))
+    assert [(s.number, s.heading) for s in play.scenes][2:4] == [
+        ("23", "INT. MAIN HANGAR - TRADE FEDERATION CRUISER"),
+        ("24", "INT. ELEVATOR - TRADE FEDERATION CRUISER"),
+    ]
+    assert "26" not in [s.number for s in play.scenes] and play.omitted == ["26"]
+    found = {i.code: i for i in lint(play)}
+    # 26 is cut by the script; 28 is nowhere: said, not skipped in silence.
+    assert found["omitted-scenes"].params["missing"] == "26"
+    assert found["missing-scenes"].params == {"missing": "28", "a": "27", "b": "29"}
+
+
+def test_a_heading_written_as_a_sentence_and_a_number_on_the_right():
+    page = "\n".join([
+        "P10                                                                 P10CUT TO AN OSAGE COUPLE.", "",
+        "P11                                                                 P11CUT TO Chauffeur opening the door.", "",
+        "P12                                                                 P12CUT TO A CAR.", "",
+        "P13                                                                 P13CUT TO THE RANCH.", "",
+        "P14                                                                 P14CUT TO THE CHURCH.", "",
+        "P15                                                                 P15CUT TO THE FIELDS.", "",
+        "1          INT. TRAIN CAR - DAY                                                1", "",
+        "Rain.", "",
+        "2 1        OUTSIDE THE ELEVATOR HALLWAY                                        2", "",
+        "Dark.", "",
+        "3          INT. STATION - NIGHT                                                3", "",
+    ])
+    numbers = {s.number: s.heading for s in parse(pdf_text_to_fountain(" " * 30 + "OSAGE\f" + page)).scenes}
+    assert numbers["P11"] == "CUT TO CHAUFFEUR OPENING THE DOOR"
+    assert numbers["2"] == "OUTSIDE THE ELEVATOR HALLWAY"

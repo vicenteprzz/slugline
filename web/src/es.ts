@@ -801,6 +801,10 @@ export const ES: Record<string, string> = {
   "Go to a day": "Ir a una jornada",
   "Days": "Jornadas",
   "Drop a strip on a number to send it to that day.": "Suelta una tira sobre un número para llevarla a esa jornada.",
+  "No scene {missing} between {a} and {b}: it may be hard to read in the file. Check those pages; you can add the scene in a Fountain copy.": "No aparece la secuencia {missing} entre la {a} y la {b}: puede que no se lea bien en el archivo. Revisa esas páginas; puedes añadirla en una copia en Fountain.",
+  "Scenes cut from this draft (marked OMITTED): {missing}.": "Secuencias eliminadas en esta versión del guion (marcadas OMITTED): {missing}.",
+  "Scene {missing} is not in the file": "Falta la secuencia {missing} en el archivo",
+  "it may be hard to read; check these pages": "puede que no se lea bien; revisa estas páginas",
 };
 
 /** Singular and plural for the words counted with `plural()`. */

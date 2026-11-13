@@ -2981,3 +2981,15 @@ button.tile:hover {
     display: none;
   }
 }
+
+/* Where the script's numbering jumps and a scene couldn't be read. */
+.gap-row td {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border-left: 3px solid var(--warning);
+}
+.gap-row td > span[aria-hidden] {
+  color: var(--warning);
+}

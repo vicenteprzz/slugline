@@ -1,5 +1,5 @@
 import { FoldAllControls, FoldTitle } from "./fold";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Clapper, CountUp, Loading, Slate } from "./cinema";
 
@@ -683,7 +683,7 @@ function Dashboard(props: {
 
         {reel === "breakdown" && (
           <>
-            <Stripboard breakdown={b} notes={notes} elements={script.elements} onOpenScene={props.onOpenScene} />
+            <Stripboard breakdown={b} notes={notes} elements={script.elements} issues={script.issues} onOpenScene={props.onOpenScene} />
             <ElementsCard
               breakdown={b}
               elements={script.elements}
@@ -961,9 +961,14 @@ function Stripboard(props: {
   breakdown: Breakdown;
   notes: Map<string, { summary: string; tone: string }>;
   elements: Elements | null;
+  issues: Issue[];
   onOpenScene: (number: string) => void;
 }) {
   const { breakdown: b, notes, elements } = props;
+  // Where the script's numbering jumps (22, then 25), the board says so.
+  const gaps = new Map(
+    props.issues.filter((i) => i.code === "missing-scenes" && i.scene).map((i) => [i.scene as string, String(i.params?.missing ?? "")]),
+  );
   const [query, setQuery] = useState("");
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const scenes = words.length
@@ -1030,8 +1035,18 @@ function Stripboard(props: {
             )}
             {scenes.map((s) => {
               const note = notes.get(s.number);
+              const gap = words.length ? undefined : gaps.get(s.number);
               return (
-                <tr key={s.number}>
+                <Fragment key={s.number}>
+                {gap && (
+                  <tr className="gap-row">
+                    <td colSpan={8}>
+                      <span aria-hidden="true">▲</span> {t("Scene {missing} is not in the file", { missing: gap })} ·{" "}
+                      <span className="muted">{t("it may be hard to read; check these pages")}</span>
+                    </td>
+                  </tr>
+                )}
+                <tr>
                   <td className="num strip-cell">
                     <span className="strip-tab" style={{ background: stripColor(s.int_ext, s.day_night) }} />
                     {s.number}
@@ -1061,6 +1076,7 @@ function Stripboard(props: {
                   </td>
                   {notes.size > 0 && <td className="tone">{note?.tone ?? "–"}</td>}
                 </tr>
+                </Fragment>
               );
             })}
           </tbody>

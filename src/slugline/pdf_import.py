@@ -139,6 +139,185 @@ def _running_key(line: str) -> str:
     return re.sub(r"\d+", "#", _squeeze(line)).strip(" .")
 
 
+HEADING_SPECKS = re.compile(r"[^\w\s.,'’/&()#:\-–—!?\"]|\s[._,'’]+(?:\s|$)")
+OMITTED = re.compile(r"^\W*OMIT(?:TED)?\b", re.IGNORECASE)
+NUMBER_PARTS = re.compile(r"^([A-Z]{0,2})(\d{1,4})([A-Z]{0,2})$")
+MAX_GAP = 15  # a longer run of missing numbers is a cut, not a misreading
+
+
+def _strict_heading(line: str) -> tuple[str, str] | None:
+    """(number, text) of a numbered heading read cleanly: "25   INT. MAIN HANGAR"."""
+    m = NUMBERED.match(line.strip())
+    if not m:
+        return None
+    number, rest = m.group(1), _squeeze(m.group(2))
+    rest = re.sub(rf"^\d{{1,4}} (?={re.escape(number)})", "", rest)
+    if rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit():
+        rest = rest[len(number):].lstrip()
+    if OMITTED.match(rest) or CONTINUED.match(rest) or CONTINUED_HEADER.search(rest):
+        return None  # "2   OMIT": a scene cut from the script, not a scene
+    if SCENE_PREFIX.match(rest) or (len(LETTERS.findall(rest)) >= 3 and _caps(rest)):
+        return number, rest
+    return None
+
+
+def _clean_heading(text: str, known: list[str]) -> str:
+    """A heading a scan or a PDF garbled, made readable: junk out, INT./EXT.
+    put right, and the place matched to one the script already names when
+    every word is that place's word misread (CRUISE1 for CRUISER, never
+    DOORWAY for HALLWAY). Empty when nothing readable is left."""
+    text = re.sub(r"\s{6,}\S.*\b(?:19|20)\d\d\b.*$", "", text)  # a page header glued on
+    text = re.sub(r"[^A-Za-z0-9 .,'’/&()#:\-]", " ", text).strip(" -.,'’")
+    words = text.split()
+    prefix = ""
+    if words and not SCENE_PREFIX.match(text):
+        first = re.sub(r"[^A-Z]", "", words[0].upper())
+        if first in {"LNT", "IT"} or first.startswith("IN") and len(first) <= 4:
+            prefix, text = "INT. ", " ".join(words[1:])
+        elif first in {"XT", "FXT"} or first.startswith("EX") and len(first) <= 4:
+            prefix, text = "EXT. ", " ".join(words[1:])
+    text = re.sub(r"(?<=[A-Za-z]{4})-(?=[A-Za-z]{4})", " ", text)  # TRADE-FEDERATION, not PRE-DAWN
+    text = re.sub(r"\s+-+\s*|\s*-{2,}\s*|\s*-+\s+|(?<=\W)-+|-+(?=\W|$)", " - ", text)
+    letters = LETTERS.findall(text)
+    if sum(c.isupper() for c in letters) >= 0.6 * max(1, len(letters)):
+        text = " ".join(w for w in text.split() if not any(c.islower() for c in w))  # scan noise
+    else:
+        text = text.upper()  # a heading written as a sentence: "CUT TO Osage playing golf."
+    # Specks: tokens with no letter or number, a number stuck to a word (CRUISE1),
+    # a lone letter at the end.
+    text = " ".join(w for w in text.split() if w == "-" or re.search(r"[A-Z0-9]", w))
+    text = re.sub(r"\b([A-Z]{3,})\d\b", r"\1", text)
+    text = re.sub(r"(?:\s+-)+\s+", " - ", f" {text} ").strip(" -.,'’")
+    text = re.sub(r"(?:\s+-)?\s+[A-Z]$", "", text).strip(" -.,'’")
+    text = re.sub(r"^(INT|EXT)\s*\.?\s+", r"\1. ", prefix + text)
+    if not re.search(r"\b(?!INT\b|EXT\b)[A-Z]{3,}", text):
+        return ""  # nothing left to read
+    # "INT. ELEVATOR" cut short: the one heading that goes on from it.
+    for joint in (" - ", " "):
+        longer = [h for h in known if h.startswith(text + joint)]
+        if len(longer) == 1:
+            return longer[0]
+    vocabulary = {w for h in known for w in re.findall(r"[A-Z]{3,}", h)}
+    misread = [w for w in re.findall(r"[A-Z]{3,}", text) if w not in vocabulary]
+    if misread and all(any(abs(len(w) - len(v)) <= 2 and SequenceMatcher(None, w, v).ratio() >= 0.8 for v in vocabulary)
+           for w in misread):
+        key = re.sub(r"[^A-Z]", "", text)
+        best, score = None, 0.0
+        for heading in known:
+            ratio = SequenceMatcher(None, key, re.sub(r"[^A-Z]", "", heading)).ratio()
+            if ratio > score:
+                best, score = heading, ratio
+        if best and score >= 0.8:
+            return best
+    return text
+
+
+def _recover_headings(pages: list[list[str]]) -> list[str]:
+    """Find the scene headings a PDF garbled, using the script's own numbers.
+
+    When scene 22 is followed by scene 25, scenes 23 and 24 are looked for
+    between them: a line that starts with the number, whatever junk a scan
+    left around it ("------23- IN'l'~ MAIN HANGAR- -TRADE-FEDERATION ---£RKU"),
+    or a heading the PDF didn't write in capitals ("P11   P11CUT TO Chauffeur
+    opening the car door"). The line is rewritten as a clean heading, so it
+    is read like any other. What can't be found is reported by the checks."""
+    # A speck in the margin before a numbered heading ("0      57   INT. DOORWAY")
+    # is not the scene number: blank it.
+    speck = re.compile(r"^\s*[^\sA-Za-z]{1,2}\s{3,}(?=[A-Z]{0,2}\d{1,4}[A-Z]{0,2}\s{2,}\S)|^\s*\S{1,3}\s{8,}(?=[A-Z]{0,2}\d{1,4}[A-Z]{0,2}\s{2,}\S)")
+    for page in pages:
+        for i, line in enumerate(page):
+            page[i] = speck.sub(lambda m: " " * len(m.group(0)), line)
+    spots = [(p, i) for p, page in enumerate(pages) for i in range(len(page))]
+    strict = []
+    for k, (p, i) in enumerate(spots):
+        found = _strict_heading(pages[p][i])
+        parts = NUMBER_PARTS.match(found[0]) if found else None
+        if parts:
+            strict.append((k, parts.group(1), int(parts.group(2)), found[1]))
+    known = list(dict.fromkeys(h for *_, h in strict if SCENE_PREFIX.match(h) and not HEADING_SPECKS.search(h)))
+    # A clean heading that fits the numbering (94 < 95 < 96) is a heading
+    # wherever the page puts it: a scanned page can sit off the margins.
+    for (ka, _, a, _), (k, series, n, heading), (kb, _, b, _) in zip(strict, strict[1:], strict[2:]):
+        if a < n < b:
+            p, i = spots[k]
+            number = NUMBERED.match(pages[p][i].strip()).group(1)
+            if HEADING_SPECKS.search(heading):
+                heading = _clean_heading(heading, known) or heading
+            # "-- UNTIL WE SOAR OVER THE BIKE": a numbered shot; "HENRY'S aousE": a scan's case.
+            heading = re.sub(r"^[-–—.\s]+", "", heading).upper()
+            heading = re.sub(rf"\s+{re.escape(number)}\s+", " ", heading)
+            if heading:
+                pages[p][i] = f"{number}   {number}{heading}"
+    by_series: dict[str, list[tuple[int, int]]] = {}
+    for k, series, n, _ in strict:
+        by_series.setdefault(series, []).append((k, n))
+    for series, marks in by_series.items():
+        # A run of numbers, not letters for inserts (A14 goes between 13 and 14).
+        numbers = {n for _, n in marks}
+        if series and (len(numbers) < 5 or len(numbers) < 0.6 * (max(numbers) - min(numbers) + 1)):
+            continue
+        for j, ((ka, a), (kb, b)) in enumerate(zip(marks, marks[1:])):
+            if not 1 < b - a <= MAX_GAP:
+                continue
+            # Between the scenes around the gap, and one further each way: a
+            # montage can print its shots out of order (65, 66, then 64).
+            low = marks[j - 1][0] + 1 if j else ka + 1
+            high = marks[j + 2][0] if j + 2 < len(marks) else kb
+            taken: set[int] = set()
+            for missing in range(a + 1, b):
+                number = f"{series}{missing}"
+                # 106 is not 106A; "P11CUT TO" is still P11.
+                pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(number)}(?![0-9])(?![A-Z]{{1,2}}\b)")
+                for k in [*range(ka + 1, kb), *range(low, ka), *range(kb + 1, high)]:
+                    if k in taken or any(k == mark for mark, _ in marks):
+                        continue
+                    p, i = spots[k]
+                    line = pages[p][i]
+                    m = pattern.search(line)
+                    if not m or m.start() > 45:
+                        continue
+                    # Before the number, only margin specks a scan leaves ("Cf", "\\if", "0"),
+                    # set apart from it; never words.
+                    before = line[:m.start()]
+                    if re.search(r"[A-Za-z]{3,}", before) or len(re.findall(r"[A-Za-z0-9]", before)) > 3:
+                        continue
+                    if re.match(r" ?[a-z]", line[m.end():]):  # "57 hours later"
+                        continue
+                    after = re.sub(rf"^[\W_]*{re.escape(number)}(?![0-9])", "", line[m.end():].strip())
+                    after = re.sub(rf"\s+{re.escape(number)}\W*$", "", after)  # the number on the right
+                    if CONTINUED.match(after.strip()) or CONTINUED_HEADER.search(after) or OMITTED.match(after.strip()):
+                        continue  # "147   CONTINUED:" is the page, not the scene
+                    if after[:1].isdigit():
+                        continue  # "2 1   OUTSIDE": a number split in two; the right margin says which
+                    heading = _clean_heading(after, known)
+                    if len(re.findall(r"[A-Z]{3,}", heading)) < 1 or len(heading) < 4:
+                        continue
+                    pages[p][i] = f"{number}   {number}{heading}"
+                    taken.add(k)
+                    break
+                else:
+                    # The right-hand number can survive when the left one doesn't:
+                    # "7A   OUTSIDE IN THE ... ELEVATOR HALLWAY   147", "... PRE-DAWN  2 5".
+                    spaced = r"\s?".join(re.escape(c) for c in number)
+                    right = re.compile(rf"\s{{2,}}{spaced}\s*$")
+                    for k in range(ka + 1, kb):
+                        p, i = spots[k]
+                        line = pages[p][i]
+                        m = right.search(line)
+                        if k in taken or not m or len(line) - len(line.lstrip()) > 20:
+                            continue
+                        text = re.sub(r"^\s*\S{0,4}\d\S{0,3}(?:\s\S{1,2})?\s{2,}", "", line[:m.start()])  # the left number, garbled
+                        if not text.strip() or CONTINUED.match(text.strip()) or OMITTED.match(text.strip()):
+                            continue
+                        heading = _clean_heading(text, known)
+                        if len(re.findall(r"[A-Z]{3,}", heading)) < 2:
+                            continue
+                        pages[p][i] = f"{number}   {number}{heading}"
+                        taken.add(k)
+                        break
+    return known
+
+
 def _drop_running_lines(pages: list[list[str]]) -> None:
     """Remove the headers and footers printed on every page ("KOTFM - Final
     Shooting Script - August 10, 2022  12.", "209 POST FINAL -- 3.3.24"): a
@@ -275,6 +454,7 @@ def pdf_text_to_fountain(text: str) -> str:
 
     page_lines = [[DUAL_CUE.sub(rf"\1\2{DUAL_MARK}\3", _unmark(raw)) for raw in page.splitlines()] for page in pages]
     _drop_running_lines(page_lines)
+    known_headings = _recover_headings(page_lines)
     columns = _columns([raw for page in page_lines for raw in page])
     shifted = [columns.shifted(_page_shift(page, columns)) for page in page_lines]
     lines = [(raw, cols) for page, cols in zip(page_lines, shifted) for raw in page]
@@ -331,7 +511,7 @@ def pdf_text_to_fountain(text: str) -> str:
             rest = re.sub(rf"^\d{{1,4}} (?={re.escape(number)})", "", rest)
             twice = rest.startswith(number) and not rest[len(number):len(number) + 1].isdigit() \
                 and _caps(rest[len(number):])  # "128   128THE NEWPORT FESTIVAL": the number on both sides
-            if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(number):]) or twice):
+            if not (SCENE_PREFIX.match(rest) or SCENE_PREFIX.match(rest[len(number):]) or twice or OMITTED.match(rest)):
                 numbered = None
         if numbered:
             number, rest = numbered.group(1), _squeeze(numbered.group(2))
@@ -344,12 +524,20 @@ def pdf_text_to_fountain(text: str) -> str:
                 rest = rest[len(number):].lstrip()
             if not rest:
                 continue  # just the scene number, twice: nothing to read
+            if OMITTED.match(rest):
+                out += ["", f"[[OMITTED {number}]]", ""]
+                continue
             if CONTINUED.match(rest) or CONTINUED_HEADER.search(rest):
                 continue
+            # Scan specks in a heading ("INT. CAIURONI • S CAR ._ NIM ·"): cleaned.
+            if HEADING_SPECKS.search(rest):
+                rest = _clean_heading(rest, known_headings) or rest
             # Numbered on both sides, it is a heading even without INT./EXT.
             forced = "" if SCENE_PREFIX.match(rest) else "."
             if forced:
                 rest = rest.rstrip(" :") or rest  # "BACKSTAGE :"
+                # "94...HE BRINGS THE BOX": dots after a forced "." would hide the heading.
+                rest = re.sub(r"^[.…\s]+", "", rest) or rest
             marks = rest.replace(" ", "")
             garbled = sum(c.isalpha() for c in marks) < len(marks) * 0.6  # a smudge, not words
             both_sides = glued or numbered.group(0).rstrip().endswith(number)

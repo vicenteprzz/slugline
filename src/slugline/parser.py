@@ -31,6 +31,7 @@ BARE_EXTENSION = re.compile(
 )
 TITLE_KEY = re.compile(r"^([A-Za-z][A-Za-z ]*):\s*(.*)$")
 NOTE = re.compile(r"\[\[.*?\]\]", re.DOTALL)
+OMITTED_NOTE = re.compile(r"\[\[OMITTED ([A-Z]{0,2}\d{1,4}[A-Z]{0,2})\]\]")
 BONEYARD = re.compile(r"/\*.*?\*/", re.DOTALL)
 # *italic*, **bold**, ***both*** and _underline_ markers are not printed.
 EMPHASIS = re.compile(r"(?<!\\)(\*{1,3}|_)(?=\S)(.+?)(?<=\S)(?<!\\)\1")
@@ -185,6 +186,8 @@ class Screenplay:
     scenes: list[Scene] = field(default_factory=list)
     # Elements that come before the first scene heading (cold opens, titles...).
     preamble: list[Element] = field(default_factory=list)
+    # Scene numbers the script marks as cut ("89   OMITTED"), kept as [[OMITTED 89]].
+    omitted: list[str] = field(default_factory=list)
 
     @property
     def title(self) -> str | None:
@@ -338,9 +341,10 @@ def normalize(text: str) -> str:
 
 def parse(text: str) -> Screenplay:
     """Parse Fountain text into a Screenplay."""
+    omitted = OMITTED_NOTE.findall(text)
     lines = _strip_invisible(normalize(text)).split("\n")
     title_page, i = _parse_title_page(lines)
-    play = Screenplay(title_page=title_page)
+    play = Screenplay(title_page=title_page, omitted=omitted)
     current: list[Element] = play.preamble
     prev_blank = True
     n = len(lines)

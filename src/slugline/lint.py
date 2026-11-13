@@ -47,6 +47,8 @@ SIMILAR = {
 PARTIAL_NUMBERING = "Only {n} of {total} scenes have a scene number."
 DUPLICATE_NUMBER = "Scene number {number} is used {n} times."
 NO_TITLE = "The script has no title page."
+MISSING_SCENES = "No scene {missing} between {a} and {b}: it may be hard to read in the file. Check those pages; you can add the scene in a Fountain copy."
+OMITTED_SCENES = "Scenes cut from this draft (marked OMITTED): {missing}."
 # Signs that a file was not read well, shown at the top of the dashboard.
 READ_NO_DIALOGUE = "No speaking characters were found in {scenes} scenes: the file may not have been read correctly."
 READ_FEW_SCENES = "Only {scenes} scenes in about {pages} pages: some scene headings may not have been recognised."
@@ -149,9 +151,48 @@ def lint(play: Screenplay) -> list[Issue]:
         if count > 1:
             issues.append(_issue("warning", "duplicate-number", DUPLICATE_NUMBER, number, number=number, n=count))
 
+    issues += _numbering_gaps(play)
+
     if play.scenes and not play.title:
         issues.append(_issue("info", "no-title", NO_TITLE))
     return _reading_checks(play) + issues
+
+
+GAP_LIMIT = 15  # a longer jump is a new block of numbers (an episode), not lost scenes
+
+
+def _numbering_gaps(play: Screenplay) -> list[Issue]:
+    """Numbers missing from the script's own numbering: the ones it marks as
+    cut, and the ones that may not have been read. Lettered scenes (106A)
+    count for their number; letters that only mark inserts are not a series."""
+    part = re.compile(r"^([A-Z]{0,2})(\d{1,4})[A-Z]{0,2}$")
+    series: dict[str, set[int]] = {}
+    for s in play.scenes:
+        m = part.match(s.scene_number or "")
+        if m:
+            series.setdefault(m.group(1), set()).add(int(m.group(2)))
+    cut: dict[str, set[int]] = {}
+    for number in play.omitted:
+        m = part.match(number)
+        if m:
+            cut.setdefault(m.group(1), set()).add(int(m.group(2)))
+    issues: list[Issue] = []
+    omitted: list[str] = []
+    for prefix, found in series.items():
+        if prefix and (len(found) < 5 or len(found) < 0.6 * (max(found) - min(found) + 1)):
+            continue
+        ordered = sorted(found)
+        for a, b in zip(ordered, ordered[1:]):
+            if not 1 < b - a <= GAP_LIMIT:
+                continue
+            gone = [n for n in range(a + 1, b) if n not in cut.get(prefix, set())]
+            omitted += [f"{prefix}{n}" for n in range(a + 1, b) if n in cut.get(prefix, set())]
+            if gone:
+                issues.append(_issue("warning", "missing-scenes", MISSING_SCENES, f"{prefix}{b}",
+                                     missing=", ".join(f"{prefix}{n}" for n in gone), a=f"{prefix}{a}", b=f"{prefix}{b}"))
+    if omitted:
+        issues.append(_issue("info", "omitted-scenes", OMITTED_SCENES, missing=", ".join(omitted)))
+    return issues
 
 
 def _reading_checks(play: Screenplay) -> list[Issue]:
