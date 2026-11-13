@@ -21,13 +21,13 @@
   :root {
     color-scheme: light;
     --page: #f9f9f7; --surface: #ffffff; --surface-2: #f0efec; --ink: #0b0b0b; --ink-2: #52514e; --muted: #77756f;
-    --border: rgba(11, 11, 11, 0.1); --accent: #2a78d6; --warm: #b4532a;
+    --border: rgba(11, 11, 11, 0.1); --accent: #2a78d6; --warm: #b4532a; --film: #141413;
     --mono: "Courier Prime", "Courier New", Courier, ui-monospace, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root { color-scheme: dark; --page: #0d0d0d; --surface: #1a1a19; --surface-2: #262624; --ink: #f0efec; --ink-2: #c3c2b7;
-      --muted: #8d8b84; --border: rgba(255, 255, 255, 0.1); --accent: #6da7ec; --warm: #ec835a; }
+      --muted: #8d8b84; --border: rgba(255, 255, 255, 0.1); --accent: #6da7ec; --warm: #ec835a; --film: #222220; }
   }
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
@@ -111,15 +111,68 @@
 
   .pending { opacity: 0.55; pointer-events: none; }
 
+  /* Film touches: a clapper that claps, a writer's cursor, a strip of film. */
+  .brand svg { color: var(--ink); overflow: visible; }
+  .brand .stick { transform-origin: 6px 24px; animation: clap 0.9s 0.4s cubic-bezier(0.5, 0, 0.5, 1) both; }
+  .brand:hover .stick { animation: clap 0.7s cubic-bezier(0.5, 0, 0.5, 1); }
+  @keyframes clap { 0%, 30% { transform: rotate(-26deg); } 55% { transform: rotate(0); } 65% { transform: rotate(-4deg); } 75%, 100% { transform: rotate(0); } }
+  .hero h1::after { content: ""; display: inline-block; width: 0.5em; height: 0.85em; margin-left: 0.1em; vertical-align: -0.06em;
+    background: currentColor; animation: cursor 1.1s steps(1) infinite; }
+  @keyframes cursor { 50% { opacity: 0; } }
+  .slate-line { display: inline-flex; gap: 14px; margin-bottom: 22px; padding: 6px 14px; border-radius: 6px; background: #141413; color: #f4f3ee;
+    font: 600 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+  .slate-line span + span { padding-left: 14px; border-left: 1px solid rgba(244, 243, 238, 0.3); }
+  .slate-line .rec { color: #ff6b5e; }
+  .slate-line .rec::before { content: "●"; margin-right: 6px; animation: cursor 1.6s steps(1) infinite; }
+  .filmstrip { height: 46px; margin-top: 40px; border-radius: 4px; opacity: 0.9;
+    background:
+      repeating-linear-gradient(90deg, var(--page) 0 6px, transparent 6px 14px) 0 5px / 100% 4px no-repeat,
+      repeating-linear-gradient(90deg, var(--page) 0 6px, transparent 6px 14px) 0 calc(100% - 5px) / 100% 4px no-repeat,
+      repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.12) 0 58px, transparent 58px 64px) 0 14px / 100% 18px no-repeat,
+      var(--film);
+    animation: roll 28s linear infinite; mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+  @keyframes roll { to { background-position: -224px 5px, -224px calc(100% - 5px), -256px 14px, 0 0; } }
+  .eyebrow .take { font-family: var(--mono); color: var(--muted); margin-right: 8px; }
+
+  /* The app's six reels, as frames of film. */
+  .reels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-top: 36px; border-radius: 12px; overflow: hidden;
+    background: var(--film); padding: 18px 0; position: relative; }
+  .reels::before, .reels::after { content: ""; position: absolute; left: 0; right: 0; height: 6px;
+    background: repeating-linear-gradient(90deg, var(--page) 0 9px, transparent 9px 22px); opacity: 0.9; }
+  .reels::before { top: 6px; } .reels::after { bottom: 6px; }
+  .frame { margin: 0 6px; padding: 22px 20px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); color: #f4f3ee;
+    transition: background 0.2s, transform 0.2s; }
+  .frame:hover { background: rgba(255, 255, 255, 0.11); transform: translateY(-2px); }
+  .frame .n { font: 600 12px var(--mono); color: #ff6b5e; letter-spacing: 0.06em; }
+  .frame h3 { font-size: 18px; margin-top: 6px; }
+  .frame p { margin-top: 6px; font-size: 15px; color: #c9c8c1; }
+  .reels .frame:nth-child(n + 4) { margin-top: 12px; }
+  .new { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; background: var(--warm); color: #fff;
+    font: 600 11px var(--sans); letter-spacing: 0.04em; vertical-align: 3px; }
+
+  /* Things come into frame as you scroll. */
+  .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .brand .stick, .hero h1::after, .slate-line .rec::before, .filmstrip { animation: none !important; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    html { scroll-behavior: auto; }
+  }
+
   @media (max-width: 920px) {
     nav a:not(.button) { display: none; }
     .feature, .feature.flip { grid-template-columns: 1fr; gap: 24px; }
     .feature.flip .text { order: 0; }
     .grid3 { grid-template-columns: 1fr; }
+    .reels { grid-template-columns: 1fr 1fr; }
+    .reels .frame:nth-child(n + 3) { margin-top: 12px; }
     .prices { grid-template-columns: 1fr 1fr; }
   }
   @media (max-width: 560px) {
     .prices { grid-template-columns: 1fr; }
+    .reels { grid-template-columns: 1fr; }
+    .reels .frame:nth-child(n + 2) { margin-top: 12px; }
     .hero { padding-top: 56px; }
     section.block { padding: 56px 0; }
   }
@@ -128,7 +181,7 @@
 <body>
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#"><img src="img/icon.png" alt="">Slugline</a>
+    <a class="brand" href="#"><svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><g class="stick"><rect x="6" y="14" width="52" height="10" rx="1.5" fill="currentColor"/><path d="M14 14h7l-6 10H8zM29 14h7l-6 10h-7zM44 14h7l-6 10h-7z" fill="var(--page)"/></g><rect x="6" y="27" width="52" height="31" rx="2" fill="currentColor"/><path d="M14 27h7l-6 6H8zM29 27h7l-6 6h-7zM44 27h7l-6 6h-7z" fill="var(--page)"/></svg>Slugline</a>
     <nav>
       <a href="#funciones">Funciones</a>
       <a href="#precios">Precios</a>
@@ -140,6 +193,7 @@
 
 <main>
   <section class="hero wrap">
+    <p class="slate-line" aria-hidden="true"><span>Esc. 1</span><span>Toma 1</span><span class="rec">Rodando</span></p>
     <h1>Del guion al plan de rodaje, en una tarde</h1>
     <p class="lead">Slugline lee tu guion y prepara el desglose por departamentos, el plan de rodaje, las órdenes de rodaje y el presupuesto, que te dice cuánto cuesta cada secuencia. En español, para Mac, y sin subir tu guion a ningún servidor.</p>
     <div class="actions">
@@ -152,14 +206,25 @@
         loading="lazy" allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
     </div>
+    <div class="filmstrip" aria-hidden="true"></div>
   </section>
 
   <section class="block wrap" id="funciones">
-    <p class="eyebrow">Cómo funciona</p>
+    <p class="eyebrow"><span class="take">01</span>Cómo funciona</p>
     <h2>Lo que un ayudante de dirección tarda días en preparar</h2>
     <p class="section-lead">Abres el guion y Slugline lo convierte en los documentos de producción. Todo es editable: la app propone y tú decides.</p>
 
-    <div class="feature">
+    <div class="reels reveal">
+      <div class="frame"><span class="n">01</span><h3>Resumen</h3><p>Secuencias, páginas, personajes y localizaciones, día y noche, y lo que hay que corregir en el formato.</p></div>
+      <div class="frame"><span class="n">02</span><h3>Desglose</h3><p>El stripboard con buscador y lo que necesita cada departamento, secuencia a secuencia.</p></div>
+      <div class="frame"><span class="n">03</span><h3>Reparto y localizaciones</h3><p>Quién habla, cuánto y dónde; las páginas de cada localización.</p></div>
+      <div class="frame"><span class="n">04</span><h3>Continuidad <span class="new">Nuevo</span></h3><p>Los días de la historia, el plot de vestuario y lo que se pierde entre secuencias del mismo día.</p></div>
+      <div class="frame"><span class="n">05</span><h3>Plan de rodaje</h3><p>Tiras que arrastras entre jornadas, con calendario, disponibilidad, horas de luz y descansos.</p></div>
+      <div class="frame"><span class="n">06</span><h3>Presupuesto</h3><p>Los 12 capítulos del ICAA, el coste de cada secuencia y el ahorro de reordenar jornadas.</p></div>
+    </div>
+    <p class="section-lead reveal" style="margin-top:18px">Seis secciones, una pantalla cada una: saltas entre ellas con un clic o con las teclas 1 a 6, sin bajar por una página interminable.</p>
+
+    <div class="feature reveal">
       <div class="text">
         <p class="eyebrow">Desglose</p>
         <h3>Cada departamento sabe qué necesita en cada secuencia</h3>
@@ -175,7 +240,7 @@
       </picture>
     </div>
 
-    <div class="feature flip">
+    <div class="feature flip reveal">
       <div class="text">
         <p class="eyebrow">Plan de rodaje</p>
         <h3>Un primer plan en un clic, que luego ajustas arrastrando</h3>
@@ -187,7 +252,7 @@
       </picture>
     </div>
 
-    <div class="feature">
+    <div class="feature reveal">
       <div class="text">
         <p class="eyebrow">Reparto y órdenes de rodaje</p>
         <h3>Ve cuánto cuestan las esperas y saca la orden de rodaje de cada día</h3>
@@ -199,7 +264,7 @@
       </picture>
     </div>
 
-    <div class="feature flip">
+    <div class="feature flip reveal">
       <div class="text">
         <p class="eyebrow">Presupuesto</p>
         <h3>Cuánto cuesta tu película, y cada secuencia</h3>
@@ -215,7 +280,41 @@
       <img class="shot" src="img/budget-dark.jpg" width="1600" height="844" alt="El presupuesto de John's Boys: total, jornadas, coste por jornada, capítulos del ICAA y lo que cuesta rodar cada secuencia" loading="lazy">
     </div>
 
-    <div class="feature">
+    <div class="feature reveal">
+      <div class="text">
+        <p class="eyebrow">Calendario y restricciones <span class="new">Nuevo</span></p>
+        <h3>Un plan que respeta a la gente y al sol</h3>
+        <p>Dile cuándo empieza el rodaje y qué días se rueda, qué días no puede cada actor y cuándo no está disponible cada localización. Slugline pone fecha a cada jornada y te avisa de cada conflicto.</p>
+        <ul>
+          <li>Salida y puesta de sol de cada jornada en tu ciudad, calculadas en tu Mac: avisa si un exterior al amanecer tiene la citación tarde.</li>
+          <li>Horas de descanso entre el fin de una jornada y la citación de la siguiente.</li>
+          <li>Al reordenar las jornadas en el presupuesto, también las mueve a fechas que funcionan.</li>
+        </ul>
+      </div>
+      <div class="card" style="font-family:var(--mono);font-size:15px;line-height:1.9">
+        <strong>Jornada 3 · mié 10 mar</strong><br>
+        <span style="color:var(--muted)">Sol 07:52 – 19:18 · Citación 08:00</span><br>
+        <span style="color:var(--warm)">▲ Exterior al amanecer (sec. 14): el sol sale a las 07:52 y la citación es a las 08:00.</span><br>
+        <span style="color:var(--warm)">▲ Lucía no está disponible el 10 de marzo.</span><br>
+        <span style="color:var(--warm)">▲ Solo 9 h de descanso antes de la citación (mínimo 12 h).</span>
+      </div>
+    </div>
+
+    <div class="feature flip reveal">
+      <div class="text">
+        <p class="eyebrow">Continuidad <span class="new">Nuevo</span></p>
+        <h3>En qué día de la historia pasa cada secuencia</h3>
+        <p>Slugline lo deduce de los encabezados («A LA MAÑANA SIGUIENTE», «DOS SEMANAS DESPUÉS», de noche a día) y lo corriges con un clic. Con eso saca el plot de vestuario, un cambio por personaje y día, y te avisa si una herida o un vestuario desaparece entre secuencias del mismo día.</p>
+      </div>
+      <div class="card" style="font-family:var(--mono);font-size:15px;line-height:1.9">
+        <strong>D1</strong> <span style="color:var(--muted)">sec.</span> 1 · 2 · 3 &nbsp; <strong>N1</strong> 4 · 5<br>
+        <strong>D2</strong> 6 · 7 · 8 · 9 &nbsp; <strong>D5</strong> 10 · 11<br>
+        <span style="color:var(--muted)">Ana · 3 cambios de vestuario</span><br>
+        <span style="color:var(--warm)">▲ «Corte en el labio» en la sec. 7, falta en la 9 (mismo día).</span>
+      </div>
+    </div>
+
+    <div class="feature reveal">
       <div class="text">
         <p class="eyebrow">Análisis</p>
         <h3>El guion de un vistazo</h3>
@@ -227,10 +326,10 @@
       </picture>
     </div>
 
-    <div class="grid3">
+    <div class="grid3 reveal">
       <div class="card"><h3>Versiones del guion</h3><p>Cuando llega una versión nueva, el desglose y el plan pasan solos y Slugline marca qué secuencias se han reescrito.</p></div>
       <div class="card"><h3>Tus guiones no salen de tu ordenador</h3><p>Todo se guarda en tu Mac. Solo si usas la IA se envía el guion a Anthropic, con tu propia clave.</p></div>
-      <div class="card"><h3>Final Draft, Fountain y PDF</h3><p>Abre el guion tal como lo tienes, con números de secuencia y diálogo doble incluidos.</p></div>
+      <div class="card"><h3>Final Draft, Fountain y PDF</h3><p>Abre el guion tal como lo tienes: números de secuencia con letra (A14, P3), diálogo doble, cabeceras de página y PDF escaneados. Si un PDF parece mal leído, te lo dice.</p></div>
       <div class="card"><h3>En español de verdad</h3><p>Secuencias, figuración, atrezo, citación, orden de rodaje: la terminología de los rodajes de aquí, en pantalla y en los PDF.</p></div>
       <div class="card"><h3>Exporta lo que necesites</h3><p>Hojas de desglose, plan de rodaje, órdenes de rodaje, presupuesto e informe en PDF; tablas en CSV para Excel.</p></div>
       <div class="card"><h3>IA opcional</h3><p>Sin IA la app funciona entera: sugiere los elementos a partir de las palabras del guion. Con IA, el desglose es más completo, resume cada secuencia y responde preguntas.</p></div>
@@ -241,10 +340,10 @@
   </section>
 
   <section class="block wrap" id="precios">
-    <p class="eyebrow">Precios</p>
+    <p class="eyebrow"><span class="take">02</span>Precios</p>
     <h2>Pruébalo gratis con tu guion</h2>
     <p class="section-lead">La versión de prueba hace todo: guarda dos guiones y sus PDF llevan la marca de prueba. Una licencia quita las dos cosas.</p>
-    <div class="prices">
+    <div class="prices reveal">
       <div class="card price">
         <h3>Prueba</h3>
         <p class="amount">Gratis</p>
@@ -274,7 +373,7 @@
   </section>
 
   <section class="block wrap" id="preguntas">
-    <p class="eyebrow">Preguntas</p>
+    <p class="eyebrow"><span class="take">03</span>Preguntas</p>
     <h2>Lo que suele preguntarse</h2>
     <div class="faq">
       <details><summary>¿Necesito conexión a internet?</summary><p>No. Slugline funciona sin conexión. Solo la necesitas para las funciones de IA.</p></details>
@@ -325,6 +424,19 @@
       link.textContent = site.contact;
       line.appendChild(link);
     }
+  })();
+
+  // Sections come into frame as you scroll; with less motion, or an old browser, they are just there.
+  (function () {
+    var items = document.querySelectorAll(".reveal");
+    if (!("IntersectionObserver" in window) || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      items.forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var seen = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add("in"); seen.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px" });
+    items.forEach(function (el) { seen.observe(el); });
   })();
 </script>
 </body>
