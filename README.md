@@ -116,6 +116,19 @@ build the app to show a "Buy a licence" link in Settings.
   holds shows up at once
 - Add the actors' names once; they appear on every call sheet
 
+**Story days and continuity**
+
+- The day of the story each scene happens on (D3, N3), suggested from the
+  headings and opening lines: NEXT MORNING, TWO DAYS LATER, DÍA SIGUIENTE or
+  going from night to morning start a new day; CONTINUOUS, LATER and SAME
+  don't. Correct a scene's day on its breakdown sheet and the scenes after it
+  follow
+- Shown on the stripboard, the schedule strips and the call sheets
+- A costume plot: each character's changes, one per day of the story, with
+  their scenes (CSV export)
+- Continuity to check: a wound, blood or a costume added by hand in one
+  scene, missing in a later scene of the same day with the same people
+
 **Budget**
 
 - A first budget worked out from the breakdown and the schedule, in the twelve

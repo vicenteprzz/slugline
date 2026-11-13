@@ -179,6 +179,11 @@ export default function ScheduleBoard(props: {
         <button className="slug slug-button strip-heading" onClick={() => props.onOpenScene(s.number)}>
           {s.heading}
         </button>
+        {s.story_label && (
+          <span className="strip-day" title={t("Day of the story: D3 is day 3, N3 the night of day 3")}>
+            {s.story_label}
+          </span>
+        )}
         <span className="strip-pages">{eighths(s.eighths)}</span>
         <span className="strip-cast">{s.characters.map(titleCase).join(", ") || "–"}</span>
         <select

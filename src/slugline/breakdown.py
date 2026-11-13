@@ -42,6 +42,9 @@ class SceneRow:
     words: dict[str, int] = field(default_factory=dict)
     # Estimated page where the scene starts (1.0 = top of page one).
     start_page: float = 1.0
+    # The day of the story it happens on (see `continuity`), and its label: D3, N3.
+    story_day: int | None = None
+    story_label: str = ""
 
 
 @dataclass

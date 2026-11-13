@@ -193,3 +193,14 @@ def test_ways_of_speaking_without_brackets_are_not_new_characters():
         ("BOB", []), ("BOB", ["SINGS ON RADIO"]), ("JOHNNY CASH", ["V.O."]), ("ANA", ["CANTA"]),
         ("FAN VOICES SING", []),
     ]
+
+
+
+def test_spanish_headings_have_a_time_of_day():
+    play = parse(
+        "INT. CASA - NOCHE\n\nA.\n\nINT. COCINA - MÁS TARDE\n\nB.\n\nEXT. CALLE - DÍA\n\nC.\n\n"
+        "EXT. PLAYA - ATARDECER\n\nD.\n\nINT. BAR - AMANECER\n\nE.\n\nINT. BAR - CONTINUACIÓN\n\nF.\n\n"
+        "EXT. PATIO - TARDE\n\nG.\n"
+    )
+    assert [s.location for s in play.scenes] == ["CASA", "COCINA", "CALLE", "PLAYA", "BAR", "BAR", "PATIO"]
+    assert [s.day_night for s in play.scenes] == ["NIGHT", "NIGHT", "DAY", "DUSK", "DAWN", "DAWN", "DAY"]

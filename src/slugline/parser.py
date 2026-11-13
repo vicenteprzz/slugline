@@ -38,7 +38,10 @@ ESCAPED = re.compile(r"\\([*_])")
 # otherwise "EXT. RANCH - CORRAL" would get CORRAL as its time.
 TIME_HINT = re.compile(
     r"\b(DAY|NIGHT|MORNING|AFTERNOON|EVENING|DAWN|DUSK|SUNSET|SUNRISE|NOON|MIDDAY|MIDNIGHT"
-    r"|TWILIGHT|MAGIC HOUR|LATERN?|CONTIN[UI]+OUS|SAME|MOMENTS?|SOON|AFTER|SHOWTIME|AFTERN?OON)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
+    r"|TWILIGHT|MAGIC HOUR|LATERN?|CONTIN[UI]+OUS|SAME|MOMENTS?|SOON|AFTER|SHOWTIME|AFTERN?OON"
+    # Spanish: DÍA, NOCHE, AMANECER, MÁS TARDE, CONTINUACIÓN...
+    r"|D[IÍ]A|NOCHE|AMANECER|ATARDECER|ANOCHECER|MADRUGADA|MAÑANA|TARDE|MEDIOD[IÍ]A|MEDIANOCHE|OCASO"
+    r"|CONTINUACI[OÓ]N|CONTINUO|MISMO|MOMENTOS|DESPU[EÉ]S|SIGUIENTE)\b|\b\d{1,2}(:\d\d)?\s*[AP]\.?M\b",
     re.IGNORECASE,
 )
 # Parts of a heading that say how it is shot, not where: "EXT. BODEGA - MOVING
@@ -50,10 +53,11 @@ SHOT = re.compile(
 # Production boards only care about four lighting conditions. Order matters:
 # "PRE-DAWN" is dawn, "THE NEXT DAY" is day.
 DAY_NIGHT = [
-    ("DAWN", re.compile(r"\b(DAWN|SUNRISE)\b")),
-    ("DUSK", re.compile(r"\b(DUSK|SUNSET|TWILIGHT|MAGIC HOUR)\b")),
-    ("NIGHT", re.compile(r"\b(NIGHT|MIDNIGHT|EVENING)\b")),
-    ("DAY", re.compile(r"\b(DAY|MORNING|AFTERN?OON|NOON|MIDDAY)\b")),
+    ("DAWN", re.compile(r"\b(DAWN|SUNRISE|AMANECER)\b")),
+    ("DUSK", re.compile(r"\b(DUSK|SUNSET|TWILIGHT|MAGIC HOUR|ATARDECER|OCASO)\b")),
+    ("NIGHT", re.compile(r"\b(NIGHT|MIDNIGHT|EVENING|NOCHE|ANOCHECER|MADRUGADA|MEDIANOCHE)\b")),
+    # "MÁS TARDE" is later, not the afternoon.
+    ("DAY", re.compile(r"\b(DAY|MORNING|AFTERN?OON|NOON|MIDDAY|D[IÍ]A|MAÑANA|MEDIOD[IÍ]A)\b|(?<!M[AÁ]S )\bTARDE\b")),
 ]
 
 # Rough layout of a printed page in standard screenplay format.

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { eighths, stripColor, titleCase } from "./format";
 import { light, t } from "./i18n";
+import { setStoryDay } from "./api";
 import type { Category, Element, Script } from "./types";
 
 type Draft = { name: string; notes: string };
@@ -15,6 +16,7 @@ export default function SceneSheet(props: {
   onNavigate: (number: string) => void;
   onClose: () => void;
   onSave: (number: string, elements: Element[]) => Promise<void>;
+  onCorrect: (change: (id: string) => Promise<Script>) => void;
 }) {
   const { script, number, categories } = props;
   const scenes = script.breakdown.scenes;
@@ -127,6 +129,17 @@ export default function SceneSheet(props: {
           <div>
             <dt>{t("Starts")}</dt>
             <dd>{t("p. {n}", { n: Math.floor(scene.start_page) })}</dd>
+          </div>
+          <div>
+            <dt>{t("Story day")}</dt>
+            <dd className="story-day-field">
+              <StoryDayInput
+                value={scene.story_day}
+                label={scene.story_label}
+                byHand={number in (script.corrections?.story_days ?? {})}
+                onChange={(day) => props.onCorrect((id) => setStoryDay(id, number, day))}
+              />
+            </dd>
           </div>
         </dl>
 
@@ -255,5 +268,40 @@ function ElementForm(props: {
         </button>
       </div>
     </form>
+  );
+}
+
+/** The day of the story of a scene: suggested, or set by hand (the scenes
+ * after it follow on from there). */
+function StoryDayInput(props: { value: number | null; label: string; byHand: boolean; onChange: (day: number | null) => void }) {
+  const [text, setText] = useState(String(props.value ?? ""));
+  useEffect(() => setText(String(props.value ?? "")), [props.value]);
+  const commit = () => {
+    const day = Number(text);
+    if (Number.isInteger(day) && day >= 1 && day <= 999 && day !== props.value) props.onChange(day);
+    else setText(String(props.value ?? ""));
+  };
+  return (
+    <>
+      <span className="story-day-label">{props.label || "–"}</span>
+      <input
+        className="num-input story-day-input"
+        inputMode="numeric"
+        aria-label={t("Day of the story")}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
+      {props.byHand ? (
+        <button className="link small-link" onClick={() => props.onChange(null)} title={t("Back to the suggested day")}>
+          {t("Reset")}
+        </button>
+      ) : (
+        <span className="muted small-note">{t("suggested")}</span>
+      )}
+    </>
   );
 }

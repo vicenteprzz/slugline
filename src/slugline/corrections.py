@@ -17,6 +17,7 @@ from slugline.parser import Screenplay, day_night
 KIND = "corrections"
 DAY_NIGHT = ("DAY", "NIGHT", "DAWN", "DUSK")
 KINDS = ("characters", "locations")
+MAX_STORY_DAY = 999
 
 
 @dataclass
@@ -26,13 +27,15 @@ class Corrections:
     locations: dict[str, str] = field(default_factory=dict)
     # Scene number -> DAY / NIGHT / DAWN / DUSK, for headings that don't say.
     day_night: dict[str, str] = field(default_factory=dict)
+    # Scene number -> day of the story, where the suggestion was wrong.
+    story_days: dict[str, int] = field(default_factory=dict)
 
     def is_empty(self) -> bool:
-        return not (self.characters or self.locations or self.day_night)
+        return not (self.characters or self.locations or self.day_night or self.story_days)
 
     def to_dict(self) -> dict:
         return {"characters": dict(self.characters), "locations": dict(self.locations),
-                "day_night": dict(self.day_night)}
+                "day_night": dict(self.day_night), "story_days": dict(self.story_days)}
 
     @classmethod
     def from_dict(cls, data: dict) -> Corrections:
@@ -43,6 +46,8 @@ class Corrections:
             characters=names(data.get("characters")),
             locations=names(data.get("locations")),
             day_night={str(k): v for k, v in (data.get("day_night") or {}).items() if v in DAY_NIGHT},
+            story_days={str(k): int(v) for k, v in (data.get("story_days") or {}).items()
+                        if isinstance(v, int) and 1 <= v <= MAX_STORY_DAY},
         )
 
     def merge(self, kind: str, names: list[str], into: str) -> None:
@@ -70,6 +75,14 @@ class Corrections:
         if kind not in KINDS:
             raise ValueError(f"Unknown kind {kind!r}: use one of {', '.join(KINDS)}.")
         getattr(self, kind).pop(name.upper(), None)
+
+    def set_story_day(self, scene: str, day: int | None) -> None:
+        if day is None:
+            self.story_days.pop(scene, None)
+        elif isinstance(day, int) and 1 <= day <= MAX_STORY_DAY:
+            self.story_days[scene] = day
+        else:
+            raise ValueError(f"The day of the story must be between 1 and {MAX_STORY_DAY}.")
 
     def set_day_night(self, scene: str, value: str | None) -> None:
         if value in (None, ""):

@@ -135,6 +135,51 @@ export const ES: Record<string, string> = {
   "Hide this section": "Ocultar esta sección",
   "Fold all sections": "Plegar todas las secciones",
   "Unfold all sections": "Desplegar todas las secciones",
+  // Story days and continuity
+  "1 set by hand": "1 puesto a mano",
+  "Story day {n}": "Día {n}",
+  "Story day":
+    "Día h.",
+  "Day of the story: D3 is day 3, N3 the night of day 3":
+    "Día de la historia: D3 es el día 3, N3 la noche del día 3",
+  "Day of the story":
+    "Día de la historia",
+  "Back to the suggested day":
+    "Volver al día sugerido",
+  "Story days and continuity":
+    "Días de historia y continuidad",
+  "The day of the story each scene happens on, suggested from the headings (NEXT MORNING, TWO DAYS LATER, from night to morning). Correct a scene's day on its breakdown sheet and the scenes after it follow.":
+    "En qué día de la historia pasa cada secuencia, sugerido a partir de los encabezados (NEXT MORNING, TWO DAYS LATER, de la noche a la mañana). Corrige el día de una secuencia en su hoja de desglose y las siguientes se ajustan.",
+  "Costume plot (CSV)":
+    "Plan de vestuario (CSV)",
+  "{days} of story":
+    "{days}",
+  "{n} set by hand":
+    "{n} puestos a mano",
+  "Continuity to check":
+    "Continuidad a revisar",
+  "Nothing to check: no wound, blood or costume added by hand goes missing within a day of the story.":
+    "Nada que revisar: ninguna herida, sangre ni vestuario añadido a mano desaparece dentro de un mismo día de la historia.",
+  "A makeup element (a wound, blood) or a costume added by hand is in one scene, and a later scene of the same day of the story, with the same people, doesn't have it. Check whether it should.":
+    "Un elemento de maquillaje (una herida, sangre) o un vestuario añadido a mano está en una secuencia, y una secuencia posterior del mismo día de la historia, con las mismas personas, no lo tiene. Comprueba si debería.",
+  "in scene":
+    "en la secuencia",
+  "missing in":
+    "falta en",
+  "{n} more in the breakdown sheets.":
+    "{n} más en las hojas de desglose.",
+  "Costume plot":
+    "Plan de vestuario",
+  "One change per day of the story for each character, with its scenes: where the wardrobe department starts.":
+    "Un cambio por día de la historia para cada personaje, con sus secuencias: el punto de partida del departamento de vestuario.",
+  "Changes":
+    "Cambios",
+  "Change · day · scenes":
+    "Cambio · día · secuencias",
+  "Show fewer":
+    "Ver menos",
+  "Show all {n} characters":
+    "Ver los {n} personajes",
   // Budget card
   "Check the breakdown before using it, and the formatting notes below: the scene headings or the character names may not follow the usual format.":
     "Revisa el desglose antes de usarlo y las notas de formato de abajo: puede que los encabezados o los nombres de los personajes no sigan el formato habitual.",
@@ -662,6 +707,7 @@ export const ES: Record<string, string> = {
 
 /** Singular and plural for the words counted with `plural()`. */
 export const ES_WORDS: Record<string, [string, string]> = {
+  "story day": ["día de historia", "días de historia"],
   scene: ["secuencia", "secuencias"],
   cue: ["intervención", "intervenciones"],
   element: ["elemento", "elementos"],

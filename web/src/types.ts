@@ -10,6 +10,8 @@ export type SceneRow = {
   silent: string[];
   words: Record<string, number>;
   start_page: number;
+  story_day: number | null;
+  story_label: string;
 };
 
 export type CharacterStats = {
@@ -49,6 +51,13 @@ export type Corrections = {
   characters: Record<string, string>;
   locations: Record<string, string>;
   day_night: Record<string, string>;
+  story_days: Record<string, number>;
+};
+
+export type Continuity = {
+  days: number;
+  costume_plot: { character: string; changes: { day: number; number: number; scenes: string[] }[] }[];
+  warnings: { element: string; category: string; day: number; has: string; missing: string; characters: string[] }[];
 };
 
 export type SceneNote = { number: string; summary: string; tone: string; valence: number; tension: number };
@@ -116,6 +125,7 @@ export type Script = {
   elements: Elements | null;
   schedule: Schedule | null;
   corrections: Corrections;
+  continuity: Continuity;
 };
 
 export type LibraryEntry = { id: string; filename: string; title: string | null; scenes: number; added_at: string; opened_at: string };

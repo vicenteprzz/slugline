@@ -68,6 +68,9 @@ export const mergeNames = (id: string, kind: string, names: string[], into: stri
 export const unmergeName = (id: string, kind: string, name: string) =>
   post(`/api/scripts/${id}/corrections/unmerge`, "POST", { kind, name });
 
+export const setStoryDay = (id: string, scene: string, day: number | null) =>
+  post(`/api/scripts/${id}/corrections/story-day`, "PUT", { scene, day });
+
 export const setDayNight = (id: string, scene: string, dayNight: string | null) =>
   post(`/api/scripts/${id}/corrections/day-night`, "PUT", { scene, day_night: dayNight });
 

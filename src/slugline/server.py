@@ -20,7 +20,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from slugline import __version__, budget, corrections, elements, export, library, licensing, llm, revisions, settings
+from slugline import __version__, budget, continuity, corrections, elements, export, library, licensing, llm, revisions, settings
 from slugline import schedule as scheduling
 from slugline.agent import ScriptAgent
 from slugline.breakdown import Breakdown, breakdown
@@ -69,6 +69,9 @@ class Script:
             "elements": elements.to_payload(self.elements, self.breakdown),
             "schedule": scheduling.to_payload(self.schedule, self.breakdown),
             "corrections": self.fixes.to_dict(),
+            "continuity": continuity.to_payload(
+                self.breakdown.scenes, self.elements, {r.number: r.story_day for r in self.breakdown.scenes if r.story_day}
+            ),
         }
 
     def reread(self) -> None:
@@ -80,7 +83,12 @@ def read(text: str, fixes: corrections.Corrections) -> tuple[Breakdown, list[Iss
     play = corrections.apply(parse(text), fixes)
     # A scene whose day or night was set by hand no longer needs the warning.
     issues = [i for i in lint(play) if not (i.code == "no-time" and i.scene in fixes.day_night)]
-    return breakdown(play), issues
+    b = breakdown(play)
+    days = continuity.story_days(play, fixes.story_days)
+    for row in b.scenes:
+        row.story_day = days.get(row.number)
+        row.story_label = continuity.label(row.story_day, row.day_night)
+    return b, issues
 
 
 class Store:
@@ -164,6 +172,11 @@ class MergeIn(BaseModel):
 class UnmergeIn(BaseModel):
     kind: str
     name: str  # the spelling to count on its own again
+
+
+class StoryDayIn(BaseModel):
+    scene: str
+    day: int | None = None  # None goes back to the suggested day
 
 
 class DayNightIn(BaseModel):
@@ -468,6 +481,13 @@ def create_app(check_host: bool = True) -> FastAPI:
     def unmerge_name(script_id: str, body: UnmergeIn) -> dict:
         return _save_fixes(store.get(script_id), lambda f: f.unmerge(body.kind, body.name))
 
+    @app.put("/api/scripts/{script_id}/corrections/story-day")
+    def set_story_day(script_id: str, body: StoryDayIn) -> dict:
+        script = store.get(script_id)
+        if body.scene not in {s.number for s in script.breakdown.scenes}:
+            raise HTTPException(404, "That scene is not in the script.")
+        return _save_fixes(script, lambda f: f.set_story_day(body.scene, body.day))
+
     @app.put("/api/scripts/{script_id}/corrections/day-night")
     def set_day_night(script_id: str, body: DayNightIn) -> dict:
         script = store.get(script_id)
@@ -639,6 +659,10 @@ def create_app(check_host: bool = True) -> FastAPI:
             except RuntimeError as e:
                 raise HTTPException(501, str(e)) from None
             return _download(body, "application/pdf", filename)
+        if name == "costume-plot.csv":
+            days = {r.number: r.story_day for r in script.breakdown.scenes if r.story_day}
+            plot = continuity.to_payload(script.breakdown.scenes, script.elements, days)["costume_plot"]
+            return _download(BOM + export.costume_plot_csv(plot, lang), "text/csv; charset=utf-8", f"{stem}-costume-plot.csv")
         if name == "dossier.pdf":
             with script.lock:
                 result = _budget(script)

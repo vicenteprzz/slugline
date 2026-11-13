@@ -2172,3 +2172,93 @@ h3.fold-title {
   margin: 0;
   color: var(--ink-2);
 }
+
+/* Story days and continuity */
+.story-days {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0 18px;
+}
+
+.story-day-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--grid);
+}
+
+.story-day-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.story-part,
+.change {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-right: 10px;
+}
+
+.story-day-tag {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  background: var(--wash);
+  border: 1px solid var(--border);
+}
+
+.continuity h4 {
+  margin: 16px 0 4px;
+  font-size: 14px;
+}
+
+.continuity-warnings {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.costume-plot .changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+}
+
+td.story-day,
+.strip-day {
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.strip-day {
+  padding: 0 6px;
+}
+
+.story-day-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.story-day-input {
+  width: 52px;
+  border-color: var(--border) !important;
+}
+
+.small-note {
+  font-size: 11px;
+}

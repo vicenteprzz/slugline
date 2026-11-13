@@ -26,6 +26,7 @@ import { count, eighths, percent, plural, stripColor, titleCase } from "./format
 import { type Language, initialLanguage, language, setLanguage, t } from "./i18n";
 import SceneSheet from "./SceneSheet";
 import BudgetCard from "./Budget";
+import ContinuityCard from "./Continuity";
 import ScheduleBoard, { CastCard, CrewCard } from "./ScheduleBoard";
 import SettingsPanel from "./SettingsPanel";
 import type { Analysis, Breakdown, Category, Corrections, Element, Elements, Issue, LibraryEntry, LicenseStatus, Schedule, Script, Settings, Status } from "./types";
@@ -191,6 +192,7 @@ export default function App() {
     setExtracting(true);
     try {
       update(script.id, { elements: await extractElements(script.id) });
+      void refreshContinuity(script.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("The element breakdown failed."));
     } finally {
@@ -202,6 +204,7 @@ export default function App() {
     async (number: string, items: Element[]) => {
       if (!script) return;
       update(script.id, { elements: await saveSceneElements(script.id, number, items) });
+      void refreshContinuity(script.id);
     },
     [script, update],
   );
@@ -211,16 +214,31 @@ export default function App() {
     setError(null);
     try {
       update(script.id, { elements: await clearElements(script.id) });
+      void refreshContinuity(script.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("The breakdown could not be cleared."));
     }
   }, [script, update]);
+
+  // Continuity follows the elements: after they change, the server works it out again.
+  const refreshContinuity = useCallback(
+    async (id: string) => {
+      try {
+        const fresh = await getScript(id);
+        update(id, { continuity: fresh.continuity });
+      } catch {
+        // stays as it was until the next change
+      }
+    },
+    [update],
+  );
 
   const resuggest = useCallback(async () => {
     if (!script) return;
     setError(null);
     try {
       update(script.id, { elements: await resuggestElements(script.id) });
+      void refreshContinuity(script.id);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("The elements could not be suggested."));
     }
@@ -394,6 +412,7 @@ export default function App() {
           onNavigate={(number) => setPanel({ kind: "scene", number })}
           onClose={() => setPanel(null)}
           onSave={saveScene}
+          onCorrect={correct}
         />
       )}
       {dragging && <div className="drop-veil">{t("Drop the script to open it")}</div>}
@@ -579,6 +598,7 @@ function Dashboard(props: {
 
       <Stripboard breakdown={b} notes={notes} elements={script.elements} onOpenScene={props.onOpenScene} />
 
+      <ContinuityCard script={script} onOpenScene={props.onOpenScene} />
       <ElementsCard
         breakdown={b}
         elements={script.elements}
@@ -800,6 +820,7 @@ function Stripboard(props: {
             <tr>
               <th className="num">#</th>
               <th>{t("Scene")}</th>
+              <th className="num" title={t("Day of the story: D3 is day 3, N3 the night of day 3")}>{t("Story day")}</th>
               <th className="num">{t("Length")}</th>
               <th className="num">{t("Starts p.")}</th>
               <th>{t("Cast")}</th>
@@ -822,6 +843,7 @@ function Stripboard(props: {
                     </button>
                     {note && <span className="summary">{note.summary}</span>}
                   </td>
+                  <td className="num story-day">{s.story_label || "–"}</td>
                   <td className="num">{eighths(s.eighths)}</td>
                   <td className="num">{Math.floor(s.start_page)}</td>
                   <td className="cast">

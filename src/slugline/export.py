@@ -106,13 +106,13 @@ def _csv(header: list[str], rows: list[list]) -> str:
 def scenes_csv(b: Breakdown, analysis: Analysis | None = None) -> str:
     notes = analysis.by_scene() if analysis else {}
     header = ["scene", "int_ext", "location", "time_of_day", "day_night", "eighths", "length",
-              "start_page", "characters", "silent_characters"]
+              "start_page", "characters", "silent_characters", "story_day"]
     if analysis:
         header += ["summary", "tone", "valence", "tension"]
     rows = []
     for s in b.scenes:
         row = [s.number, s.int_ext or "", s.location, s.time_of_day or "", s.day_night or "", s.eighths,
-               format_eighths(s.eighths), s.start_page, "; ".join(s.characters), "; ".join(s.silent)]
+               format_eighths(s.eighths), s.start_page, "; ".join(s.characters), "; ".join(s.silent), s.story_label]
         if analysis:
             n = notes.get(s.number)
             row += [n.summary, n.tone, n.valence, n.tension] if n else ["", "", "", ""]
@@ -622,7 +622,8 @@ def call_sheets_pdf(
         scene_rows = [["#", tr("Set"), "D/N", tr("Pages"), tr("Cast"), tr("Synopsis")]]
         style = list(table_style)
         for s in scenes:
-            scene_rows.append([s.number, p(s.heading, slug), _light(s.day_night, lang), format_eighths(s.eighths),
+            light_cell = Paragraph(escape(_light(s.day_night, lang)) + (f"<br/>{escape(s.story_label)}" if s.story_label else ""), body)
+            scene_rows.append([s.number, p(s.heading, slug), light_cell, format_eighths(s.eighths),
                                p(", ".join(s.characters) or "-"), p(notes[s.number].summary if s.number in notes else "", muted)])
             style.append(("BACKGROUND", (0, len(scene_rows) - 1), (3, len(scene_rows) - 1),
                           colors.HexColor(strip_color(s.int_ext, s.day_night))))
@@ -988,3 +989,11 @@ def dossier_pdf(b: Breakdown, budget_result: dict, schedule: Schedule | None = N
     decor = _page_decor(lang, trial)
     doc.build(story, onFirstPage=decor, onLaterPages=decor)
     return out.getvalue()
+
+
+def costume_plot_csv(plot: list[dict], lang: str = "en") -> str:
+    """Each character's costume changes: one per day of the story, with its scenes."""
+    es = lang == "es"
+    header = ["Personaje", "Cambio", "Día de historia", "Secuencias"] if es else ["Character", "Change", "Story day", "Scenes"]
+    rows = [[c["character"], ch["number"], ch["day"], " ".join(ch["scenes"])] for c in plot for ch in c["changes"]]
+    return _csv(header, rows)
