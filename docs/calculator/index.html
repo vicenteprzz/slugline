@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>What would it cost to shoot your script? · Slugline</title>
+<meta name="description" content="Drop your screenplay and get the shooting days, cast, locations and a budget range, from a micro short to a studio picture. Free, and your script never leaves your computer.">
+<meta property="og:title" content="What would it cost to shoot your script?">
+<meta property="og:description" content="Shooting days, cast, locations and a budget range from your screenplay. Free, and the script never leaves your computer.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://getslugline.com/calculator/">
+<meta property="og:site_name" content="Slugline">
+<meta property="og:image" content="https://getslugline.com/img/budget-dark.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://getslugline.com/calculator/">
+<link rel="icon" href="../img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul { margin: 0; }
+  .wrap { width: min(880px, 100% - 32px); margin: 0 auto; }
+  header { border-bottom: 1px solid var(--rule); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 12px; }
+  .brand { font: 700 18px var(--mono); letter-spacing: 0.06em; text-decoration: none; }
+  .lang { display: flex; gap: 4px; }
+  .lang button { background: none; border: 0; padding: 6px 8px; font: 600 14px var(--sans); color: var(--muted); cursor: pointer; }
+  .lang button[aria-pressed="true"] { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+
+  .hero { padding: 56px 0 0; }
+  h1 { font: 700 clamp(32px, 5.6vw, 54px)/1.05 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 16px; color: var(--ink-2); max-width: 36em; font-size: clamp(17px, 2vw, 19px); }
+
+  .drop { display: block; margin-top: 32px; border: 1.5px dashed var(--ink-2); border-radius: 4px; background: var(--sheet); padding: 36px 20px; text-align: center; cursor: pointer; }
+  .drop.over { border-color: var(--red); border-style: solid; }
+  .drop strong { display: block; font: 700 19px var(--mono); }
+  .drop span { color: var(--muted); font-size: 15px; }
+  .row { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; font-size: 15px; color: var(--ink-2); }
+  .linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .seg { display: inline-flex; border: 1.5px solid var(--ink); border-radius: 3px; overflow: hidden; }
+  .seg button { background: none; border: 0; padding: 6px 12px; font: 600 14px var(--sans); color: var(--ink); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+  .status { margin-top: 18px; min-height: 1.6em; color: var(--ink-2); font-size: 15px; }
+  .status.error { color: var(--red); }
+
+  #result { padding-top: 24px; }
+  .title { font: 700 26px/1.2 var(--mono); }
+  .facts { margin-top: 6px; color: var(--ink-2); }
+  .tiers { margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1.5px solid var(--ink); }
+  .tier { padding: 16px 14px 16px 0; border-bottom: 1px solid var(--rule); }
+  .tier h3 { font: 600 14px var(--sans); color: var(--ink-2); }
+  .tier .amount { font: 700 clamp(22px, 3vw, 30px)/1.2 var(--mono); margin-top: 4px; }
+  .tier .days { font-size: 14px; color: var(--muted); }
+  .tier.fit .badge { display: inline-block; margin-top: 6px; font: 700 11px var(--mono); letter-spacing: 0.06em; color: var(--red); }
+  .note { margin-top: 12px; font-size: 14px; color: var(--muted); }
+
+  .cols { margin-top: 36px; display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+  h2 { font: 700 18px var(--mono); padding-bottom: 8px; border-bottom: 1.5px solid var(--ink); }
+  ul.list { list-style: none; padding: 0; }
+  ul.list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
+  ul.list li span:last-child { color: var(--muted); white-space: nowrap; }
+
+  .cta { margin-top: 44px; padding: 28px; background: var(--sheet); border: 1px solid var(--rule); }
+  .cta p { font: 400 18px/1.5 var(--mono); }
+  .actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .button { display: inline-flex; align-items: center; padding: 10px 18px; border-radius: 3px; font: 600 15px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; background: transparent; color: var(--ink); }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+
+  footer { margin-top: 72px; border-top: 1px solid var(--rule); padding: 20px 0 32px; color: var(--muted); font-size: 14px; }
+  @media (max-width: 720px) {
+    .tiers { grid-template-columns: 1fr 1fr; }
+    .cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="brand" href="../" data-home="">SLUGLINE</a>
+  <div class="lang" role="group" aria-label="Language">
+    <button type="button" data-lang="en">EN</button><button type="button" data-lang="es">ES</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <section class="hero">
+    <h1 data-t="h1"></h1>
+    <p class="lead" data-t="lead"></p>
+    <label class="drop" id="drop" tabindex="0">
+      <strong data-t="drop"></strong>
+      <span data-t="formats"></span>
+      <input type="file" id="file" accept=".pdf,.fdx,.fountain,.txt,.spmd" hidden>
+    </label>
+    <div class="row">
+      <button type="button" class="linkish" id="sample" data-t="sample"></button>
+      <span><span data-t="currency"></span>
+        <span class="seg" role="group"><button type="button" data-market="us">US $</button><button type="button" data-market="eu">Europe €</button></span></span>
+    </div>
+    <p class="status" id="status" role="status"></p>
+  </section>
+
+  <section id="result" hidden>
+    <p class="title" id="r-title"></p>
+    <p class="facts" id="r-facts"></p>
+    <div class="tiers" id="r-tiers"></div>
+    <p class="note" data-t="note"></p>
+    <div class="cols">
+      <div><h2 data-t="asks"></h2><ul class="list" id="r-asks"></ul></div>
+      <div><h2 data-t="costly"></h2><ul class="list" id="r-costly"></ul></div>
+      <div><h2 data-t="cast"></h2><ul class="list" id="r-cast"></ul></div>
+      <div><h2 data-t="locations"></h2><ul class="list" id="r-locations"></ul></div>
+    </div>
+    <div class="cta">
+      <p data-t="cta"></p>
+      <div class="actions">
+        <a class="button solid" href="../#descargar" data-home="#download" data-t="download" data-goatcounter-click="calculator-download"></a>
+        <button type="button" class="button" id="share" data-t="share"></button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap"><span data-t="footer"></span> · <a href="../legal.html#privacidad" data-t="privacy"></a></div></footer>
+
+<script>
+(function () {
+  var T = {
+    en: {
+      h1: "What would it cost to shoot your script?",
+      lead: "Drop your screenplay and get the shooting days, the cast, the locations and a budget, from a micro short to a studio picture. It's read right here in your browser: your script never leaves your computer.",
+      drop: "Drop your script here, or choose a file", formats: "PDF, Final Draft (.fdx) or Fountain",
+      sample: "No script at hand? Try a sample", currency: "Budget in",
+      loading: "Getting the calculator ready (only the first time, a few seconds)…", reading: "Reading your script…",
+      scanned: "This PDF is a scan (pictures of pages), so there's no text to read. Try the PDF exported from your writing app, or the .fdx.",
+      notscript: "No scenes found. Is this a screenplay? Scene headings start with INT. or EXT.",
+      failed: "Couldn't read this file. Try the .fdx or a PDF exported from your writing app.",
+      load: "The calculator couldn't load. Check your connection and reload the page.",
+      pages: "pages", scenes: "scenes", speaking: "speaking roles", speaking1: "speaking role", locs: "locations",
+      tiers: { short: "Micro (short-film crew)", low: "Indie", medium: "Mid-budget", high: "Studio picture" },
+      days: "shooting days", fit: "CLOSEST TO YOUR SCRIPT",
+      note: "A first estimate from the script alone, at average rates (non-union indie rates in the US). Effects are placeholders until quoted. In Slugline every rate and every day is yours to change.",
+      asks: "What the script asks for", costly: "Most expensive scenes", cast: "Cast", locations: "Locations",
+      nights: "Night scenes", exteriors: "Exterior scenes", inScenes: function (n) { return n + (n === 1 ? " scene" : " scenes"); },
+      el: { extras: "Extras", stunts: "Stunts", vehicles: "Vehicles", animals: "Animals", sfx: "Special effects", vfx: "Visual effects" },
+      none: "Nothing special", scene: "Sc.",
+      cta: "Slugline turns this into a full breakdown, a shooting schedule you can drag around, call sheets and a budget you can edit. On your Mac or PC, without uploading the script.",
+      download: "Try Slugline free", share: "Share the calculator", copied: "Link copied",
+      shareText: function (d, m) { return "My script would take " + d + " shooting days and about " + m + " to shoot. What about yours?"; },
+      footer: "Slugline · Free calculator, no sign-up, nothing uploaded", privacy: "Privacy"
+    },
+    es: {
+      h1: "¿Cuánto costaría rodar tu guion?",
+      lead: "Suelta tu guion y te sale cuántos días de rodaje, el reparto, las localizaciones y un presupuesto, desde un corto con poco equipo hasta una superproducción. Se lee aquí, en tu navegador: el guion no sale de tu ordenador.",
+      drop: "Suelta aquí tu guion, o elige un archivo", formats: "PDF, Final Draft (.fdx) o Fountain",
+      sample: "¿No tienes un guion a mano? Prueba con uno de ejemplo", currency: "Presupuesto en",
+      loading: "Preparando la calculadora (solo la primera vez, unos segundos)…", reading: "Leyendo tu guion…",
+      scanned: "Este PDF es un escaneo (fotos de páginas) y no tiene texto que leer. Prueba con el PDF que exporta tu programa de guion, o con el .fdx.",
+      notscript: "No hay secuencias. ¿Es un guion? Las secuencias empiezan por INT. o EXT.",
+      failed: "No se ha podido leer este archivo. Prueba con el .fdx o con un PDF exportado de tu programa de guion.",
+      load: "La calculadora no ha cargado. Mira tu conexión y recarga la página.",
+      pages: "páginas", scenes: "secuencias", speaking: "personajes con diálogo", speaking1: "personaje con diálogo", locs: "localizaciones",
+      tiers: { short: "Corto (equipo reducido)", low: "Bajo presupuesto", medium: "Presupuesto medio", high: "Superproducción" },
+      days: "días de rodaje", fit: "LO MÁS PARECIDO A TU GUION",
+      note: "Una primera estimación solo a partir del guion, con tarifas medias. Los efectos son una cifra provisional hasta que se presupuesten. En Slugline cada tarifa y cada jornada las cambias tú.",
+      asks: "Lo que pide el guion", costly: "Las secuencias más caras", cast: "Reparto", locations: "Localizaciones",
+      nights: "Secuencias de noche", exteriors: "Secuencias en exterior", inScenes: function (n) { return n + (n === 1 ? " secuencia" : " secuencias"); },
+      el: { extras: "Figuración", stunts: "Especialistas", vehicles: "Vehículos", animals: "Animales", sfx: "Efectos especiales", vfx: "Efectos visuales" },
+      none: "Nada especial", scene: "Sec.",
+      cta: "Slugline lo convierte en un desglose completo, un plan de rodaje que mueves a tu gusto, órdenes de rodaje y un presupuesto que puedes editar. En tu Mac o PC, sin subir el guion.",
+      download: "Probar Slugline gratis", share: "Compartir la calculadora", copied: "Enlace copiado",
+      shareText: function (d, m) { return "Rodar mi guion llevaría " + d + " días y unos " + m + ". ¿Y el tuyo?"; },
+      footer: "Slugline · Calculadora gratis, sin registro y sin subir nada", privacy: "Privacidad"
+    }
+  };
+
+  function stored(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+  function store(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
+  var asked = (location.search.match(/[?&]lang=(en|es)\b/) || [])[1];
+  var lang = asked || stored("calc-lang") || (/^(es|ca)/i.test(navigator.language || "") ? "es" : "en");
+  var market = stored("calc-market") || (lang === "es" ? "eu" : "us");
+  var last = null, lastFile = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function money(n, currency) {
+    var locale = lang === "es" ? "es-ES" : "en-US";
+    return new Intl.NumberFormat(locale, { style: "currency", currency: currency, notation: n >= 1e6 ? "compact" : "standard", maximumFractionDigits: n >= 1e6 ? 1 : 0 }).format(n);
+  }
+  function li(list, a, b) {
+    var item = document.createElement("li"), x = document.createElement("span"), y = document.createElement("span");
+    x.textContent = a; y.textContent = b; item.append(x, y); list.appendChild(item);
+  }
+
+  function texts() {
+    var t = T[lang];
+    document.documentElement.lang = lang;
+    document.title = t.h1 + " · Slugline";
+    document.querySelectorAll("[data-t]").forEach(function (el) { el.textContent = t[el.getAttribute("data-t")]; });
+    document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang); });
+    document.querySelectorAll("[data-market]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-market") === market); });
+    // The home page in the same language.
+    document.querySelectorAll("[data-home]").forEach(function (a) { a.href = lang === "en" ? "../en/" + a.getAttribute("data-home") : "../" + a.getAttribute("data-home").replace("#download", "#descargar"); });
+    if (last) show(last);
+  }
+
+  function show(r) {
+    var t = T[lang];
+    $("r-title").textContent = r.title || "";
+    $("r-title").hidden = !r.title;
+    $("r-facts").textContent = [r.pages + " " + t.pages, r.scenes + " " + t.scenes, r.speaking + " " + (r.speaking === 1 ? t.speaking1 : t.speaking), r.locations + " " + t.locs].join(" · ");
+    var tiers = $("r-tiers"); tiers.replaceChildren();
+    r.tiers.forEach(function (tier) {
+      var box = document.createElement("div"); box.className = "tier" + (tier.level === r.fit ? " fit" : "");
+      var h = document.createElement("h3"); h.textContent = t.tiers[tier.level];
+      var a = document.createElement("p"); a.className = "amount"; a.textContent = money(tier.total, r.currency);
+      var d = document.createElement("p"); d.className = "days"; d.textContent = tier.days + " " + t.days;
+      box.append(h, a, d);
+      if (tier.level === r.fit) { var b = document.createElement("span"); b.className = "badge"; b.textContent = t.fit; box.appendChild(b); }
+      tiers.appendChild(box);
+    });
+    var asks = $("r-asks"); asks.replaceChildren();
+    li(asks, t.nights, t.inScenes(r.day_night.NIGHT || 0));
+    li(asks, t.exteriors, t.inScenes(r.int_ext.EXT || 0));
+    var special = 0;
+    Object.keys(t.el).forEach(function (key) {
+      var e = r.elements[key];
+      if (!e || !e.scenes) return;
+      special++;
+      li(asks, t.el[key] + (e.items.length ? ": " + e.items.join(", ").toLowerCase() : ""), t.inScenes(e.scenes));
+    });
+    if (!special) li(asks, t.none, "");
+    var fit = r.tiers.filter(function (x) { return x.level === r.fit; })[0];
+    var costly = $("r-costly"); costly.replaceChildren();
+    fit.costly_scenes.forEach(function (s) { li(costly, t.scene + " " + s.number + " · " + s.heading, money(s.cost, r.currency)); });
+    var cast = $("r-cast"); cast.replaceChildren();
+    r.cast.forEach(function (c) { li(cast, c.name, t.inScenes(c.scenes)); });
+    var locs = $("r-locations"); locs.replaceChildren();
+    r.top_locations.forEach(function (l) { li(locs, l.name, t.inScenes(l.scenes)); });
+    $("result").hidden = false;
+  }
+
+  // Python runs in a worker, loaded the first time someone reaches for a script.
+  var worker = null, calls = 0, waiting = {};
+  function call(msg) {
+    if (!worker) {
+      worker = new Worker("worker.js");
+      worker.onmessage = function (e) { var done = waiting[e.data.id]; delete waiting[e.data.id]; if (done) done(e.data); };
+    }
+    return new Promise(function (resolve) { var id = ++calls; waiting[id] = resolve; worker.postMessage(Object.assign({ id: id }, msg)); });
+  }
+  function warm() { if (!worker) call({ kind: "boot" }); }
+
+  function status(text, error) { var s = $("status"); s.textContent = text || ""; s.className = "status" + (error ? " error" : ""); }
+
+  function kindOf(name) { var n = name.toLowerCase(); return n.endsWith(".pdf") ? "pdf" : n.endsWith(".fdx") ? "fdx" : "text"; }
+
+  function run(name, buffer) {
+    lastFile = { name: name, buffer: buffer };
+    var started = Date.now();
+    var slow = setTimeout(function () { status(T[lang].loading); }, 400);
+    status(T[lang].reading);
+    return call({ kind: kindOf(name), data: new Uint8Array(buffer.slice(0)), market: market }).then(function (out) {
+      clearTimeout(slow);
+      if (out.error) { status(T[lang][out.error] || T[lang].failed, true); last = null; $("result").hidden = true; return; }
+      status("");
+      last = out.result;
+      show(last);
+      if (Date.now() - started > 0) $("result").scrollIntoView({ behavior: "smooth", block: "start" });
+      if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: "calculator-run-" + kindOf(name), title: "Calculator run", event: true });
+    });
+  }
+  function readFile(file) { if (file) file.arrayBuffer().then(function (b) { run(file.name, b); }); }
+
+  var drop = $("drop"), input = $("file");
+  ["pointerenter", "focus", "touchstart"].forEach(function (ev) { drop.addEventListener(ev, warm, { passive: true }); });
+  drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); input.click(); } });
+  input.addEventListener("change", function () { readFile(input.files[0]); input.value = ""; });
+  drop.addEventListener("dragover", function (e) { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", function () { drop.classList.remove("over"); });
+  drop.addEventListener("drop", function (e) { e.preventDefault(); drop.classList.remove("over"); readFile(e.dataTransfer.files[0]); });
+  $("sample").addEventListener("click", function () {
+    warm();
+    fetch("sample.fountain").then(function (r) { return r.arrayBuffer(); }).then(function (b) { run("sample.fountain", b); });
+  });
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { lang = b.getAttribute("data-lang"); store("calc-lang", lang); texts(); });
+  });
+  document.querySelectorAll("[data-market]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      market = b.getAttribute("data-market"); store("calc-market", market); texts();
+      if (lastFile) run(lastFile.name, lastFile.buffer);
+    });
+  });
+  $("share").addEventListener("click", function () {
+    var url = location.href.split("#")[0], text = url;
+    if (last) {
+      var fit = last.tiers.filter(function (x) { return x.level === last.fit; })[0];
+      text = T[lang].shareText(fit.days, money(fit.total, last.currency));
+    }
+    if (navigator.share) { navigator.share({ title: T[lang].h1, text: text, url: url }).catch(function () {}); return; }
+    var copy = navigator.clipboard ? navigator.clipboard.writeText(text + " " + url) : Promise.reject();
+    copy.then(function () { $("share").textContent = T[lang].copied; setTimeout(function () { $("share").textContent = T[lang].share; }, 2000); }).catch(function () {});
+  });
+  texts();
+})();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

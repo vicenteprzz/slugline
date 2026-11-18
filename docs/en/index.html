@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Slugline · Your script, ready to shoot</title>
+<meta name="description" content="Slugline reads your screenplay and gives you the breakdown, the shooting schedule, call sheets and a budget. For Mac and Windows, and your script is never uploaded anywhere.">
+<meta property="og:title" content="Slugline · Your script, ready to shoot">
+<meta property="og:description" content="Breakdown, shooting schedule, call sheets and budget from your screenplay. For Mac and Windows, without uploading the script.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://getslugline.com/en/">
+<meta property="og:site_name" content="Slugline">
+<meta property="og:locale" content="en_US">
+<!-- Link previews (WhatsApp, LinkedIn, Slack...) only load the image from a full address. -->
+<meta property="og:image" content="https://getslugline.com/img/overview-light.jpg">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="1328">
+<meta property="og:image:alt" content="A script's overview in Slugline: scenes, pages, cast and locations">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://getslugline.com/en/">
+<link rel="alternate" hreflang="es" href="https://getslugline.com/">
+<link rel="alternate" hreflang="en" href="https://getslugline.com/en/">
+<link rel="icon" href="../img/icon.png">
+<link rel="preload" href="../fonts/cp-700.woff2" as="font" type="font/woff2" crossorigin>
+<script>
+  // contact: where demo requests and purchases arrive. download: the latest Slugline.dmg.
+  // downloadWindows: the latest Slugline-Setup.exe. buy: each plan's Stripe payment link.
+  window.SLUGLINE = { contact: "hola@getslugline.com", download: "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline.dmg", downloadWindows: "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline-Setup.exe",
+    buy: { Proyecto: "https://buy.stripe.com/14A7sN0nIcJZ6Zn5wAc3m02", Profesional: "https://buy.stripe.com/8x23cx0nI8tJ6ZnbUYc3m03" } };
+</script>
+<style>
+  /* Served from this site, not Google's: nothing about a visitor leaves it for a font. */
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc;
+    --red: #c23a2b;
+    /* Stripboard colours, as production offices use them. */
+    --int-day: #fffefa; --ext-day: #f4d35e; --int-night: #8fb3de; --ext-night: #8cc084; --dawn: #f2b5c4;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f;
+      --red: #e2614f; --int-day: #e9e7df; }
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  img { display: block; max-width: 100%; height: auto; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 40px); margin: 0 auto; }
+  .narrow { width: min(680px, 100% - 40px); margin: 0 auto; }
+
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  .brand svg { color: var(--ink); }
+  .brand .stick { transform-origin: 6px 24px; transition: transform 0.18s; }
+  .brand:hover .stick { transform: rotate(-22deg); }
+  nav { display: flex; align-items: center; gap: 24px; font-size: 15px; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line { background: transparent; }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+
+  /* Hero: a title page. */
+  .hero { padding: 72px 0 0; }
+  .hero h1 { font: 700 clamp(38px, 6.4vw, 68px)/1.02 var(--mono); letter-spacing: -0.02em; }
+  .hero p.lead { margin-top: 20px; max-width: 34em; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .hero .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .hero .fine { margin-top: 16px; font-size: 14px; color: var(--muted); }
+  .hero .fine a { color: var(--ink-2); }
+
+  .video { position: relative; margin-top: 48px; aspect-ratio: 16 / 9; overflow: hidden; background: #000; border: 1px solid var(--rule); }
+  .video iframe, .video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; }
+  .reel-ctl { position: absolute; bottom: 14px; display: inline-flex; align-items: center; gap: 10px; border: 0; cursor: pointer;
+    background: rgba(20, 20, 19, 0.82); color: #f4f3ee; border-radius: 3px; font: 600 15px/1 var(--sans); text-decoration: none; }
+  .reel-ctl:hover { background: #141413; }
+  .reel-demo { left: 14px; padding: 9px 14px; }
+  .reel-demo .tri { width: 0; height: 0; border-style: solid; border-width: 6px 0 6px 10px; border-color: transparent transparent transparent var(--red); }
+  .reel-pause { right: 14px; width: 40px; height: 40px; justify-content: center; }
+  .reel-pause::before, .reel-pause::after { content: ""; width: 4px; height: 14px; background: currentColor; }
+  .reel-pause::after { margin-left: -5px; }
+  .reel-pause[aria-pressed="true"]::before { width: 0; height: 0; background: none; margin-left: 4px;
+    border-style: solid; border-width: 8px 0 8px 13px; border-color: transparent transparent transparent currentColor; }
+  .reel-pause[aria-pressed="true"]::after { display: none; }
+
+  section { padding: 88px 0 0; }
+  h2 { font: 700 clamp(26px, 3.4vw, 34px)/1.15 var(--mono); letter-spacing: -0.01em; }
+  .say { margin-top: 12px; color: var(--ink-2); max-width: 36em; }
+
+  /* What comes out of a script, as strips on a stripboard. */
+  .board { margin-top: 28px; border: 1.5px solid var(--ink); background: var(--ink); display: grid; gap: 1.5px; }
+  .strip { display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 18px; padding: 14px 18px;
+    background: var(--int-day); color: #141413; }
+  .strip .n { font: 700 15px var(--mono); }
+  .strip .what { font: 700 16px var(--mono); letter-spacing: 0.02em; }
+  .strip .how { display: block; font: 15px/1.45 var(--sans); color: #3c3b37; margin-top: 2px; }
+  .strip .tag { font: 700 12px var(--mono); letter-spacing: 0.08em; opacity: 0.7; white-space: nowrap; }
+  .strip.ext-day { background: var(--ext-day); }
+  .strip.int-night { background: var(--int-night); }
+  .strip.ext-night { background: var(--ext-night); }
+  .strip.dawn { background: var(--dawn); }
+
+  /* Three screens, a line each. */
+  .shot { display: grid; grid-template-columns: 1fr 1.6fr; gap: 44px; align-items: center; margin-top: 56px; }
+  .shot.flip { grid-template-columns: 1.6fr 1fr; }
+  .shot.flip .words { order: 2; }
+  .shot h3 { font: 700 22px/1.25 var(--mono); }
+  .shot p { margin-top: 10px; color: var(--ink-2); }
+  .shot picture, .shot > img { border: 1px solid var(--rule); background: var(--sheet); }
+
+  .facts { margin-top: 64px; display: grid; grid-template-columns: repeat(3, 1fr); border-top: 1.5px solid var(--ink); }
+  .facts p { padding: 18px 20px 0 0; font-size: 16px; color: var(--ink-2); }
+  .facts strong { display: block; color: var(--ink); font: 700 16px var(--mono); margin-bottom: 4px; }
+
+  /* Prices: a plain list. */
+  .prices { margin-top: 28px; border-top: 1.5px solid var(--ink); }
+  .price { display: grid; grid-template-columns: 1fr auto auto; gap: 24px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .price h3 { font: 700 18px var(--mono); }
+  .price p { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
+  .price .amount { font: 700 22px var(--mono); white-space: nowrap; }
+  .price .amount small { font: 400 14px var(--sans); color: var(--muted); }
+  .price .button { padding: 8px 16px; font-size: 15px; }
+  .price-note { margin-top: 14px; font-size: 14px; color: var(--muted); }
+
+  .faq { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p, details ol { margin-top: 10px; color: var(--ink-2); }
+  details ol { padding-left: 22px; }
+  details li + li { margin-top: 6px; }
+  #install { scroll-margin-top: 24px; }
+
+  /* A note from the person who makes it. */
+  .note { margin: 96px auto 0; padding: 36px 0 0; border-top: 1.5px solid var(--ink); }
+  .note p { font: 400 19px/1.6 var(--mono); }
+  .note p + p { margin-top: 14px; }
+  .note .sign { color: var(--muted); font-size: 16px; }
+  .note .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .note .fine { margin-top: 14px; font-size: 14px; color: var(--muted); }
+  .note .phone-note { margin-top: 14px; font-size: 16px; color: var(--ink-2); }
+
+  footer { margin-top: 96px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .pending { opacity: 0.55; pointer-events: none; }
+
+  @media (max-width: 820px) {
+    nav a:not(.button) { display: none; }
+    .shot, .shot.flip { grid-template-columns: 1fr; gap: 18px; }
+    .shot.flip .words { order: 0; }
+    .facts { grid-template-columns: 1fr; }
+    .price { grid-template-columns: 1fr auto; }
+    .price .button { grid-column: 1 / -1; justify-self: start; }
+    .strip { grid-template-columns: 34px 1fr; }
+    .strip .tag { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .brand .stick { transition: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true"><g class="stick"><rect x="6" y="14" width="52" height="10" rx="1" fill="currentColor"/><path d="M14 14h7l-6 10H8zM29 14h7l-6 10h-7zM44 14h7l-6 10h-7z" fill="var(--paper)"/></g><rect x="6" y="27" width="52" height="31" rx="1" fill="currentColor"/></svg>SLUGLINE</a>
+    <nav>
+      <a href="#what">What it does</a>
+      <a href="../calculator/?lang=en">Script cost calculator</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a href="../" lang="es" hreflang="es">Español</a>
+      <a class="button solid" data-link="download" href="#download">Download</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <h1>Your script,<br>ready to shoot.</h1>
+    <p class="lead">Open your screenplay and Slugline gives you the breakdown, the shooting schedule, the call sheets and a budget. For Mac and Windows, and your script never gets uploaded anywhere.</p>
+    <div class="actions">
+      <a class="button solid" data-link="download" href="#download">Download free</a>
+      <a class="button line" href="https://www.youtube.com/watch?v=EFLGIW2vIVc" data-demo-link>Watch the demo · 2 min</a>
+    </div>
+    <p class="fine">macOS 12 or later · Windows 10 and 11, in testing · Final Draft, Fountain and PDF · <a href="#install" data-open-install>How to install</a> · <a href="../calculator/?lang=en">What would your script cost to shoot? Find out free</a></p>
+    <div class="video" id="reel">
+      <video muted loop playsinline preload="none" poster="../img/reel-poster.jpg"
+        aria-label="Slugline in 15 seconds: open the script of John's Boys and out come the breakdown, the shooting schedule and the budget">
+        <source src="../video/slugline-reel.mp4" type="video/mp4">
+      </video>
+      <a class="reel-ctl reel-demo" href="https://www.youtube.com/watch?v=EFLGIW2vIVc" data-demo><span class="tri" aria-hidden="true"></span>Full demo · 2 min</a>
+      <button class="reel-ctl reel-pause" type="button" aria-label="Pause the video" aria-pressed="false" hidden></button>
+    </div>
+  </section>
+
+  <section class="wrap" id="what">
+    <h2>What comes out of your script</h2>
+    <div class="board" role="list">
+      <div class="strip" role="listitem"><span class="n">1</span><span><span class="what">BREAKDOWN</span><span class="how">Cast, extras, props, wardrobe, vehicles… scene by scene, with a breakdown sheet to print.</span></span><span class="tag">INT. DAY</span></div>
+      <div class="strip ext-day" role="listitem"><span class="n">2</span><span><span class="what">SHOOTING SCHEDULE</span><span class="how">Strips you drag between days, with dates, daylight hours, availability and turnaround.</span></span><span class="tag">EXT. DAY</span></div>
+      <div class="strip int-night" role="listitem"><span class="n">3</span><span><span class="what">CALL SHEETS</span><span class="how">One per shooting day, as a PDF, with call times, scenes and what each department needs.</span></span><span class="tag">INT. NIGHT</span></div>
+      <div class="strip ext-night" role="listitem"><span class="n">4</span><span><span class="what">BUDGET</span><span class="how">Worked out from the breakdown and the schedule, with what each scene costs to shoot.</span></span><span class="tag">EXT. NIGHT</span></div>
+      <div class="strip dawn" role="listitem"><span class="n">5</span><span><span class="what">CONTINUITY</span><span class="how">Which story day each scene happens on, and the costume changes.</span></span><span class="tag">DAWN</span></div>
+    </div>
+
+    <div class="shot">
+      <div class="words"><h3>The breakdown, by department.</h3><p>Slugline suggests the elements of every scene, and you correct them.</p></div>
+      <picture><source srcset="../img/elements-dark.jpg" media="(prefers-color-scheme: dark)"><img src="../img/elements-light.jpg" width="1600" height="1213" alt="The element list of John's Boys by department, with the scenes of each" loading="lazy"></picture>
+    </div>
+    <div class="shot flip">
+      <div class="words"><h3>A schedule that moves.</h3><p>It groups by location and keeps the nights together. Then you drag the strips where you want them.</p></div>
+      <picture><source srcset="../img/schedule-dark.jpg" media="(prefers-color-scheme: dark)"><img src="../img/schedule-light.jpg" width="1600" height="1250" alt="The shooting schedule by day, with date, call time and the scenes of each day" loading="lazy"></picture>
+    </div>
+    <div class="shot">
+      <div class="words"><h3>What it costs, scene by scene.</h3><p>The quantities come from the script and the schedule. The rates are yours.</p></div>
+      <img src="../img/budget-dark.jpg" width="1600" height="844" alt="The budget of John's Boys: total, shooting days, chapters and what each scene costs to shoot" loading="lazy">
+    </div>
+
+    <div class="facts">
+      <p><strong>No internet needed.</strong>It all runs on your computer. AI is optional.</p>
+      <p><strong>Your scripts stay with you.</strong>Nothing is uploaded to any server.</p>
+      <p><strong>Reads what you have.</strong>Final Draft, Fountain and PDF, scanned ones too.</p>
+    </div>
+  </section>
+
+  <section class="wrap" id="pricing">
+    <h2>Pricing</h2>
+    <p class="say">The trial does everything. It just keeps two scripts, and its PDFs carry a watermark.</p>
+    <div class="prices">
+      <div class="price"><div><h3>Trial</h3><p>Everything, with two scripts.</p></div><span class="amount">Free</span><a class="button line" data-link="download" href="#download">Download</a></div>
+      <div class="price"><div><h3>Project</h3><p>One short or feature, for 12 months.</p></div><span class="amount">$69 <small>once</small></span><a class="button line" data-link="buy" data-plan="Proyecto" href="#contact">Buy</a></div>
+      <div class="price"><div><h3>Pro</h3><p>Unlimited scripts and every update.</p></div><span class="amount">$129 <small>a year</small></span><a class="button solid" data-link="buy" data-plan="Profesional" href="#contact">Buy</a></div>
+      <div class="price"><div><h3>Schools and production companies</h3><p>For the whole school or team, with a one-month trial.</p></div><span class="amount">Custom</span><a class="button line" data-link="demo" href="#contact">Get in touch</a></div>
+    </div>
+    <p class="price-note">Prices in US dollars, plus sales tax where it applies. In Europe the checkout shows €59 and €119, plus VAT. Not convinced? Full refund within 14 days. <a href="legal.html#licence">Terms</a>.</p>
+  </section>
+
+  <section class="narrow" id="faq">
+    <h2>FAQ</h2>
+    <div class="faq">
+      <details id="install"><summary>My Mac says it can't check the app</summary>
+        <p>That's expected: Slugline doesn't carry Apple's developer signature yet. It isn't a virus, and it only happens the first time.</p>
+        <ol>
+          <li>If the browser blocks the download, choose <em>Keep</em> in the downloads list (or download it with Safari).</li>
+          <li>Drag Slugline to Applications, open it once and close the warning.</li>
+          <li>In <em>System Settings → Privacy &amp; Security</em>, at the very bottom, click <em>Open Anyway</em>.</li>
+        </ol></details>
+      <details id="install-windows"><summary>Windows says it protected my PC</summary>
+        <p>That's expected: Slugline doesn't carry a developer signature yet. It isn't a virus, and it only happens the first time.</p>
+        <ol>
+          <li>If the browser warns about the download, choose <em>Keep</em>.</li>
+          <li>Open <em>Slugline-Setup.exe</em>. In the blue warning, click <em>More info</em> and then <em>Run anyway</em>.</li>
+          <li>Follow the installer. It doesn't ask for an administrator password.</li>
+        </ol></details>
+      <details><summary>Do I need AI?</summary><p>No. Without AI the app does everything. With your own Anthropic API key, the breakdown comes out fuller, every scene gets a summary and you can ask questions about the script. You pay for that on your own account, as you use it.</p></details>
+      <details><summary>How does the licence work?</summary><p>You get a key by email, paste it into Settings and that's it. No accounts, no hidden subscriptions.</p></details>
+      <details><summary>Is the budget exact?</summary><p>The quantities are, because they come from the script and the schedule. The rates are a starting point, and what can't be known from a script (effects, fees) is marked to be quoted.</p></details>
+      <details><summary>Does it run on Windows?</summary><p>Yes, on Windows 10 and 11. It's the same app and it reads scanned PDFs too. If anything goes wrong, write to me and I'll fix it.</p></details>
+      <details><summary>Which languages?</summary><p>It reads scripts in English, Spanish and Catalan, and the app and its PDFs come in all three: pick one in Settings.</p></details>
+    </div>
+  </section>
+
+  <section class="narrow note" id="download">
+    <p>I'm Vicente Pérez, and I make Slugline. I've tested it on dozens of scripts, but every script is different: if yours doesn't read well, send it to me and I'll fix it.</p>
+    <p class="sign" data-contact-line></p>
+    <p class="phone-note" hidden data-phone-note>You're on a phone: Slugline is for Mac and Windows. Open it on your computer, or email yourself the link.</p>
+    <div class="actions">
+      <a class="button solid" data-link="download-mac" href="#download">Download for Mac</a>
+      <a class="button solid" data-link="download-windows" href="#download">Download for Windows</a>
+      <a class="button line" data-link="demo" href="#contact" id="contact">Ask for a demo</a>
+    </div>
+    <p class="fine">Does your Mac or Windows warn you when you open it? Here's how to open it the first time: <a href="#install" data-open-install>on Mac</a> · <a href="#install-windows" data-open-install>on Windows</a>.</p>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="legal.html#legal-notice">Legal notice</a> · <a href="legal.html#privacy">Privacy</a> · <a href="legal.html#licence">Licence</a></span>
+    <span>Made in Spain, for shoots anywhere.</span>
+  </div>
+</footer>
+
+<script>
+  // Links from window.SLUGLINE; one with nothing to point at is dimmed.
+  (function () {
+    var site = window.SLUGLINE || {};
+    var mail = function (subject) { return site.contact ? "mailto:" + site.contact + "?subject=" + encodeURIComponent(subject) : ""; };
+    // A phone or tablet can't run Slugline: "Descargar" there sends the visitor the link to open on a computer.
+    var phone = /iPhone|iPad|iPod|Android/.test(navigator.userAgent) ||
+      (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+    var selfMail = "mailto:?subject=" + encodeURIComponent("Slugline, to open on my computer") +
+      "&body=" + encodeURIComponent("Download for Mac and Windows: https://getslugline.com/en/#download");
+    if (phone) {
+      var note = document.querySelector("[data-phone-note]");
+      if (note) note.hidden = false;
+    }
+    document.querySelectorAll("[data-link]").forEach(function (a) {
+      var kind = a.getAttribute("data-link");
+      if (phone && kind === "download") {
+        a.href = a.closest("nav") ? "#download" : selfMail;
+        if (!a.closest("nav")) a.textContent = "Email me the link";
+        a.setAttribute("data-goatcounter-click", "en-phone-link");
+        return;
+      }
+      // "Descargar" gives each visitor the installer for the computer they are on.
+      var windows = /Windows/.test(navigator.userAgent) && site.downloadWindows;
+      var href = kind === "download" ? (windows ? site.downloadWindows : site.download)
+        : kind === "download-mac" ? site.download
+        : kind === "download-windows" ? site.downloadWindows
+        : kind === "buy" ? ((site.buy || {})[a.getAttribute("data-plan")] || mail("Slugline " + (a.getAttribute("data-plan") === "Proyecto" ? "Project" : "Pro") + " licence"))
+        : mail("Slugline demo");
+      if (href) { a.href = href; } else { a.classList.add("pending"); }
+      // Count the clicks on Buy, by plan.
+      if (kind === "buy" && href.indexOf("stripe.com") > 0) {
+        a.setAttribute("data-goatcounter-click", "en-buy-" + (a.getAttribute("data-plan") || "").toLowerCase());
+        a.setAttribute("data-goatcounter-title", "Buy " + a.getAttribute("data-plan"));
+      }
+      // Count the downloads, by installer: the visit counter below reads this.
+      if (href && kind.indexOf("download") === 0) {
+        a.setAttribute("data-goatcounter-click", href === site.downloadWindows ? "en-download-windows" : "en-download-mac");
+        a.setAttribute("data-goatcounter-title", a.textContent.trim());
+      }
+    });
+    var line = document.querySelector("[data-contact-line]");
+    if (site.contact && line) {
+      var link = document.createElement("a");
+      link.href = "mailto:" + site.contact;
+      link.textContent = site.contact;
+      line.appendChild(link);
+    }
+    document.querySelectorAll("[data-open-install]").forEach(function (a) {
+      a.addEventListener("click", function () {
+        var id = (a.getAttribute("href") || "").slice(1);
+        if (id === "install" && /Windows/.test(navigator.userAgent)) { id = "install-windows"; a.setAttribute("href", "#" + id); }
+        var answer = document.getElementById(id);
+        if (answer) answer.open = true;
+      });
+    });
+  })();
+
+  // The reel loops while on screen (with less motion it waits on its poster); the demo button puts the full demo in its place.
+  (function () {
+    var box = document.getElementById("reel");
+    if (!box) return;
+    var video = box.querySelector("video"), pause = box.querySelector(".reel-pause");
+    var held = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var setPaused = function (paused) {
+      pause.setAttribute("aria-pressed", paused ? "true" : "false");
+      pause.setAttribute("aria-label", paused ? "Play the video" : "Pause the video");
+    };
+    var play = function () { video.preload = "auto"; var p = video.play(); if (p && p.catch) p.catch(function () { setPaused(true); }); };
+    pause.hidden = false;
+    setPaused(held);
+    pause.addEventListener("click", function () { held = !held; setPaused(held); if (held) video.pause(); else play(); });
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(function (entries) { if (entries[0].isIntersecting && !held) play(); else video.pause(); }, { threshold: 0.25 }).observe(box);
+    } else if (!held) play();
+    var demo = function (e) {
+      e.preventDefault();
+      var frame = document.createElement("iframe");
+      frame.src = "https://www.youtube-nocookie.com/embed/EFLGIW2vIVc?rel=0&autoplay=1";
+      frame.title = "Slugline in two minutes";
+      frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      frame.referrerPolicy = "strict-origin-when-cross-origin";
+      frame.allowFullscreen = true;
+      video.pause();
+      box.replaceChildren(frame);
+      box.scrollIntoView({ block: "center" });
+      frame.focus();
+    };
+    box.querySelector("[data-demo]").addEventListener("click", demo);
+    document.querySelectorAll("[data-demo-link]").forEach(function (a) { a.addEventListener("click", demo); });
+  })();
+</script>
+<!-- Visit counter (GoatCounter): no cookies, nothing personal kept, nothing shown on the page. -->
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

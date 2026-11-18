@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Slugline · Aviso legal, privacidad y licencia</title>
+<meta name="description" content="Quién está detrás de Slugline, qué datos se tratan (casi ninguno) y las condiciones de la licencia.">
+<link rel="icon" href="img/icon.png">
+<link rel="canonical" href="https://getslugline.com/legal.html">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.65 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  .narrow { width: min(720px, 100% - 40px); margin: 0 auto; }
+  header { border-bottom: 1px solid var(--rule); }
+  header .narrow { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { font: 700 18px var(--mono); letter-spacing: 0.06em; text-decoration: none; }
+  nav a { font-size: 15px; color: var(--ink-2); margin-left: 18px; }
+  nav a { white-space: nowrap; }
+  @media (max-width: 480px) { nav a:not([hreflang]) { display: none; } }
+  h1 { font: 700 clamp(30px, 5vw, 42px)/1.1 var(--mono); margin: 56px 0 8px; }
+  .updated { color: var(--muted); font-size: 14px; margin: 0; }
+  h2 { font: 700 24px/1.2 var(--mono); margin: 56px 0 0; padding-top: 18px; border-top: 1.5px solid var(--ink); scroll-margin-top: 16px; }
+  h3 { font: 700 17px var(--mono); margin: 28px 0 0; }
+  p, ul { margin: 10px 0 0; color: var(--ink-2); }
+  ul { padding-left: 22px; }
+  li + li { margin-top: 6px; }
+  strong { color: var(--ink); }
+  dl { margin: 14px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; color: var(--ink-2); }
+  dt { font: 700 15px var(--mono); color: var(--ink); }
+  dd { margin: 0; }
+  .todo { background: #f4d35e; color: #141413; padding: 0 4px; font-weight: 600; }
+  footer { margin-top: 80px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header><div class="narrow"><a class="brand" href="./">SLUGLINE</a><nav><a href="#aviso-legal">Aviso legal</a><a href="#privacidad">Privacidad</a><a href="#licencia">Licencia</a><a href="en/legal.html" lang="en" hreflang="en">English</a></nav></div></header>
+
+<main class="narrow">
+  <h1>Aviso legal, privacidad y licencia</h1>
+  <p class="updated">Última actualización: 15 de noviembre de 2026</p>
+  <p>Lo importante en tres frases: Slugline lo hace una persona; la app funciona en tu ordenador y no envía tus guiones a ningún sitio; y la web no usa cookies.</p>
+
+  <h2 id="aviso-legal">Aviso legal</h2>
+  <p>En cumplimiento de la Ley 34/2002, de servicios de la sociedad de la información y de comercio electrónico (LSSI-CE):</p>
+  <dl>
+    <dt>Titular</dt><dd>Vicente Pérez Pourtau</dd>
+    <dt>NIF</dt><dd>49440658L</dd>
+    <dt>Domicilio</dt><dd>Calle Doctor Tapia Sanz 1, Murcia (España)</dd>
+    <dt>Correo</dt><dd><a href="mailto:hola@getslugline.com">hola@getslugline.com</a></dd>
+    <dt>Web</dt><dd>getslugline.com</dd>
+  </dl>
+  <p>Los textos, el diseño y el software de Slugline son de su titular. Los nombres de otras marcas (Final Draft, Apple, Windows, Anthropic) son de sus dueños y se citan solo para describir con qué funciona la app.</p>
+
+  <h2 id="privacidad">Privacidad</h2>
+  <p>Responsable: Vicente Pérez Pourtau, <a href="mailto:hola@getslugline.com">hola@getslugline.com</a>.</p>
+
+  <h3>La app</h3>
+  <ul>
+    <li><strong>Tus guiones y proyectos se quedan en tu ordenador.</strong> Slugline no tiene servidor: no los sube, no los lee nadie y no hay cuenta que crear.</li>
+    <li><strong>No envía datos de uso.</strong> La app no cuenta lo que haces ni quién eres.</li>
+    <li><strong>Mira si hay una versión nueva</strong> preguntando a GitHub como mucho dos veces al día. La pregunta solo lleva el número de versión de la app, y GitHub ve la conexión como cualquier visita (<a href="https://docs.github.com/es/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">su política</a>). Se puede desactivar con la variable de entorno <code>SLUGLINE_NO_UPDATE_CHECK=1</code>.</li>
+    <li><strong>«Informar de un problema» abre tu programa de correo</strong> con un mensaje que lleva la versión de Slugline y del sistema. No se envía nada hasta que tú lo mandas.</li>
+    <li><strong>La licencia se comprueba sin internet.</strong> La clave lleva el nombre que nos diste al comprar, y se guarda solo en tu ordenador.</li>
+    <li><strong>La IA es opcional.</strong> Si la activas con tu propia clave de Anthropic, el texto del guion se envía a Anthropic para analizarlo, con sus <a href="https://www.anthropic.com/legal/commercial-terms" rel="noopener">condiciones</a>. Sin clave, no sale nada.</li>
+  </ul>
+
+  <h3>La web</h3>
+  <ul>
+    <li><strong>No usamos cookies.</strong> Por eso no ves ningún aviso de cookies.</li>
+    <li><strong>Contamos visitas y descargas con GoatCounter</strong>, sin cookies y sin guardar tu dirección IP ni nada que te identifique: solo cuántas veces se ve cada página, desde qué país y qué tipo de ordenador.</li>
+    <li><strong>La web la aloja GitHub Pages</strong> y las descargas salen de GitHub, que registra las conexiones como cualquier servidor (<a href="https://docs.github.com/es/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener">su política</a>).</li>
+    <li><strong>El vídeo de YouTube solo se carga si pulsas «Ver la demo»</strong>, en su versión sin cookies. Antes de eso, YouTube no recibe nada.</li>
+    <li><strong>Las tipografías se sirven desde esta misma web</strong>, sin pasar por Google.</li>
+  </ul>
+
+  <h3>Si me escribes o compras</h3>
+  <ul>
+    <li>Uso tu nombre y tu correo solo para responderte, enviarte la licencia y la factura. No los vendo ni los cedo, y no te mando publicidad.</li>
+    <li>La base legal es atender tu petición o el contrato de compra, y las facturas se guardan el tiempo que exige la ley fiscal.</li>
+    <li>Puedes pedir ver, corregir o borrar tus datos escribiendo al correo de arriba. Si no te atiendo bien, puedes reclamar ante la <a href="https://www.aepd.es" rel="noopener">Agencia Española de Protección de Datos</a>.</li>
+  </ul>
+
+  <h2 id="licencia">Condiciones de la licencia</h2>
+  <h3>La prueba</h3>
+  <p>Es gratis y hace todo. Guarda dos guiones en la biblioteca y los PDF llevan la marca «versión de prueba».</p>
+
+  <h3>Las licencias</h3>
+  <ul>
+    <li><strong>Proyecto</strong> (59 €, pago único): para un corto o un largo, durante 12 meses.</li>
+    <li><strong>Profesional</strong> (119 € al año): guiones sin límite y todas las actualizaciones mientras esté vigente.</li>
+    <li><strong>Escuelas y productoras</strong> (a medida): para los ordenadores del centro o del equipo que se acuerden.</li>
+  </ul>
+  <p>Los precios no incluyen IVA. La licencia es para quien la compra (una persona, o el centro o la empresa en las licencias de grupo) y no se puede revender ni compartir fuera de ese uso.</p>
+
+  <h3>Cuando caduca</h3>
+  <p>La app vuelve al modo de prueba. Tus proyectos siguen en tu ordenador y los puedes exportar a PDF, CSV y Fountain cuando quieras.</p>
+
+  <h3>Devoluciones</h3>
+  <p>Si no te convence, escríbeme en los 14 días siguientes a la compra y te devuelvo el dinero, sin preguntas.</p>
+
+  <h3>Lo que es tuyo</h3>
+  <p>Tus guiones y todo lo que Slugline genera a partir de ellos (desgloses, planes, órdenes de rodaje, presupuestos) son tuyos y puedes usarlos como quieras.</p>
+
+  <h3>Hasta dónde llega</h3>
+  <p>Slugline prepara un primer borrador muy completo, pero el plan de rodaje y el presupuesto son estimaciones que debe revisar un profesional antes de rodar o comprometer dinero. La lectura de PDF, sobre todo escaneados, puede tener errores: la app avisa cuando sospecha de uno, pero no puede garantizar que no haya ninguno. Salvo lo que la ley no permita limitar, mi responsabilidad se limita a lo que pagaste por la licencia.</p>
+
+  <h3>Ley aplicable</h3>
+  <p>Estas condiciones se rigen por la ley española, sin perjuicio de los derechos que te reconozca la ley de tu país como consumidor.</p>
+</main>
+
+<footer><div class="narrow">© 2026 Vicente Pérez Pourtau · <a href="./">Volver a Slugline</a></div></footer>
+</body>
+</html>
