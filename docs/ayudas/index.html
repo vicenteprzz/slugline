@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Slugline · Documentación para ayudas a la producción</title>
+<meta name="description" content="Preparo la documentación técnica de tu solicitud de ayudas a la producción (ICAA y comunidades autónomas): presupuesto con el modelo del ICAA, plan de rodaje, plan de financiación y dossier, revisados contra las bases.">
+<meta property="og:title" content="Slugline · Documentación para ayudas a la producción">
+<meta property="og:description" content="Presupuesto ICAA, plan de rodaje, plan de financiación y dossier, coherentes entre sí y revisados contra las bases de la convocatoria.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://getslugline.com/ayudas/">
+<meta property="og:image" content="https://getslugline.com/img/budget-dark.jpg">
+<link rel="canonical" href="https://getslugline.com/ayudas/">
+<link rel="icon" href="../img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 40px); margin: 0 auto; }
+  .narrow { width: min(720px, 100% - 40px); margin: 0 auto; }
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  nav { display: flex; gap: 24px; font-size: 15px; align-items: center; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+
+  .hero { padding: 72px 0 0; }
+  .kicker { font: 700 14px var(--mono); letter-spacing: 0.08em; color: var(--red); }
+  .hero h1 { margin-top: 10px; font: 700 clamp(34px, 5.6vw, 58px)/1.05 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 20px; max-width: 36em; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 14px; font-size: 14px; color: var(--muted); }
+
+  section { padding: 80px 0 0; }
+  h2 { font: 700 clamp(24px, 3.2vw, 32px)/1.15 var(--mono); }
+  .say { margin-top: 12px; color: var(--ink-2); max-width: 38em; }
+
+  .list { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  .item { display: grid; grid-template-columns: 44px 1fr; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+  .item .n { font: 700 15px var(--mono); color: var(--red); padding-top: 2px; }
+  .item h3 { font: 700 17px var(--mono); }
+  .item p { margin-top: 4px; color: var(--ink-2); font-size: 16px; }
+
+  .not { margin-top: 20px; padding: 16px 18px; border: 1px dashed var(--rule); color: var(--ink-2); font-size: 16px; }
+  .not strong { color: var(--ink); }
+
+  .table-wrap { margin-top: 24px; overflow-x: auto; border-top: 1.5px solid var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 12px 10px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font: 700 14px var(--mono); color: var(--muted); }
+  td.when { font: 700 15px var(--mono); white-space: nowrap; }
+
+  .prices { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  .price { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .price h3 { font: 700 18px var(--mono); }
+  .price p { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
+  .price .amount { font: 700 22px var(--mono); white-space: nowrap; }
+
+  .steps { margin-top: 24px; counter-reset: s; display: grid; gap: 14px; padding: 0; list-style: none; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 16px; color: var(--ink-2); }
+  .steps li::before { content: counter(s, decimal-leading-zero); font: 700 15px var(--mono); color: var(--red); }
+  .steps strong { color: var(--ink); }
+
+  .faq { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+
+  .note { margin: 88px auto 0; padding: 32px 0 0; border-top: 1.5px solid var(--ink); }
+  .note p { font: 400 18px/1.6 var(--mono); }
+  footer { margin-top: 88px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 820px) { nav a:not(.button) { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../">SLUGLINE</a>
+    <nav>
+      <a href="#incluye">Qué incluye</a>
+      <a href="#calendario">Calendario</a>
+      <a href="#precios">Precios</a>
+      <a href="../">La app</a>
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Escríbeme</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero narrow">
+    <p class="kicker">AYUDAS A LA PRODUCCIÓN · ICAA Y COMUNIDADES AUTÓNOMAS</p>
+    <h1>Tu solicitud de ayudas, con los números en orden.</h1>
+    <p class="lead">Preparo la documentación técnica de tu solicitud: presupuesto con el modelo del ICAA, plan de rodaje, plan de financiación y dossier del proyecto. Todo coherente entre sí y revisado contra las bases de la convocatoria a la que te presentas.</p>
+    <div class="actions">
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Cuéntame tu proyecto</a>
+      <a class="button line" href="#precios">Ver precios</a>
+    </div>
+    <p class="fine">Cortometrajes y largometrajes · Entrega en 5 días laborables · Lo haces tú o lo hago yo: la app es la misma.</p>
+  </section>
+
+  <section class="narrow" id="incluye">
+    <h2>Qué incluye</h2>
+    <p class="say">Lo que una comisión mira primero: que el presupuesto se sostenga, que el plan de rodaje lo justifique y que la financiación cuadre.</p>
+    <div class="list">
+      <div class="item"><span class="n">01</span><div><h3>Presupuesto con el modelo del ICAA</h3><p>Los doce capítulos, con el resumen y el desarrollo partida a partida. Las cantidades salen del guion y del plan (jornadas, días de cada actor, localizaciones, figuración), y las tarifas se ajustan a tu producción.</p></div></div>
+      <div class="item"><span class="n">02</span><div><h3>Plan de rodaje y desglose</h3><p>Jornada a jornada, con el desglose por departamentos, las órdenes de rodaje y los días de trabajo de cada actor. Es lo que justifica las jornadas del presupuesto.</p></div></div>
+      <div class="item"><span class="n">03</span><div><h3>Plan de financiación</h3><p>Aportación propia, la ayuda que pides, otras ayudas, preventas y coproducción, cuadrado con el coste del presupuesto y con los límites de la convocatoria (porcentaje máximo de ayuda, titularidad de la productora).</p></div></div>
+      <div class="item"><span class="n">04</span><div><h3>Dossier del proyecto</h3><p>Sinopsis, cifras del guion, reparto y localizaciones, plan y presupuesto por capítulos en un solo PDF, listo para adjuntar o para enseñar a inversores.</p></div></div>
+      <div class="item"><span class="n">05</span><div><h3>Revisión contra las bases</h3><p>Una lista de lo que pide tu convocatoria (documentos, requisitos, gastos que se pueden subvencionar, plazos de rodaje y justificación) y la comprobación de que tu solicitud lo cumple. Muchas solicitudes se quedan fuera por un documento que falta o un porcentaje mal calculado.</p></div></div>
+      <div class="item"><span class="n">06</span><div><h3>Todo editable</h3><p>PDF para presentar y hojas de cálculo para cambiar lo que quieras. Y una licencia de Slugline, por si quieres seguir ajustando el plan y el presupuesto tú.</p></div></div>
+    </div>
+    <p class="not"><strong>Lo que no hago:</strong> no escribo la memoria artística ni el guion (son tuyos), no presento la solicitud en tu nombre y nadie puede garantizar que te concedan la ayuda. Sí te aseguro que la parte técnica llega completa, coherente y a tiempo.</p>
+  </section>
+
+  <section class="narrow" id="calendario">
+    <h2>Calendario orientativo</h2>
+    <p class="say">Las fechas de 2026, que suelen repetirse cada año. Las de 2027 las confirmo en cuanto se publiquen: escríbeme y te aviso de la tuya.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cuándo (2026)</th><th>Convocatoria</th></tr></thead>
+        <tbody>
+          <tr><td class="when">Enero</td><td>Extremadura · producción de cortometrajes (del 7 al 27 de enero)</td></tr>
+          <tr><td class="when">Ene – feb</td><td>Aragón · realización de cortometrajes (del 21 de enero al 4 de febrero)</td></tr>
+          <tr><td class="when">Marzo</td><td>Comunidad de Madrid · producción de cortometrajes</td></tr>
+          <tr><td class="when">Abril</td><td>ICAA · cortometrajes sobre proyecto (del 6 al 24 de abril; hasta 70.000 €, 130.000 € en animación)</td></tr>
+          <tr><td class="when">May – jun</td><td>ICAA · ayudas generales a largometrajes sobre proyecto, primer procedimiento (del 18 de mayo al 5 de junio)</td></tr>
+          <tr><td class="when">Jun – sep</td><td>ICAA · ayudas generales a largometrajes sobre proyecto, segundo procedimiento (del 8 de junio al 15 de septiembre)</td></tr>
+          <tr><td class="when">Todo el año</td><td>Otras comunidades (Andalucía, Cataluña, Comunitat Valenciana, Galicia, Canarias, Euskadi…), con fechas propias</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">Lo mejor es empezar con un mes de margen: el plan de rodaje y el presupuesto necesitan tus decisiones (fechas, localizaciones, acuerdos con el equipo).</p>
+  </section>
+
+  <section class="narrow" id="precios">
+    <h2>Precios</h2>
+    <div class="prices">
+      <div class="price"><div><h3>Cortometraje</h3><p>Presupuesto ICAA, plan de rodaje, plan de financiación, dossier y revisión contra las bases. Incluye una ronda de cambios.</p></div><span class="amount">350 €</span></div>
+      <div class="price"><div><h3>Largometraje</h3><p>Lo mismo, para un largo. Incluye dos rondas de cambios.</p></div><span class="amount">750 €</span></div>
+      <div class="price"><div><h3>Revisión</h3><p>Ya tienes el presupuesto y el plan: los reviso contra las bases y te digo qué falta o qué no cuadra.</p></div><span class="amount">150 €</span></div>
+    </div>
+    <p class="fine">Precios sin IVA. Te digo el precio cerrado antes de empezar, cuando haya visto el guion y la convocatoria.</p>
+  </section>
+
+  <section class="narrow">
+    <h2>Cómo funciona</h2>
+    <ol class="steps">
+      <li><span><strong>Me escribes</strong> con el guion y la convocatoria a la que te presentas (o la que estás pensando).</span></li>
+      <li><span><strong>Te digo qué pide</strong> esa convocatoria, qué necesito de ti y el precio cerrado.</span></li>
+      <li><span><strong>Te entrego</strong> la documentación en 5 días laborables y la ajustamos juntos.</span></li>
+      <li><span><strong>Tú la presentas</strong> con tranquilidad, sabiendo que la parte técnica está completa.</span></li>
+    </ol>
+  </section>
+
+  <section class="narrow">
+    <h2>Preguntas</h2>
+    <div class="faq">
+      <details><summary>¿Por qué no lo hago yo con una plantilla?</summary><p>Puedes: Slugline existe para eso. Lo que pagas aquí es el tiempo y la revisión: que el presupuesto salga del guion y del plan de verdad, que la financiación cuadre con los límites de la convocatoria y que no falte nada.</p></details>
+      <details><summary>¿Mi guion queda en algún sitio?</summary><p>No. Solo lo uso para preparar tu documentación, no lo comparto ni lo reutilizo, y lo borro cuando terminamos si me lo pides.</p></details>
+      <details><summary>¿Sirve para cualquier convocatoria?</summary><p>Para las de producción de cortometrajes y largometrajes del ICAA y de las comunidades autónomas. Si la tuya es otra (desarrollo, distribución, festivales), escríbeme y te digo si puedo ayudarte.</p></details>
+      <details><summary>¿Quién lo hace?</summary><p>Yo, Vicente Pérez, el creador de Slugline. Uso la app para el desglose, el plan y el presupuesto, y reviso cada documento a mano antes de entregarlo.</p></details>
+    </div>
+  </section>
+
+  <section class="narrow note">
+    <p>¿Tienes una convocatoria a la vista? Cuéntame el proyecto y te digo qué pide y cuánto costaría, sin compromiso.</p>
+    <div class="actions">
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Escríbeme</a>
+      <a class="button line" href="../">Conocer la app</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="../legal.html#aviso-legal">Aviso legal</a> · <a href="../legal.html#privacidad">Privacidad</a></span>
+    <span>hola@getslugline.com</span>
+  </div>
+</footer>
+
+<script>
+  // Every contact button opens an email with the subject already written.
+  (function () {
+    var body = "Hola, Vicente:\n\nTe escribo por la documentación de una solicitud de ayudas.\n\nProyecto (corto o largo, título): \nConvocatoria: \nFecha límite: \n\nTe adjunto el guion.\n\nGracias.";
+    var href = "mailto:hola@getslugline.com?subject=" + encodeURIComponent("Solicitud de ayudas") + "&body=" + encodeURIComponent(body);
+    document.querySelectorAll("[data-mail]").forEach(function (a) {
+      a.setAttribute("href", href);
+      a.setAttribute("data-goatcounter-click", "ayudas-correo");
+    });
+  })();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
