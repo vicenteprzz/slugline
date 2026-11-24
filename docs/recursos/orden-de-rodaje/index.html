@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Orden de rodaje (call sheet): plantilla gratis y ejemplo</title>
+<meta name="description" content="Plantilla gratuita de orden de rodaje (call sheet) en Excel, con un ejemplo relleno. Qué debe llevar la orden de cada jornada y cómo prepararla a partir del plan de rodaje.">
+<meta property="og:title" content="Orden de rodaje (call sheet): plantilla gratis y ejemplo">
+<meta property="og:description" content="Plantilla gratuita de orden de rodaje (call sheet) en Excel, con un ejemplo relleno. Qué debe llevar la orden de cada jornada y cómo prepararla a partir del plan de rodaje.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://getslugline.com/recursos/orden-de-rodaje/">
+<meta property="og:image" content="https://getslugline.com/img/schedule-light.jpg">
+<link rel="canonical" href="https://getslugline.com/recursos/orden-de-rodaje/">
+<link rel="icon" href="/img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+  .narrow { width: min(720px, 100% - 32px); margin: 0 auto; }
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  nav { display: flex; gap: 24px; font-size: 15px; align-items: center; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+  .crumbs { margin-top: 28px; font-size: 14px; color: var(--muted); }
+  .crumbs a { color: var(--muted); }
+  .hero { padding: 24px 0 0; }
+  .kicker { font: 700 14px var(--mono); letter-spacing: 0.08em; color: var(--red); }
+  .hero h1 { margin-top: 10px; font: 700 clamp(30px, 5vw, 48px)/1.08 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 18px; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .actions { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  section { padding: 64px 0 0; }
+  h2 { font: 700 clamp(22px, 3vw, 28px)/1.2 var(--mono); }
+  .prose p, .prose li { margin-top: 14px; color: var(--ink-2); }
+  .prose strong { color: var(--ink); }
+  .prose ul { padding-left: 20px; }
+  .shot { margin-top: 36px; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--sheet); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot figcaption { padding: 10px 14px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--rule); }
+  .app { margin-top: 64px; padding: 28px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--sheet); }
+  .app h2 { font-size: 22px; }
+  .app p { margin-top: 10px; color: var(--ink-2); }
+  .faq { margin-top: 20px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+  .cards { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+  .card { display: block; padding: 22px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); text-decoration: none; }
+  .card:hover { border-color: var(--ink); }
+  .card h2 { font-size: 20px; }
+  .card p { margin-top: 8px; color: var(--ink-2); font-size: 15px; }
+  .card span { display: inline-block; margin-top: 12px; font: 700 14px var(--mono); color: var(--red); }
+  .more { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 15px; }
+  footer { margin-top: 88px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 820px) { nav a:not(.button) { display: none; } }
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Orden de rodaje: plantilla gratis y qué debe llevar", "description": "Plantilla gratuita de orden de rodaje (call sheet) en Excel, con un ejemplo relleno. Qué debe llevar la orden de cada jornada y cómo prepararla a partir del plan de rodaje.", "inLanguage": "es", "dateModified": "2026-11-24", "mainEntityOfPage": "https://getslugline.com/recursos/orden-de-rodaje/", "author": {"@type": "Person", "name": "Vicente Pérez"}, "publisher": {"@type": "Organization", "name": "Slugline", "url": "https://getslugline.com"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cuándo se envía la orden de rodaje?", "acceptedAnswer": {"@type": "Answer", "text": "La tarde o noche anterior a la jornada, cuando dirección y producción han cerrado el plan del día."}}, {"@type": "Question", "name": "¿Orden de rodaje y call sheet son lo mismo?", "acceptedAnswer": {"@type": "Answer", "text": "Sí: call sheet es el nombre en inglés."}}, {"@type": "Question", "name": "¿Quién la prepara?", "acceptedAnswer": {"@type": "Answer", "text": "El ayudante de dirección, con producción. En equipos pequeños, el director de producción."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Slugline", "item": "https://getslugline.com/"}, {"@type": "ListItem", "position": 2, "name": "Plantillas gratis", "item": "https://getslugline.com/recursos/"}, {"@type": "ListItem", "position": 3, "name": "Orden de rodaje", "item": "https://getslugline.com/recursos/orden-de-rodaje/"}]}</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">SLUGLINE</a>
+    <nav>
+      <a href="/recursos/">Plantillas gratis</a>
+      <a href="/calculator/">Calculadora</a>
+      <a href="/#precios">Precios</a>
+      <a class="button solid" data-app="nav" href="/#descargar">Descargar</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="narrow crumbs"><a href="/">Slugline</a> › <a href="/recursos/">Plantillas gratis</a> › Orden de rodaje</div>
+  <section class="hero narrow">
+    <p class="kicker">PLANTILLA GRATIS · EXCEL · SIN REGISTRO</p>
+    <h1>Orden de rodaje: plantilla gratis y qué debe llevar</h1>
+    <p class="lead">La orden de rodaje es la hoja que recibe todo el equipo la víspera: a qué hora, dónde, qué se rueda y qué necesita cada departamento. Aquí tienes una plantilla en Excel y un ejemplo hecho desde el plan.</p>
+    <div class="actions">
+      <a class="button solid" href="/recursos/plantillas/plantilla-orden-de-rodaje.xlsx" download>Descargar la plantilla (Excel)</a>
+      <a class="button line" href="/recursos/plantillas/ejemplo-ordenes-de-rodaje.pdf">Ver el ejemplo en PDF</a>
+    </div>
+    <p class="fine">Funciona en Excel, Google Sheets, Numbers y LibreOffice. Sin correo ni registro.</p>
+  </section>
+  <section class="narrow prose">
+    <h2>Qué trae la plantilla</h2>
+    <ul><li>La cabecera de la jornada: fecha, citación general, localización, punto de encuentro, hospital más cercano y previsión del tiempo.</li><li>Las secuencias del día, el reparto con su hora de citación, maquillaje y set, y las necesidades de cada departamento.</li><li>Un ejemplo: la primera jornada de un cortometraje, sacada de su plan de rodaje.</li></ul>
+  </section>
+<section class="narrow prose"><h2>Qué es una orden de rodaje</h2><p>Es el documento de cada jornada (en inglés, <em>call sheet</em>). La prepara el equipo de dirección a partir del <a href="../plan-de-rodaje/">plan de rodaje</a> y del <a href="../hoja-de-desglose/">desglose</a>, y se envía la tarde anterior a todo el equipo y al reparto.</p></section><section class="narrow prose"><h2>Qué debe llevar</h2><p><strong>Datos de la jornada:</strong> número de jornada (por ejemplo, 3 de 8), fecha, hora de citación general, salida y puesta de sol si se rueda en exterior.</p><p><strong>Dónde:</strong> dirección exacta de cada localización, punto de encuentro, aparcamiento y hospital o centro de salud más cercano.</p><p><strong>Qué se rueda:</strong> las secuencias en el orden del día, con decorado, día/noche, páginas y personajes.</p><p><strong>Reparto:</strong> cada actor con su hora de citación, de maquillaje y de set.</p><p><strong>Necesidades por departamento:</strong> atrezo, vestuario, vehículos, efectos, figuración y material especial de ese día.</p><p><strong>Contactos:</strong> producción y dirección, con teléfono.</p></section><section class="narrow prose"><h2>Consejos</h2><ul><li>Envíala siempre a la misma hora, y avisa de cualquier cambio con una nueva versión numerada.</li><li>Pon la hora de citación de cada persona, no solo la general: maquillaje empieza antes que el resto.</li><li>Incluye una secuencia de reserva (de interior) si la jornada depende del tiempo.</li></ul></section>
+  <div class="narrow"><figure class="shot"><picture><source srcset="/img/overview-dark.jpg" media="(prefers-color-scheme: dark)"><img src="/img/overview-light.jpg" alt="Slugline: orden de rodaje sacado de un guion" loading="lazy" width="1600" height="1000"></picture><figcaption>Slugline: orden de rodaje sacado de un guion</figcaption></figure></div>
+  <div class="narrow app">
+    <h2>O sácalo de tu guion en minutos</h2>
+    <p>Slugline saca automáticamente la orden de cada jornada del plan de rodaje, con secuencias, reparto y necesidades por departamento. Solo te queda añadir las horas y las direcciones.</p>
+    <div class="actions">
+      <a class="button solid" data-app href="/#descargar">Descargar Slugline</a>
+      <a class="button line" href="/">Ver cómo funciona</a>
+    </div>
+    <p class="fine">Gratis con dos guiones, sin tarjeta. Mac y Windows. Después, desde 59 € por proyecto.</p>
+  </div>
+  <section class="narrow">
+    <h2>Preguntas frecuentes</h2>
+    <div class="faq"><details><summary>¿Cuándo se envía la orden de rodaje?</summary><p>La tarde o noche anterior a la jornada, cuando dirección y producción han cerrado el plan del día.</p></details><details><summary>¿Orden de rodaje y call sheet son lo mismo?</summary><p>Sí: call sheet es el nombre en inglés.</p></details><details><summary>¿Quién la prepara?</summary><p>El ayudante de dirección, con producción. En equipos pequeños, el director de producción.</p></details></div>
+  </section>
+  <section class="narrow">
+    <h2>Más plantillas gratis</h2>
+    <div class="more"><a href="/recursos/plan-de-rodaje/">Plan de rodaje</a><a href="/recursos/hoja-de-desglose/">Hoja de desglose</a><a href="/recursos/presupuesto-cortometraje/">Presupuesto de cortometraje</a><a href="/calculator/">Calculadora de presupuesto</a></div>
+  </section>
+</main>
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="/legal.html#aviso-legal">Aviso legal</a> · <a href="/legal.html#privacidad">Privacidad</a> · <a href="/ayudas/">Ayudas a la producción</a></span>
+    <span>Plantillas libres: úsalas, cámbialas y compártelas.</span>
+  </div>
+</footer>
+<script>
+  (function () {
+    // Name each click for the visit counter: template downloads, example PDFs, app downloads.
+    document.querySelectorAll("a[href$='.xlsx'], a[href$='.pdf']").forEach(function (a) {
+      var file = a.getAttribute("href").split("/").pop();
+      a.setAttribute("data-goatcounter-click", "recurso-" + file);
+      a.setAttribute("data-goatcounter-title", file);
+    });
+    var windows = /Windows/.test(navigator.userAgent);
+    document.querySelectorAll("[data-app]").forEach(function (a) {
+      a.setAttribute("href", windows ? "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline-Setup.exe" : "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline.dmg");
+      a.setAttribute("data-goatcounter-click", (windows ? "descarga-windows" : "descarga-mac") + "-recursos");
+      if (a.getAttribute("data-app") !== "nav") a.textContent = windows ? "Descargar Slugline para Windows" : "Descargar Slugline para Mac";
+    });
+  })();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

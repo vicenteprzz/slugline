@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Plantillas de producción audiovisual gratis · Slugline</title>
+<meta name="description" content="Plantillas gratuitas en Excel de plan de rodaje, hoja de desglose, presupuesto de cortometraje (ICAA) y orden de rodaje, con ejemplos y guías. Sin registro.">
+<meta property="og:title" content="Plantillas de producción audiovisual gratis · Slugline">
+<meta property="og:description" content="Plantillas gratuitas en Excel de plan de rodaje, hoja de desglose, presupuesto de cortometraje (ICAA) y orden de rodaje, con ejemplos y guías. Sin registro.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://getslugline.com/recursos/">
+<meta property="og:image" content="https://getslugline.com/img/schedule-light.jpg">
+<link rel="canonical" href="https://getslugline.com/recursos/">
+<link rel="icon" href="/img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+  .narrow { width: min(720px, 100% - 32px); margin: 0 auto; }
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  nav { display: flex; gap: 24px; font-size: 15px; align-items: center; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+  .crumbs { margin-top: 28px; font-size: 14px; color: var(--muted); }
+  .crumbs a { color: var(--muted); }
+  .hero { padding: 24px 0 0; }
+  .kicker { font: 700 14px var(--mono); letter-spacing: 0.08em; color: var(--red); }
+  .hero h1 { margin-top: 10px; font: 700 clamp(30px, 5vw, 48px)/1.08 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 18px; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .actions { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  section { padding: 64px 0 0; }
+  h2 { font: 700 clamp(22px, 3vw, 28px)/1.2 var(--mono); }
+  .prose p, .prose li { margin-top: 14px; color: var(--ink-2); }
+  .prose strong { color: var(--ink); }
+  .prose ul { padding-left: 20px; }
+  .shot { margin-top: 36px; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--sheet); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot figcaption { padding: 10px 14px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--rule); }
+  .app { margin-top: 64px; padding: 28px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--sheet); }
+  .app h2 { font-size: 22px; }
+  .app p { margin-top: 10px; color: var(--ink-2); }
+  .faq { margin-top: 20px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+  .cards { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+  .card { display: block; padding: 22px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); text-decoration: none; }
+  .card:hover { border-color: var(--ink); }
+  .card h2 { font-size: 20px; }
+  .card p { margin-top: 8px; color: var(--ink-2); font-size: 15px; }
+  .card span { display: inline-block; margin-top: 12px; font: 700 14px var(--mono); color: var(--red); }
+  .more { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 15px; }
+  footer { margin-top: 88px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 820px) { nav a:not(.button) { display: none; } }
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "CollectionPage", "name": "Plantillas de producción gratis", "url": "https://getslugline.com/recursos/", "inLanguage": "es", "hasPart": [{"@type": "Article", "headline": "Plan de rodaje: plantilla gratis y cómo hacerlo paso a paso", "url": "https://getslugline.com/recursos/plan-de-rodaje/"}, {"@type": "Article", "headline": "Hoja de desglose: plantilla gratis y cómo desglosar un guion", "url": "https://getslugline.com/recursos/hoja-de-desglose/"}, {"@type": "Article", "headline": "Presupuesto de un cortometraje: plantilla gratis con el modelo del ICAA", "url": "https://getslugline.com/recursos/presupuesto-cortometraje/"}, {"@type": "Article", "headline": "Orden de rodaje: plantilla gratis y qué debe llevar", "url": "https://getslugline.com/recursos/orden-de-rodaje/"}]}</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">SLUGLINE</a>
+    <nav>
+      <a href="/recursos/">Plantillas gratis</a>
+      <a href="/calculator/">Calculadora</a>
+      <a href="/#precios">Precios</a>
+      <a class="button solid" data-app="nav" href="/#descargar">Descargar</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="narrow crumbs"><a href="/">Slugline</a> › Plantillas gratis</div>
+  <section class="hero narrow">
+    <p class="kicker">PLANTILLAS GRATIS PARA PRODUCCIÓN</p>
+    <h1>Plantillas de producción audiovisual, gratis</h1>
+    <p class="lead">Plan de rodaje, hoja de desglose, presupuesto de cortometraje con el modelo del ICAA y orden de rodaje. En Excel, listas para rellenar, cada una con un ejemplo completo y una guía para hacerla bien. Sin registro.</p>
+  </section>
+  <div class="wrap cards"><a class="card" href="/recursos/plan-de-rodaje/"><h2>Plan de rodaje</h2><p>Descarga gratis una plantilla de plan de rodaje en Excel, con los colores de la tira y un ejemplo completo de un cortometraje. Y cómo hacer el plan paso a paso, desde el guion.</p><span>Plantilla y guía →</span></a><a class="card" href="/recursos/hoja-de-desglose/"><h2>Hoja de desglose</h2><p>Plantilla gratuita de hoja de desglose en Excel, por departamentos, con un ejemplo hecho a partir de un guion real. Y cómo desglosar un guion secuencia a secuencia.</p><span>Plantilla y guía →</span></a><a class="card" href="/recursos/presupuesto-cortometraje/"><h2>Presupuesto de cortometraje</h2><p>Plantilla de presupuesto de cortometraje en Excel con los 12 capítulos del modelo del ICAA, fórmulas e imprevistos, y un ejemplo completo. Cuánto cuesta un corto y cómo presupuestarlo.</p><span>Plantilla y guía →</span></a><a class="card" href="/recursos/orden-de-rodaje/"><h2>Orden de rodaje</h2><p>Plantilla gratuita de orden de rodaje (call sheet) en Excel, con un ejemplo relleno. Qué debe llevar la orden de cada jornada y cómo prepararla a partir del plan de rodaje.</p><span>Plantilla y guía →</span></a><a class="card" href="/calculator/"><h2>Calculadora de presupuesto</h2><p>Sube tu guion y estima en el navegador cuánto costaría rodarlo: jornadas, reparto, equipo y total.</p><span>Calcular gratis →</span></a></div>
+  <div class="narrow app">
+    <h2>¿Y si las rellenara el guion?</h2>
+    <p>Todos los ejemplos de estas plantillas los ha hecho Slugline a partir de un guion, en segundos: el desglose, el plan de rodaje, las órdenes de cada jornada y el presupuesto, conectados entre sí. Si cambias el plan, el presupuesto se recalcula.</p>
+    <div class="actions">
+      <a class="button solid" data-app href="/#descargar">Descargar Slugline</a>
+      <a class="button line" href="/">Ver cómo funciona</a>
+    </div>
+    <p class="fine">Gratis con dos guiones, sin tarjeta. Mac y Windows.</p>
+  </div>
+</main>
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="/legal.html#aviso-legal">Aviso legal</a> · <a href="/legal.html#privacidad">Privacidad</a> · <a href="/ayudas/">Ayudas a la producción</a></span>
+    <span>Plantillas libres: úsalas, cámbialas y compártelas.</span>
+  </div>
+</footer>
+<script>
+  (function () {
+    // Name each click for the visit counter: template downloads, example PDFs, app downloads.
+    document.querySelectorAll("a[href$='.xlsx'], a[href$='.pdf']").forEach(function (a) {
+      var file = a.getAttribute("href").split("/").pop();
+      a.setAttribute("data-goatcounter-click", "recurso-" + file);
+      a.setAttribute("data-goatcounter-title", file);
+    });
+    var windows = /Windows/.test(navigator.userAgent);
+    document.querySelectorAll("[data-app]").forEach(function (a) {
+      a.setAttribute("href", windows ? "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline-Setup.exe" : "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline.dmg");
+      a.setAttribute("data-goatcounter-click", (windows ? "descarga-windows" : "descarga-mac") + "-recursos");
+      if (a.getAttribute("data-app") !== "nav") a.textContent = windows ? "Descargar Slugline para Windows" : "Descargar Slugline para Mac";
+    });
+  })();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>

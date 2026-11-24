@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Plan de rodaje: plantilla Excel gratis y cómo hacerlo</title>
+<meta name="description" content="Descarga gratis una plantilla de plan de rodaje en Excel, con los colores de la tira y un ejemplo completo de un cortometraje. Y cómo hacer el plan paso a paso, desde el guion.">
+<meta property="og:title" content="Plan de rodaje: plantilla Excel gratis y cómo hacerlo">
+<meta property="og:description" content="Descarga gratis una plantilla de plan de rodaje en Excel, con los colores de la tira y un ejemplo completo de un cortometraje. Y cómo hacer el plan paso a paso, desde el guion.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://getslugline.com/recursos/plan-de-rodaje/">
+<meta property="og:image" content="https://getslugline.com/img/schedule-light.jpg">
+<link rel="canonical" href="https://getslugline.com/recursos/plan-de-rodaje/">
+<link rel="icon" href="/img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("/fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 32px); margin: 0 auto; }
+  .narrow { width: min(720px, 100% - 32px); margin: 0 auto; }
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  nav { display: flex; gap: 24px; font-size: 15px; align-items: center; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+  .crumbs { margin-top: 28px; font-size: 14px; color: var(--muted); }
+  .crumbs a { color: var(--muted); }
+  .hero { padding: 24px 0 0; }
+  .kicker { font: 700 14px var(--mono); letter-spacing: 0.08em; color: var(--red); }
+  .hero h1 { margin-top: 10px; font: 700 clamp(30px, 5vw, 48px)/1.08 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 18px; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .actions { margin-top: 26px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 12px; font-size: 14px; color: var(--muted); }
+  section { padding: 64px 0 0; }
+  h2 { font: 700 clamp(22px, 3vw, 28px)/1.2 var(--mono); }
+  .prose p, .prose li { margin-top: 14px; color: var(--ink-2); }
+  .prose strong { color: var(--ink); }
+  .prose ul { padding-left: 20px; }
+  .shot { margin-top: 36px; border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; background: var(--sheet); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot figcaption { padding: 10px 14px; font-size: 14px; color: var(--muted); border-top: 1px solid var(--rule); }
+  .app { margin-top: 64px; padding: 28px; border: 1.5px solid var(--ink); border-radius: 4px; background: var(--sheet); }
+  .app h2 { font-size: 22px; }
+  .app p { margin-top: 10px; color: var(--ink-2); }
+  .faq { margin-top: 20px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+  .cards { margin-top: 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+  .card { display: block; padding: 22px; border: 1px solid var(--rule); border-radius: 4px; background: var(--sheet); text-decoration: none; }
+  .card:hover { border-color: var(--ink); }
+  .card h2 { font-size: 20px; }
+  .card p { margin-top: 8px; color: var(--ink-2); font-size: 15px; }
+  .card span { display: inline-block; margin-top: 12px; font: 700 14px var(--mono); color: var(--red); }
+  .more { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px 20px; font-size: 15px; }
+  footer { margin-top: 88px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 820px) { nav a:not(.button) { display: none; } }
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "Article", "headline": "Plan de rodaje: plantilla gratis y cómo hacerlo paso a paso", "description": "Descarga gratis una plantilla de plan de rodaje en Excel, con los colores de la tira y un ejemplo completo de un cortometraje. Y cómo hacer el plan paso a paso, desde el guion.", "inLanguage": "es", "dateModified": "2026-11-24", "mainEntityOfPage": "https://getslugline.com/recursos/plan-de-rodaje/", "author": {"@type": "Person", "name": "Vicente Pérez"}, "publisher": {"@type": "Organization", "name": "Slugline", "url": "https://getslugline.com"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "¿Cuántas páginas se ruedan al día?", "acceptedAnswer": {"@type": "Answer", "text": "Depende del presupuesto y del tipo de secuencia. En un largo independiente, entre 3 y 5 páginas por jornada; en un cortometraje con pocos personajes se puede llegar a 6 u 8. Las escenas de acción, con muchos figurantes o con efectos cuentan más."}}, {"@type": "Question", "name": "¿Qué significan los colores del plan de rodaje?", "acceptedAnswer": {"@type": "Answer", "text": "Son los de la tira clásica (stripboard): blanco para interior día, amarillo para exterior día, azul para interior noche y verde para exterior noche. Sirven para ver de un vistazo cómo está repartido el rodaje."}}, {"@type": "Question", "name": "¿Sirve la plantilla para Google Sheets o Numbers?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Es un archivo de Excel normal: ábrelo en Google Sheets (Archivo › Importar) o en Numbers y los colores siguen funcionando."}}]}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Slugline", "item": "https://getslugline.com/"}, {"@type": "ListItem", "position": 2, "name": "Plantillas gratis", "item": "https://getslugline.com/recursos/"}, {"@type": "ListItem", "position": 3, "name": "Plan de rodaje", "item": "https://getslugline.com/recursos/plan-de-rodaje/"}]}</script>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/">SLUGLINE</a>
+    <nav>
+      <a href="/recursos/">Plantillas gratis</a>
+      <a href="/calculator/">Calculadora</a>
+      <a href="/#precios">Precios</a>
+      <a class="button solid" data-app="nav" href="/#descargar">Descargar</a>
+    </nav>
+  </div>
+</header>
+<main>
+  <div class="narrow crumbs"><a href="/">Slugline</a> › <a href="/recursos/">Plantillas gratis</a> › Plan de rodaje</div>
+  <section class="hero narrow">
+    <p class="kicker">PLANTILLA GRATIS · EXCEL · SIN REGISTRO</p>
+    <h1>Plan de rodaje: plantilla gratis y cómo hacerlo paso a paso</h1>
+    <p class="lead">El plan de rodaje ordena las secuencias del guion por jornadas: qué se rueda cada día, dónde y con quién. Aquí tienes una plantilla en Excel lista para rellenar, un ejemplo hecho a partir de un guion real y la manera de montarlo sin dejarte nada.</p>
+    <div class="actions">
+      <a class="button solid" href="/recursos/plantillas/plantilla-plan-de-rodaje.xlsx" download>Descargar la plantilla (Excel)</a>
+      <a class="button line" href="/recursos/plantillas/ejemplo-plan-de-rodaje.pdf">Ver el ejemplo en PDF</a>
+    </div>
+    <p class="fine">Funciona en Excel, Google Sheets, Numbers y LibreOffice. Sin correo ni registro.</p>
+  </section>
+  <section class="narrow prose">
+    <h2>Qué trae la plantilla</h2>
+    <ul><li>Una hoja en blanco con las columnas de siempre: jornada, fecha, secuencia, INT/EXT, decorado, día/noche, páginas en octavos, personajes y notas.</li><li>Los colores de la tira (stripboard) automáticos: al elegir INT/EXT y día/noche, la fila se pinta sola (blanco INT día, amarillo EXT día, azul INT noche, verde EXT noche).</li><li>Una hoja de ejemplo: un cortometraje de 32 páginas repartido en 8 jornadas.</li></ul>
+  </section>
+<section class="narrow prose"><h2>Qué es un plan de rodaje</h2><p>Es el calendario del rodaje. Cada fila es una secuencia del guion y cada bloque de filas, una jornada. Lo prepara el ayudante de dirección (o el director de producción, en equipos pequeños) a partir del desglose, y de él salen las órdenes de rodaje de cada día, los días que trabaja cada actor y buena parte del presupuesto.</p><p>No se rueda en el orden del guion: se agrupan las secuencias que comparten decorado, momento del día y reparto, para no mover al equipo más de lo necesario.</p></section><section class="narrow prose"><h2>Cómo hacer un plan de rodaje, paso a paso</h2><p><strong>1. Desglosa el guion.</strong> Numera las secuencias y apunta de cada una el decorado, si es interior o exterior, día o noche, cuánto dura en páginas (en octavos: una página son 8/8) y qué personajes salen. Es lo que recoge la <a href="../hoja-de-desglose/">hoja de desglose</a>.</p><p><strong>2. Agrupa por localización.</strong> Todas las secuencias de un mismo sitio, juntas. Cambiar de localización cuesta medio día de equipo.</p><p><strong>3. Dentro de cada sitio, separa día y noche.</strong> Rodar noche y luego día en la misma jornada rompe los descansos obligatorios del equipo.</p><p><strong>4. Llena las jornadas por páginas.</strong> Una referencia habitual: entre 3 y 5 páginas por jornada en un largo, algo más en un corto con pocos personajes. Las secuencias de acción, con niños, animales o efectos cuentan más de lo que ocupan.</p><p><strong>5. Junta a los actores.</strong> Intenta que cada actor trabaje en días seguidos: cada día que va al set se le paga, aunque solo ruede una frase.</p><p><strong>6. Revisa contra el presupuesto.</strong> Las jornadas que salgan son las que pagas al equipo. Si el plan tiene 8 jornadas y el dinero da para 6, toca reescribir o reagrupar.</p></section><section class="narrow prose"><h2>Errores que se repiten</h2><ul><li>Contar páginas a ojo en vez de en octavos: una jornada de «4 páginas» puede ser de 6.</li><li>Olvidar los desplazamientos entre localizaciones dentro del mismo día.</li><li>Poner al actor principal un día suelto al final del rodaje por una sola secuencia.</li><li>No dejar margen: una jornada de exterior depende del tiempo; ten una secuencia de interior de reserva.</li></ul></section>
+  <div class="narrow"><figure class="shot"><picture><source srcset="/img/schedule-dark.jpg" media="(prefers-color-scheme: dark)"><img src="/img/schedule-light.jpg" alt="Slugline: plan de rodaje sacado de un guion" loading="lazy" width="1600" height="1000"></picture><figcaption>Slugline: plan de rodaje sacado de un guion</figcaption></figure></div>
+  <div class="narrow app">
+    <h2>O sácalo de tu guion en minutos</h2>
+    <p>Slugline lee tu guion (PDF, Final Draft o Fountain), saca todas las secuencias con sus páginas en octavos y te propone el plan agrupado por localización y día/noche. Lo ajustas arrastrando tiras y lo exportas en PDF o Excel.</p>
+    <div class="actions">
+      <a class="button solid" data-app href="/#descargar">Descargar Slugline</a>
+      <a class="button line" href="/">Ver cómo funciona</a>
+    </div>
+    <p class="fine">Gratis con dos guiones, sin tarjeta. Mac y Windows. Después, desde 59 € por proyecto.</p>
+  </div>
+  <section class="narrow">
+    <h2>Preguntas frecuentes</h2>
+    <div class="faq"><details><summary>¿Cuántas páginas se ruedan al día?</summary><p>Depende del presupuesto y del tipo de secuencia. En un largo independiente, entre 3 y 5 páginas por jornada; en un cortometraje con pocos personajes se puede llegar a 6 u 8. Las escenas de acción, con muchos figurantes o con efectos cuentan más.</p></details><details><summary>¿Qué significan los colores del plan de rodaje?</summary><p>Son los de la tira clásica (stripboard): blanco para interior día, amarillo para exterior día, azul para interior noche y verde para exterior noche. Sirven para ver de un vistazo cómo está repartido el rodaje.</p></details><details><summary>¿Sirve la plantilla para Google Sheets o Numbers?</summary><p>Sí. Es un archivo de Excel normal: ábrelo en Google Sheets (Archivo › Importar) o en Numbers y los colores siguen funcionando.</p></details></div>
+  </section>
+  <section class="narrow">
+    <h2>Más plantillas gratis</h2>
+    <div class="more"><a href="/recursos/hoja-de-desglose/">Hoja de desglose</a><a href="/recursos/presupuesto-cortometraje/">Presupuesto de cortometraje</a><a href="/recursos/orden-de-rodaje/">Orden de rodaje</a><a href="/calculator/">Calculadora de presupuesto</a></div>
+  </section>
+</main>
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="/legal.html#aviso-legal">Aviso legal</a> · <a href="/legal.html#privacidad">Privacidad</a> · <a href="/ayudas/">Ayudas a la producción</a></span>
+    <span>Plantillas libres: úsalas, cámbialas y compártelas.</span>
+  </div>
+</footer>
+<script>
+  (function () {
+    // Name each click for the visit counter: template downloads, example PDFs, app downloads.
+    document.querySelectorAll("a[href$='.xlsx'], a[href$='.pdf']").forEach(function (a) {
+      var file = a.getAttribute("href").split("/").pop();
+      a.setAttribute("data-goatcounter-click", "recurso-" + file);
+      a.setAttribute("data-goatcounter-title", file);
+    });
+    var windows = /Windows/.test(navigator.userAgent);
+    document.querySelectorAll("[data-app]").forEach(function (a) {
+      a.setAttribute("href", windows ? "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline-Setup.exe" : "https://github.com/vicenteprzz/slugline/releases/latest/download/Slugline.dmg");
+      a.setAttribute("data-goatcounter-click", (windows ? "descarga-windows" : "descarga-mac") + "-recursos");
+      if (a.getAttribute("data-app") !== "nav") a.textContent = windows ? "Descargar Slugline para Windows" : "Descargar Slugline para Mac";
+    });
+  })();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
