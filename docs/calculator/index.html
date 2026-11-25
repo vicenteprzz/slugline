@@ -63,6 +63,7 @@
   .tier h3 { font: 600 14px var(--sans); color: var(--ink-2); }
   .tier .amount { font: 700 clamp(22px, 3vw, 30px)/1.2 var(--mono); margin-top: 4px; }
   .tier .days { font-size: 14px; color: var(--muted); }
+  .tiers .tier:only-child { grid-column: 1 / -1; }
   .tier.fit .badge { display: inline-block; margin-top: 6px; font: 700 11px var(--mono); letter-spacing: 0.06em; color: var(--red); }
   .note { margin-top: 12px; font-size: 14px; color: var(--muted); }
 
@@ -150,6 +151,7 @@
       pages: "pages", scenes: "scenes", speaking: "speaking roles", speaking1: "speaking role", locs: "locations",
       tiers: { short: "Micro (short-film crew)", low: "Indie", medium: "Mid-budget", high: "Studio picture" },
       days: "shooting days", fit: "CLOSEST TO YOUR SCRIPT",
+      shortOnly: "It's a short, so it's priced as one: feature-size budgets don't apply.",
       note: "A first estimate from the script alone, at average rates (non-union indie rates in the US). Effects are placeholders until quoted. In Slugline every rate and every day is yours to change.",
       asks: "What the script asks for", costly: "Most expensive scenes", cast: "Cast", locations: "Locations",
       nights: "Night scenes", exteriors: "Exterior scenes", inScenes: function (n) { return n + (n === 1 ? " scene" : " scenes"); },
@@ -173,6 +175,7 @@
       pages: "páginas", scenes: "secuencias", speaking: "personajes con diálogo", speaking1: "personaje con diálogo", locs: "localizaciones",
       tiers: { short: "Corto (equipo reducido)", low: "Bajo presupuesto", medium: "Presupuesto medio", high: "Superproducción" },
       days: "días de rodaje", fit: "LO MÁS PARECIDO A TU GUION",
+      shortOnly: "Es un corto y se presupuesta como tal: los niveles de largometraje no se aplican.",
       note: "Una primera estimación solo a partir del guion, con tarifas medias. Los efectos son una cifra provisional hasta que se presupuesten. En Slugline cada tarifa y cada jornada las cambias tú.",
       asks: "Lo que pide el guion", costly: "Las secuencias más caras", cast: "Reparto", locations: "Localizaciones",
       nights: "Secuencias de noche", exteriors: "Secuencias en exterior", inScenes: function (n) { return n + (n === 1 ? " secuencia" : " secuencias"); },
@@ -226,7 +229,8 @@
       var a = document.createElement("p"); a.className = "amount"; a.textContent = money(tier.total, r.currency);
       var d = document.createElement("p"); d.className = "days"; d.textContent = tier.days + " " + t.days;
       box.append(h, a, d);
-      if (tier.level === r.fit) { var b = document.createElement("span"); b.className = "badge"; b.textContent = t.fit; box.appendChild(b); }
+      if (r.tiers.length === 1) { var n = document.createElement("p"); n.className = "days"; n.textContent = t.shortOnly; box.appendChild(n); }
+      else if (tier.level === r.fit) { var b = document.createElement("span"); b.className = "badge"; b.textContent = t.fit; box.appendChild(b); }
       tiers.appendChild(box);
     });
     var asks = $("r-asks"); asks.replaceChildren();
