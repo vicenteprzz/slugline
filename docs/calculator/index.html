@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>What would it cost to shoot your script? · Slugline</title>
-<meta name="description" content="Drop your screenplay and get the shooting days, cast, locations and a budget range, from a micro short to a studio picture. Free, and your script never leaves your computer.">
+<meta name="description" content="Drop your screenplay and get the shooting days, cast, locations and a budget range, from a micro short to a studio picture, and what Spain's film incentives would give back. Free, and your script never leaves your computer.">
 <meta property="og:title" content="What would it cost to shoot your script?">
 <meta property="og:description" content="Shooting days, cast, locations and a budget range from your screenplay. Free, and the script never leaves your computer.">
 <meta property="og:type" content="website">
@@ -73,6 +73,16 @@
   ul.list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
   ul.list li span:last-child { color: var(--muted); white-space: nowrap; }
 
+  .rebate { margin-top: 40px; padding: 24px; border: 1.5px solid var(--ink); background: var(--sheet); }
+  .rebate .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+  .rebate h2 { border: 0; padding: 0; }
+  .rebate .best { margin-top: 14px; font: 700 clamp(22px, 3.4vw, 32px)/1.2 var(--mono); }
+  .rebate ul.list { margin-top: 14px; }
+  .rebate .small { margin-top: 12px; font-size: 13px; color: var(--muted); }
+  .rebate form { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--rule); display: grid; gap: 10px; }
+  .rebate form p { font: 400 16px/1.5 var(--mono); }
+  .rebate textarea { width: 100%; min-height: 74px; padding: 10px; font: 15px var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--rule); border-radius: 3px; resize: vertical; }
+  .rebate form .button { justify-self: start; }
   .cta { margin-top: 44px; padding: 28px; background: var(--sheet); border: 1px solid var(--rule); }
   .cta p { font: 400 18px/1.5 var(--mono); }
   .actions { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 12px; }
@@ -117,6 +127,20 @@
     <p class="facts" id="r-facts"></p>
     <div class="tiers" id="r-tiers"></div>
     <p class="note" data-t="note"></p>
+    <div class="rebate" id="rebate">
+      <div class="head">
+        <h2 data-t="rebateH"></h2>
+        <span class="seg" role="group"><button type="button" data-kind="spanish" data-t="kindSpanish"></button><button type="button" data-kind="foreign" data-t="kindForeign"></button></span>
+      </div>
+      <p class="best" id="rb-best"></p>
+      <ul class="list" id="rb-list"></ul>
+      <p class="small" id="rb-note"></p>
+      <form id="rb-form">
+        <p data-t="formLead"></p>
+        <textarea id="rb-text" aria-label="Message"></textarea>
+        <button type="submit" class="button solid" data-t="formSend"></button>
+      </form>
+    </div>
     <div class="cols">
       <div><h2 data-t="asks"></h2><ul class="list" id="r-asks"></ul></div>
       <div><h2 data-t="costly"></h2><ul class="list" id="r-costly"></ul></div>
@@ -140,7 +164,7 @@
   var T = {
     en: {
       h1: "What would it cost to shoot your script?",
-      lead: "Drop your screenplay and get the shooting days, the cast, the locations and a budget, from a micro short to a studio picture. It's read right here in your browser: your script never leaves your computer.",
+      lead: "Drop your screenplay and get the shooting days, the cast, the locations and a budget, from a micro short to a studio picture, plus what Spain's film incentives would give back if you shot it there. It's read right here in your browser: your script never leaves your computer.",
       drop: "Drop your script here, or choose a file", formats: "PDF, Final Draft (.fdx) or Fountain",
       sample: "No script at hand? Try a sample", currency: "Budget in",
       loading: "Getting the calculator ready (only the first time, a few seconds)…", reading: "Reading your script…",
@@ -160,11 +184,21 @@
       cta: "Slugline turns this into a full breakdown, a shooting schedule you can drag around, call sheets and a budget you can edit. On your Mac or PC, without uploading the script.",
       download: "Try Slugline free", share: "Share the calculator", copied: "Link copied",
       shareText: function (d, m) { return "My script would take " + d + " shooting days and about " + m + " to shoot. What about yours?"; },
-      footer: "Slugline · Free calculator, no sign-up, nothing uploaded", privacy: "Privacy"
+      footer: "Slugline · Free calculator, no sign-up, nothing uploaded", privacy: "Privacy",
+      rebateH: "If you shoot it in Spain", kindSpanish: "Spanish production", kindForeign: "Foreign production",
+      best: function (m, w) { return "Up to " + m + " back in " + w; },
+      nothing: "Nothing back yet: a foreign shoot has to spend at least €1M in Spain (€200,000 for animation).",
+      where: { Spain: "Spain", Canarias: "the Canary Islands", Navarra: "Navarre" },
+      whereList: { Spain: "Rest of Spain (state rules)", Canarias: "Canary Islands", Navarra: "Navarre" },
+      limit: { aid_limit: "capped: deduction plus other aid ≤ 50% of the cost", cap: "at the cap per production", min_spend: "under the minimum spend", local_share: "too little spent there" },
+      rebateNote: function (cost, date) { return "Tax deduction on this production at Spanish rates (" + cost + "): art. 36 of the Spanish Corporate Tax Act, with the Canary Islands' and Navarre's own rates. A foreign shoot gets it through the Spanish service company. An estimate, not tax advice; rules checked on " + date + "."; },
+      formLead: "Want the real figure? I'll prepare the budget and the incentive estimate for your project.",
+      formPlaceholder: "Where and when you'd like to shoot, roughly how much you'll spend in Spain, anything else that matters",
+      formSend: "Ask for it", formSubject: "Budget and Spanish incentive estimate"
     },
     es: {
       h1: "¿Cuánto costaría rodar tu guion?",
-      lead: "Suelta tu guion y te sale cuántos días de rodaje, el reparto, las localizaciones y un presupuesto, desde un corto con poco equipo hasta una superproducción. Se lee aquí, en tu navegador: el guion no sale de tu ordenador.",
+      lead: "Suelta tu guion y te sale cuántos días de rodaje, el reparto, las localizaciones y un presupuesto, desde un corto con poco equipo hasta una superproducción, y cuánto te devolverían los incentivos fiscales si lo ruedas en España. Se lee aquí, en tu navegador: el guion no sale de tu ordenador.",
       drop: "Suelta aquí tu guion, o elige un archivo", formats: "PDF, Final Draft (.fdx) o Fountain",
       sample: "¿No tienes un guion a mano? Prueba con uno de ejemplo", currency: "Presupuesto en",
       loading: "Preparando la calculadora (solo la primera vez, unos segundos)…", reading: "Leyendo tu guion…",
@@ -184,7 +218,17 @@
       cta: "Slugline lo convierte en un desglose completo, un plan de rodaje que mueves a tu gusto, órdenes de rodaje y un presupuesto que puedes editar. En tu Mac o PC, sin subir el guion.",
       download: "Probar Slugline gratis", share: "Compartir la calculadora", copied: "Enlace copiado",
       shareText: function (d, m) { return "Rodar mi guion llevaría " + d + " días y unos " + m + ". ¿Y el tuyo?"; },
-      footer: "Slugline · Calculadora gratis, sin registro y sin subir nada", privacy: "Privacidad"
+      footer: "Slugline · Calculadora gratis, sin registro y sin subir nada", privacy: "Privacidad",
+      rebateH: "Si lo ruedas en España", kindSpanish: "Producción española", kindForeign: "Producción extranjera",
+      best: function (m, w) { return "Recuperas hasta " + m + " en " + w; },
+      nothing: "Todavía nada: un rodaje extranjero tiene que gastar al menos 1 M€ en España (200.000 € en animación).",
+      where: { Spain: "España", Canarias: "Canarias", Navarra: "Navarra" },
+      whereList: { Spain: "Resto de España (régimen estatal)", Canarias: "Canarias", Navarra: "Navarra" },
+      limit: { aid_limit: "con tope: deducción y demás ayudas ≤ 50 % del coste", cap: "en el máximo por producción", min_spend: "no llega al gasto mínimo", local_share: "se gasta poco allí" },
+      rebateNote: function (cost, date) { return "Deducción fiscal sobre esta producción a tarifas españolas (" + cost + "): art. 36 de la Ley del Impuesto sobre Sociedades, con los porcentajes propios de Canarias y Navarra. Un rodaje extranjero la obtiene a través de la productora española de servicios. Es una estimación, no asesoramiento fiscal; reglas comprobadas el " + date + "."; },
+      formLead: "¿Quieres la cifra de verdad? Te preparo el presupuesto y la estimación del incentivo de tu proyecto.",
+      formPlaceholder: "Dónde y cuándo te gustaría rodar, cuánto gastarías en España más o menos y lo que haga falta saber",
+      formSend: "Pídemelo", formSubject: "Presupuesto y estimación del incentivo"
     }
   };
 
@@ -194,6 +238,7 @@
   var lang = asked || stored("calc-lang") || (/^(es|ca)/i.test(navigator.language || "") ? "es" : "en");
   var market = stored("calc-market") || (lang === "es" ? "eu" : "us");
   var last = null, lastFile = null;
+  var kind = stored("calc-kind") || (market === "us" ? "foreign" : "spanish");
   var $ = function (id) { return document.getElementById(id); };
 
   function money(n, currency) {
@@ -212,6 +257,8 @@
     document.querySelectorAll("[data-t]").forEach(function (el) { el.textContent = t[el.getAttribute("data-t")]; });
     document.querySelectorAll("[data-lang]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-lang") === lang); });
     document.querySelectorAll("[data-market]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-market") === market); });
+    document.querySelectorAll("[data-kind]").forEach(function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-kind") === kind); });
+    $("rb-text").placeholder = t.formPlaceholder;
     // The home page in the same language.
     document.querySelectorAll("[data-home]").forEach(function (a) { a.href = lang === "en" ? "../en/" + a.getAttribute("data-home") : "../" + a.getAttribute("data-home").replace("#download", "#descargar"); });
     if (last) show(last);
@@ -251,7 +298,21 @@
     r.cast.forEach(function (c) { li(cast, c.name, t.inScenes(c.scenes)); });
     var locs = $("r-locations"); locs.replaceChildren();
     r.top_locations.forEach(function (l) { li(locs, l.name, t.inScenes(l.scenes)); });
+    rebate(r);
     $("result").hidden = false;
+  }
+
+  function rebate(r) {
+    var t = T[lang], inc = r.incentives, k = inc[kind];
+    var best = k.options[0];
+    $("rb-best").textContent = best && best.amount > 0 ? t.best(money(best.amount, "EUR"), t.where[best.where]) : t.nothing;
+    var list = $("rb-list"); list.replaceChildren();
+    k.options.forEach(function (o) {
+      var right = o.amount > 0 ? money(o.amount, "EUR") + " · " + Math.round(o.rate * 100) + " %" : "—";
+      li(list, t.whereList[o.where] + (o.limited_by ? " (" + t.limit[o.limited_by] + ")" : ""), right);
+    });
+    var date = new Date(inc.checked + "T12:00:00").toLocaleDateString(lang === "es" ? "es-ES" : "en-US", { day: "numeric", month: "long", year: "numeric" });
+    $("rb-note").textContent = t.rebateNote(money(k.cost, "EUR"), date);
   }
 
   // Python runs in a worker, loaded the first time someone reaches for a script.
@@ -305,6 +366,21 @@
       market = b.getAttribute("data-market"); store("calc-market", market); texts();
       if (lastFile) run(lastFile.name, lastFile.buffer);
     });
+  });
+  document.querySelectorAll("[data-kind]").forEach(function (b) {
+    b.addEventListener("click", function () { kind = b.getAttribute("data-kind"); store("calc-kind", kind); texts(); });
+  });
+  $("rb-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var t = T[lang], lines = [];
+    if (last) {
+      var k = last.incentives[kind], best = k.options[0];
+      lines.push((last.title || "—") + " · " + last.pages + " " + t.pages + " · " + t[kind === "spanish" ? "kindSpanish" : "kindForeign"]);
+      if (best && best.amount > 0) lines.push(t.best(money(best.amount, "EUR"), t.where[best.where]));
+    }
+    lines.push("", $("rb-text").value);
+    if (window.goatcounter && window.goatcounter.count) window.goatcounter.count({ path: "calculator-incentive-request", title: "Incentive request", event: true });
+    location.href = "mailto:hola@getslugline.com?subject=" + encodeURIComponent(t.formSubject) + "&body=" + encodeURIComponent(lines.join("\n"));
   });
   $("share").addEventListener("click", function () {
     var url = location.href.split("#")[0], text = url;
