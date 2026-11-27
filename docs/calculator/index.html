@@ -58,10 +58,10 @@
   #result { padding-top: 24px; }
   .title { font: 700 26px/1.2 var(--mono); }
   .facts { margin-top: 6px; color: var(--ink-2); }
-  .tiers { margin-top: 24px; display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1.5px solid var(--ink); }
+  .tiers { margin-top: 24px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1.5px solid var(--ink); }
   .tier { padding: 16px 14px 16px 0; border-bottom: 1px solid var(--rule); }
   .tier h3 { font: 600 14px var(--sans); color: var(--ink-2); }
-  .tier .amount { font: 700 clamp(22px, 3vw, 30px)/1.2 var(--mono); margin-top: 4px; }
+  .tier .amount { font: 700 clamp(20px, 2.2vw, 24px)/1.2 var(--mono); margin-top: 4px; letter-spacing: -0.02em; }
   .tier .days { font-size: 14px; color: var(--muted); }
   .tiers .tier:only-child { grid-column: 1 / -1; }
   .tier.fit .badge { display: inline-block; margin-top: 6px; font: 700 11px var(--mono); letter-spacing: 0.06em; color: var(--red); }
@@ -173,7 +173,7 @@
       failed: "Couldn't read this file. Try the .fdx or a PDF exported from your writing app.",
       load: "The calculator couldn't load. Check your connection and reload the page.",
       pages: "pages", scenes: "scenes", speaking: "speaking roles", speaking1: "speaking role", locs: "locations",
-      tiers: { short: "Micro (short-film crew)", low: "Indie", medium: "Mid-budget", high: "Studio picture" },
+      tiers: { short: "Micro (short-film crew)", low: "Indie", medium: "Mid-budget", large: "Big production", high: "Studio picture" },
       days: "shooting days", fit: "CLOSEST TO YOUR SCRIPT",
       shortOnly: "It's a short, so it's priced as one: feature-size budgets don't apply.",
       note: "A first estimate from the script alone, at average rates (non-union indie rates in the US). Effects are placeholders until quoted. In Slugline every rate and every day is yours to change.",
@@ -207,7 +207,7 @@
       failed: "No se ha podido leer este archivo. Prueba con el .fdx o con un PDF exportado de tu programa de guion.",
       load: "La calculadora no ha cargado. Mira tu conexión y recarga la página.",
       pages: "páginas", scenes: "secuencias", speaking: "personajes con diálogo", speaking1: "personaje con diálogo", locs: "localizaciones",
-      tiers: { short: "Corto (equipo reducido)", low: "Bajo presupuesto", medium: "Presupuesto medio", high: "Superproducción" },
+      tiers: { short: "Corto (equipo reducido)", low: "Bajo presupuesto", medium: "Presupuesto medio", large: "Gran producción", high: "Superproducción" },
       days: "días de rodaje", fit: "LO MÁS PARECIDO A TU GUION",
       shortOnly: "Es un corto y se presupuesta como tal: los niveles de largometraje no se aplican.",
       note: "Una primera estimación solo a partir del guion, con tarifas medias. Los efectos son una cifra provisional hasta que se presupuesten. En Slugline cada tarifa y cada jornada las cambias tú.",
