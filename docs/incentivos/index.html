@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Slugline · Estimación de incentivos para rodar en España</title>
+<meta name="description" content="Mándame el guion y en 48 horas tienes cuánto devolvería España, Canarias o Navarra por rodarlo aquí: el incentivo fiscal estimado, cómo cambia con el gasto y el presupuesto en que se basa.">
+<meta property="og:title" content="Slugline · Estimación de incentivos para rodar en España">
+<meta property="og:description" content="Cuánto devolvería España, Canarias o Navarra por rodar tu proyecto aquí, en un informe de 4 páginas a partir del guion.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://getslugline.com/incentivos/">
+<meta property="og:image" content="https://getslugline.com/img/budget-dark.jpg">
+<link rel="canonical" href="https://getslugline.com/incentivos/">
+<link rel="icon" href="../img/icon.png">
+<style>
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-400.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Courier Prime"; src: url("../fonts/cp-700.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+  :root {
+    color-scheme: light;
+    --paper: #f6f4ee; --sheet: #fffefa; --ink: #141413; --ink-2: #4a4944; --muted: #7c7a73; --rule: #d9d6cc; --red: #c23a2b;
+    --mono: "Courier Prime", "Courier New", Courier, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { color-scheme: dark; --paper: #151513; --sheet: #1d1d1a; --ink: #ecebe5; --ink-2: #bdbbb2; --muted: #8b8980; --rule: #34332f; --red: #e2614f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.6 var(--sans); -webkit-font-smoothing: antialiased; }
+  a { color: inherit; }
+  h1, h2, h3, p, ul, ol { margin: 0; }
+  .wrap { width: min(1040px, 100% - 40px); margin: 0 auto; }
+  .narrow { width: min(720px, 100% - 40px); margin: 0 auto; }
+  header.top { border-bottom: 1px solid var(--rule); }
+  header.top .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { text-decoration: none; font: 700 18px var(--mono); letter-spacing: 0.06em; }
+  nav { display: flex; gap: 24px; font-size: 15px; align-items: center; }
+  nav a { text-decoration: none; color: var(--ink-2); }
+  nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+  .button { display: inline-flex; align-items: center; justify-content: center; padding: 11px 20px; border-radius: 3px;
+    font: 600 16px var(--sans); text-decoration: none; border: 1.5px solid var(--ink); cursor: pointer; }
+  .button.solid { background: var(--ink); color: var(--paper); }
+  .button.solid:hover { background: var(--red); border-color: var(--red); }
+  .button.line:hover { background: var(--sheet); }
+  nav .button { padding: 6px 14px; font-size: 14px; }
+
+  .hero { padding: 72px 0 0; }
+  .kicker { font: 700 14px var(--mono); letter-spacing: 0.08em; color: var(--red); }
+  .hero h1 { margin-top: 10px; font: 700 clamp(34px, 5.6vw, 58px)/1.05 var(--mono); letter-spacing: -0.02em; }
+  .lead { margin-top: 20px; max-width: 36em; color: var(--ink-2); font-size: clamp(17px, 2vw, 19px); }
+  .actions { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 12px; }
+  .fine { margin-top: 14px; font-size: 14px; color: var(--muted); }
+
+  section { padding: 80px 0 0; }
+  h2 { font: 700 clamp(24px, 3.2vw, 32px)/1.15 var(--mono); }
+  .say { margin-top: 12px; color: var(--ink-2); max-width: 38em; }
+
+  .list { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  .item { display: grid; grid-template-columns: 44px 1fr; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+  .item .n { font: 700 15px var(--mono); color: var(--red); padding-top: 2px; }
+  .item h3 { font: 700 17px var(--mono); }
+  .item p { margin-top: 4px; color: var(--ink-2); font-size: 16px; }
+
+  .not { margin-top: 20px; padding: 16px 18px; border: 1px dashed var(--rule); color: var(--ink-2); font-size: 16px; }
+  .not strong { color: var(--ink); }
+
+  .table-wrap { margin-top: 24px; overflow-x: auto; border-top: 1.5px solid var(--ink); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 12px 10px 12px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font: 700 14px var(--mono); color: var(--muted); }
+  td.when { font: 700 15px var(--mono); white-space: nowrap; }
+
+  .prices { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  .price { display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: center; padding: 18px 0; border-bottom: 1px solid var(--rule); }
+  .price h3 { font: 700 18px var(--mono); }
+  .price p { color: var(--ink-2); font-size: 15px; margin-top: 2px; }
+  .price .amount { font: 700 22px var(--mono); white-space: nowrap; }
+
+  .steps { margin-top: 24px; counter-reset: s; display: grid; gap: 14px; padding: 0; list-style: none; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 44px 1fr; gap: 16px; color: var(--ink-2); }
+  .steps li::before { content: counter(s, decimal-leading-zero); font: 700 15px var(--mono); color: var(--red); }
+  .steps strong { color: var(--ink); }
+
+  .faq { margin-top: 24px; border-top: 1.5px solid var(--ink); }
+  details { border-bottom: 1px solid var(--rule); padding: 16px 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--muted); }
+  details[open] summary::after { content: "−"; }
+  details p { margin-top: 10px; color: var(--ink-2); }
+
+  .note { margin: 88px auto 0; padding: 32px 0 0; border-top: 1.5px solid var(--ink); }
+  .note p { font: 400 18px/1.6 var(--mono); }
+  footer { margin-top: 88px; border-top: 1px solid var(--rule); padding: 24px 0 36px; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  @media (max-width: 820px) { nav a:not(.button) { display: none; } }
+  .sample { margin-top: 24px; padding: 20px 22px; border: 1.5px solid var(--ink); background: var(--sheet); display: grid; grid-template-columns: 1fr auto; gap: 20px; align-items: center; }
+  .sample .big { font: 700 clamp(30px, 5vw, 44px)/1 var(--mono); color: var(--red); }
+  .sample p { color: var(--ink-2); font-size: 15px; margin-top: 6px; }
+  @media (max-width: 620px) { .sample { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="../">SLUGLINE</a>
+    <nav>
+      <a href="#incluye">Qué incluye</a>
+      <a href="#ejemplo">Ejemplo</a>
+      <a href="#precio">Precio</a>
+      <a href="../">La app</a>
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Pídela</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero narrow">
+    <p class="kicker">INCENTIVOS FISCALES · ESPAÑA, CANARIAS Y NAVARRA</p>
+    <h1>¿Cuánto te devolvería España por rodar aquí?</h1>
+    <p class="lead">Mándame el guion y en 48 horas tienes la respuesta en un informe de 4 páginas: cuánto devolvería cada territorio, cómo cambia según lo que gastes aquí y el desglose y el presupuesto en que se basa. Para tener la cifra en la primera conversación con el cliente, el inversor o la film commission.</p>
+    <div class="actions">
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Pide tu estimación</a>
+      <a class="button line" href="ejemplo-la-la-land.pdf" data-goatcounter-click="incentivos-ejemplo">Ver un ejemplo (PDF)</a>
+    </div>
+    <p class="fine">Producciones extranjeras con productora de servicios y producciones españolas · Largos, series y cortos · Entrega en 48 horas.</p>
+  </section>
+
+  <section class="narrow" id="incluye">
+    <h2>Qué incluye</h2>
+    <p class="say">Todo sale del guion, con las reglas vigentes y su fuente.</p>
+    <div class="list">
+      <div class="item"><span class="n">01</span><div><h3>La cifra, por territorio</h3><p>Lo que devolvería el régimen estatal, Canarias y Navarra sobre el presupuesto estimado, con el porcentaje efectivo y el límite que se aplica en cada caso (tope por producción, límite de ayudas, gasto mínimo).</p></div></div>
+      <div class="item"><span class="n">02</span><div><h3>Según cuánto gastes aquí</h3><p>Una tabla con la devolución para distintos gastos en España, de 1 a 80 millones. Sirve para decidir cuánto del rodaje traer, o qué parte llevar a Canarias o a Navarra.</p></div></div>
+      <div class="item"><span class="n">03</span><div><h3>El guion en cifras</h3><p>Páginas, secuencias, localizaciones, interiores y exteriores, día y noche, jornadas estimadas y los personajes principales con sus secuencias.</p></div></div>
+      <div class="item"><span class="n">04</span><div><h3>El presupuesto en que se basa</h3><p>Por capítulos, con el tamaño de producción que encaje (de bajo presupuesto a superproducción) y el gasto elegible estimado para el incentivo.</p></div></div>
+      <div class="item"><span class="n">05</span><div><h3>Qué hace falta para cobrarlo</h3><p>Requisitos de cada régimen, la ley que lo regula y la fecha en que se comprobaron las reglas.</p></div></div>
+    </div>
+    <p class="not"><strong>Lo que no es:</strong> asesoramiento fiscal. La base la certifica un auditor y cada régimen tiene requisitos que conviene confirmar con un asesor y con la film commission. Es la estimación seria para empezar a hablar, hecha en dos días en lugar de dos semanas.</p>
+  </section>
+
+  <section class="narrow" id="ejemplo">
+    <h2>Un ejemplo</h2>
+    <p class="say">El informe de <em>La La Land</em> (30 M$, rodada en Los Ángeles) como producción extranjera que viniera a rodar a España:</p>
+    <div class="sample">
+      <div><span class="big">6,6 M€</span><p>en Canarias, sobre un gasto estimado en España de 14,6 M€. En el resto de España, 3,7 M€; en Navarra, 5 M€ (su tope).</p></div>
+      <a class="button line" href="ejemplo-la-la-land.pdf" data-goatcounter-click="incentivos-ejemplo">Ver el PDF</a>
+    </div>
+  </section>
+
+  <section class="narrow" id="precio">
+    <h2>Precio</h2>
+    <div class="prices">
+      <div class="price"><div><h3>Estimación de incentivos</h3><p>El informe de 4 páginas en PDF, a partir de tu guion, en 48 horas. Incluye una revisión si me pasas tu plan o tus tarifas.</p></div><span class="amount">290 €</span></div>
+      <div class="price"><div><h3>Las tres primeras productoras</h3><p>Gratis, a cambio de tu opinión sincera y, si te sirve, de poder citarte.</p></div><span class="amount">0 €</span></div>
+    </div>
+    <p class="fine">Precio sin IVA. Te digo antes de empezar si tu proyecto encaja.</p>
+  </section>
+
+  <section class="narrow">
+    <h2>Cómo funciona</h2>
+    <ol class="steps">
+      <li><span><strong>Me escribes</strong> con el guion y, si lo sabes, dónde quieres rodar y cuánto vas a gastar en España.</span></li>
+      <li><span><strong>Te confirmo</strong> que encaja y el plazo.</span></li>
+      <li><span><strong>Te entrego el informe</strong> en 48 horas y lo afinamos con tu plan o tus tarifas.</span></li>
+    </ol>
+  </section>
+
+  <section class="narrow">
+    <h2>Preguntas</h2>
+    <div class="faq">
+      <details><summary>¿Mi guion queda en algún sitio?</summary><p>No. Solo lo uso para tu informe, no lo comparto ni lo reutilizo, y lo borro cuando terminamos si me lo pides.</p></details>
+      <details><summary>¿De dónde salen las reglas?</summary><p>Del art. 36 de la Ley del Impuesto sobre Sociedades (BOE), del Régimen Económico y Fiscal de Canarias (Agencia Tributaria) y de la Ley Foral del Impuesto sobre Sociedades de Navarra, con la fecha en que se comprobaron. El País Vasco tiene régimen propio y lo añadiré pronto.</p></details>
+      <details><summary>¿Y si ya tengo presupuesto?</summary><p>Mejor: lo uso como base en lugar del estimado y el informe sale más ajustado.</p></details>
+      <details><summary>¿Quién lo hace?</summary><p>Yo, Vicente Pérez, el creador de Slugline. Uso la app para el desglose, el presupuesto y el cálculo, y reviso cada informe antes de entregarlo.</p></details>
+    </div>
+  </section>
+
+  <section class="narrow note">
+    <p>¿Estás valorando rodar en España? Mándame el guion y en dos días sabes cuánto te devolvería.</p>
+    <div class="actions">
+      <a class="button solid" data-mail href="mailto:hola@getslugline.com">Pide tu estimación</a>
+      <a class="button line" href="../calculator/">Probar la calculadora gratis</a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Vicente Pérez Pourtau · <a href="../legal.html#aviso-legal">Aviso legal</a> · <a href="../legal.html#privacidad">Privacidad</a> · <a href="../ayudas/">Ayudas a la producción</a> · <a href="../recursos/">Plantillas gratis</a></span>
+    <span>hola@getslugline.com</span>
+  </div>
+</footer>
+
+<script>
+  // Every contact button opens an email with the subject already written.
+  (function () {
+    var body = "Hola, Vicente:\n\nMe gustaría una estimación de incentivos.\n\nProyecto (título, largo o serie): \nProducción española o extranjera: \nDónde queremos rodar: \nGasto previsto en España (si lo sabes): \n\nTe adjunto el guion.\n\nGracias.";
+    var href = "mailto:hola@getslugline.com?subject=" + encodeURIComponent("Estimación de incentivos") + "&body=" + encodeURIComponent(body);
+    document.querySelectorAll("[data-mail]").forEach(function (a) {
+      a.setAttribute("href", href);
+      a.setAttribute("data-goatcounter-click", "incentivos-correo");
+    });
+  })();
+</script>
+<script data-goatcounter="https://slugline.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
